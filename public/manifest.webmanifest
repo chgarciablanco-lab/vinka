@@ -1,0 +1,14 @@
+{
+  "name": "VINKA",
+  "short_name": "VINKA",
+  "description": "Tu próximo match empieza aquí.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9FB",
+  "theme_color": "#FFF9FB",
+  "lang": "es-CL",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

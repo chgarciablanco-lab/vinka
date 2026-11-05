@@ -1,0 +1,184 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { supabase, errMsg } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
+import { ETAPAS, colorFor, initials } from '../lib/catalog'
+import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
+
+const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+export function ChatList() {
+  const { profile } = useAuth()
+  const [rows, setRows] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    supabase.rpc('my_matches').then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data || []) })
+  }, [])
+  const isCompany = profile?.role === 'company'
+  return (
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
+      <div className="safe-t px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1></div>
+      <div className="flex flex-col gap-2 px-5">
+        <ErrorBox>{err}</ErrorBox>
+        {rows == null ? <Spinner /> : rows.length === 0 ? (
+          <Empty title="Aún no tienes matches">El chat se abre cuando ambos se interesan en la misma vacante.</Empty>
+        ) : rows.map((m) => {
+          const name = isCompany ? m.candidate_name : m.company_name
+          return (
+            <Link key={m.match_id} to={`/chats/${m.match_id}`} className="card flex items-center gap-3 p-3.5">
+              <Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={46} round={isCompany} />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex justify-between gap-2"><span className="truncate text-[15px] font-semibold">{name}</span>
+                  <span className="shrink-0 text-[11px] text-tinta-suave">{fmt(m.last_at || m.created_at)}</span></span>
+                <span className="truncate text-xs font-medium text-rosa-texto">{m.job_title}</span>
+                <span className="truncate text-[13px] text-tinta-3">{m.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function ChatRoom() {
+  const { id } = useParams()
+  const nav = useNavigate()
+  const { user, profile } = useAuth()
+  const isCompany = profile?.role === 'company'
+  const [m, setM] = useState(null)
+  const [msgs, setMsgs] = useState([])
+  const [draft, setDraft] = useState('')
+  const [err, setErr] = useState('')
+  const [menu, setMenu] = useState(false)
+  const [report, setReport] = useState('')
+  const [reporting, setReporting] = useState(false)
+  const [toast, setToast] = useState('')
+  const endRef = useRef()
+
+  const loadMatch = useCallback(async () => {
+    const { data, error } = await supabase.rpc('my_matches')
+    if (error) return setErr(errMsg(error))
+    setM((data || []).find((x) => x.match_id === id) || false)
+  }, [id])
+
+  useEffect(() => {
+    loadMatch()
+    supabase.from('messages').select('*').eq('match_id', id).order('created_at').then(({ data }) => setMsgs(data || []))
+    const ch = supabase.channel(`chat-${id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${id}` },
+        (p) => setMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new])))
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [id, loadMatch])
+  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [msgs.length])
+
+  const send = async (e) => {
+    e.preventDefault()
+    const body = draft.trim()
+    if (!body) return
+    setDraft('')
+    const { data, error } = await supabase.from('messages').insert({ match_id: id, sender_id: user.id, body }).select().single()
+    if (error) { setDraft(body); return setErr(errMsg(error)) }
+    setMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data]))
+  }
+  const action = async (a, stage) => {
+    const { error } = await supabase.rpc('match_update', { p_match: id, p_action: a, p_stage: stage || null })
+    if (error) return setErr(errMsg(error))
+    setMenu(false); loadMatch()
+  }
+  const sendReport = async () => {
+    if (!report.trim()) return
+    const { error } = await supabase.from('reports').insert({ reporter_id: user.id, match_id: id, reason: report.trim() })
+    if (error) return setErr(errMsg(error))
+    setReport(''); setReporting(false); setMenu(false); setToast('Denuncia enviada. La revisaremos pronto.')
+  }
+
+  if (m === null) return <Spinner />
+  if (m === false) return <div className="p-6"><Empty title="Chat no disponible" action={<Link to="/chats" className="btn-sm text-rosa-texto">Volver</Link>}>Este chat no existe o no tienes acceso.</Empty></div>
+
+  const name = isCompany ? m.candidate_name : m.company_name
+  const stageIdx = ETAPAS.findIndex((s) => s[0] === m.stage)
+
+  return (
+    <div className="mx-auto flex h-full w-full max-w-md flex-col bg-rosa-fondo">
+      <div className="safe-t flex items-center gap-2 border-b border-[#EEE3EA] bg-white px-3 pb-2.5">
+        <button aria-label="Volver" onClick={() => nav('/chats')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
+        <Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={40} round={isCompany} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[15px] font-semibold">{name}</span>
+          <span className="truncate text-xs text-tinta-suave">{m.job_title}</span>
+        </div>
+        <button aria-label="Opciones: etapa, denunciar o bloquear" onClick={() => setMenu(true)} className="flex h-11 w-11 items-center justify-center"><Svg name="dots" /></button>
+      </div>
+      <div className="flex gap-1 overflow-x-auto border-b border-[#EEE3EA] bg-white px-4 py-2.5 text-xs font-semibold">
+        {ETAPAS.slice(0, 5).map(([k, l], idx) => (
+          <span key={k} className={`whitespace-nowrap rounded-md px-2 py-1 ${idx < stageIdx ? 'bg-rosa-accion text-white' : idx === stageIdx ? 'border border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'bg-[#F4EEF2] text-tinta-3'}`}>{l}</span>
+        ))}
+        {m.stage === 'descartado' && <span className="whitespace-nowrap rounded-md bg-[#F4EEF2] px-2 py-1 text-tinta-3">Proceso cerrado</span>}
+      </div>
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
+        <div className="self-center rounded-xl border border-rosa-borde bg-white px-3 py-2 text-center text-xs leading-relaxed text-tinta-3">
+          Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.<br />VINKA nunca te pedirá pagar para postular.
+        </div>
+        {msgs.map((x) => (
+          <div key={x.id} className={`max-w-[80%] whitespace-pre-wrap break-words px-3 py-2.5 text-sm leading-snug ${x.sender_id === user.id ? 'self-end rounded-2xl rounded-br-[4px] bg-rosa-accion text-white' : 'self-start rounded-2xl rounded-bl-[4px] border border-[#EEE3EA] bg-white'}`}>
+            {x.body}
+            <div className={`mt-1 text-[10px] ${x.sender_id === user.id ? 'text-white/80' : 'text-tinta-suave'}`}>{fmt(x.created_at)}</div>
+          </div>
+        ))}
+        {/* Datos de contacto: solo con consentimiento del candidato */}
+        {!isCompany && m.contact_requested && !m.contact_shared && (
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-[#EEE3EA] bg-white p-3.5">
+            <span className="text-sm leading-snug"><b>{m.company_name}</b> pide tu teléfono y correo para coordinar.</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="btn-sm border border-linea bg-white" onClick={() => action('decline_contact')}>Ahora no</button>
+              <button className="btn-sm bg-morado text-white" onClick={() => action('share_contact')}>Compartir</button>
+            </div>
+          </div>
+        )}
+        {m.contact_shared && (
+          <div className="rounded-2xl border border-[#A9D9BC] bg-[#EAF6EF] p-3 text-sm leading-relaxed text-[#134A2B]">
+            {isCompany ? <>Contacto de {m.candidate_name}: <b>{m.candidate_phone || 'sin teléfono'}</b> · <b>{m.candidate_email}</b></> : 'Compartiste tu teléfono y correo con esta empresa.'}
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      {m.closed ? (
+        <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm text-tinta-3">Esta conversación está cerrada.</div>
+      ) : (
+        <form onSubmit={send} className="safe-b flex items-center gap-2 border-t border-[#EEE3EA] bg-white px-3 pt-2.5">
+          <label className="flex-1"><span className="sr-only">Mensaje</span>
+            <input value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} placeholder="Escribe un mensaje" className="h-[46px] w-full rounded-full border border-linea px-4 text-[16px] focus:border-rosa-accion focus:outline-none" />
+          </label>
+          <button aria-label="Enviar" className="flex h-[46px] w-[46px] items-center justify-center rounded-full bg-rosa-accion"><Svg name="send" size={20} stroke="#fff" /></button>
+        </form>
+      )}
+      <Sheet open={menu} onClose={() => { setMenu(false); setReporting(false) }} title="Opciones">
+        {reporting ? (
+          <div className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1.5"><span className="label">¿Qué pasó?</span>
+              <textarea className="textarea h-32" maxLength={1000} value={report} onChange={(e) => setReport(e.target.value)} placeholder="Ej.: me pidieron dinero para postular" /></label>
+            <button className="btn" onClick={sendReport} disabled={!report.trim()}>Enviar denuncia</button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {isCompany && !m.closed && (
+              <>
+                <span className="label mb-1">Etapa del proceso</span>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {ETAPAS.map(([k, l]) => <button key={k} onClick={() => action('stage', k)} className={`chip ${m.stage === k ? 'chip-on' : ''}`}>{l}</button>)}
+                </div>
+                {!m.contact_shared && <button className="btn-sec" disabled={m.contact_requested} onClick={() => action('request_contact')}>{m.contact_requested ? 'Contacto solicitado' : 'Pedir teléfono y correo'}</button>}
+              </>
+            )}
+            <button className="btn-sec" onClick={() => setReporting(true)}>Denunciar</button>
+            {!m.closed && <button className="btn-sec text-[#B42318]" onClick={() => action('block')}>Bloquear y cerrar chat</button>}
+          </div>
+        )}
+      </Sheet>
+      <Toast msg={toast} onDone={() => setToast('')} />
+    </div>
+  )
+}
