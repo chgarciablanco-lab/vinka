@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Valores públicos del proyecto Supabase "vinka" (la clave publicable está hecha para ir en la app).
+// Se pueden reemplazar con variables de entorno en Vercel si algún día cambian.
+const url = import.meta.env.VITE_SUPABASE_URL || 'https://jifhlhbntcfnvmcpbexo.supabase.co'
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_4F67pH3PTxjsnDzTzLPyIQ_KHVl2Vqn'
 
 export const supabase = createClient(url, key, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
