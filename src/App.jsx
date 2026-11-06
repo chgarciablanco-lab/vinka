@@ -16,6 +16,7 @@ import Admin from './pages/admin/Admin'
 import Legal from './pages/Legal'
 import Agenda from './pages/company/Agenda'
 import BookInterview from './pages/candidate/BookInterview'
+import Notifications from './pages/Notifications'
 
 function WithNav({ items, children }) {
   return <>{children}<BottomNav items={items} /></>
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
         <Route path="/chats/:id" element={<ChatRoom />} />
         <Route path="/chats/:id/agendar" element={<BookInterview />} />
+        <Route path="/avisos" element={<Notifications />} />
         <Route path="/perfil" element={<WithNav items={nav}><CandidateProfile /></WithNav>} />
         <Route path="/perfil/laboral" element={<EditStep Comp={StepWork} />} />
         <Route path="/perfil/preferencias" element={<EditStep Comp={StepPrefs} />} />
@@ -99,6 +101,7 @@ export default function App() {
       <Route path="/chats/:id" element={<ChatRoom />} />
       <Route path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />
       <Route path="/agenda" element={<WithNav items={nav}><Agenda /></WithNav>} />
+      <Route path="/avisos" element={<Notifications />} />
       {isAdmin && <Route path="/admin" element={<Admin />} />}
       {common}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,6 +6,9 @@ import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorF
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone } from '../Account'
 import { NotifyCard } from '../../components/NotifyCard'
+import { Bell } from '../../components/Bell'
+import { InstallBanner } from '../../components/InstallBanner'
+import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { useRef } from 'react'
@@ -49,11 +52,13 @@ export function CompanyPanel() {
   const verified = company?.verification_status === 'verified'
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
-      <div className="safe-t px-5 pb-3">
-        <span className="text-[13px] text-tinta-suave">VINKA Company</span>
-        <h1 className="text-[22px] font-bold">{company?.display_name}</h1>
+      <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
+        <div className="flex min-w-0 flex-col"><span className="text-[13px] text-tinta-suave">VINKA Company</span>
+        <h1 className="truncate text-[22px] font-bold">{company?.display_name}</h1></div>
+        <Bell />
       </div>
       <div className="flex flex-col gap-3.5 px-5">
+        <InstallBanner />
         <VerificationBanner company={company} />
         <div className="grid grid-cols-3 gap-2">
           {[[jobs?.filter((j) => j.status === 'published').length ?? '—', 'Publicadas'], [verified ? tot.i : '—', 'Intereses'], [verified ? tot.m : '—', 'Matches']].map(([v, l]) => (
@@ -325,7 +330,7 @@ export function CompanyAccount() {
   }
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
-      <div className="safe-t px-5 pb-3"><h1 className="text-[22px] font-bold">Vitrina de empresa</h1><p className="text-[13px] text-tinta-3">Lo que verán los candidatos de tu empresa.</p></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Vitrina de empresa</h1><p className="text-[13px] text-tinta-3">Lo que verán los candidatos de tu empresa.</p></div><Bell /></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
           <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />
@@ -340,6 +345,8 @@ export function CompanyAccount() {
         <button className="btn" onClick={save}>Guardar vitrina</button>
         <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
         <NotifyCard />
+        <EmailToggle />
+        <InstallBanner always />
         <div className="mt-2"><DangerZone /></div>
       </div>
       <Toast msg={msg} onDone={() => setMsg('')} />

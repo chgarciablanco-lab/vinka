@@ -6,6 +6,7 @@ import { ETAPAS, colorFor, initials } from '../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
+import { Bell } from '../components/Bell'
 import { fmtDayShort, fmtTime } from '../lib/dates'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -22,7 +23,7 @@ export function ChatList() {
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
-      <div className="safe-t px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1></div>
+      <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><Bell /></div>
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />
         {ivs.length > 0 && (

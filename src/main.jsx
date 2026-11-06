@@ -5,6 +5,7 @@ import { AuthProvider } from './lib/auth'
 import App from './App'
 import './index.css'
 import { registerSW } from './lib/push'
+import './lib/install'
 
 registerSW()
 

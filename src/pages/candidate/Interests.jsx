@@ -5,6 +5,8 @@ import { useAuth } from '../../lib/auth'
 import { colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Spinner } from '../../components/ui'
 import { MatchModal } from '../../components/MatchModal'
+import { Bell } from '../../components/Bell'
+import { InstallBanner } from '../../components/InstallBanner'
 
 const TABS = [
   ['match', 'Matches', 'Ambos se interesaron en la misma vacante. Ya pueden conversar.'],
@@ -55,7 +57,8 @@ export default function Interests() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
       <div className="safe-t px-5 pb-3">
-        <h1 className="text-[22px] font-bold">Intereses</h1>
+        <div className="flex items-center justify-between"><h1 className="text-[22px] font-bold">Intereses</h1><Bell /></div>
+        <div className="mt-3"><InstallBanner /></div>
         <div role="tablist" className="mt-3.5 flex flex-wrap gap-1.5">
           {TABS.map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}

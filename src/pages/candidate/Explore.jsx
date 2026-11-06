@@ -5,6 +5,7 @@ import { colorFor, initials, salaryText } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Toast, Verified } from '../../components/ui'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
+import { Bell } from '../../components/Bell'
 
 function JobCard({ job, onDetail }) {
   return (
@@ -92,7 +93,7 @@ export default function Explore() {
           <h1 className="text-[22px] font-bold">Explorar</h1>
           <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : job ? `${i + 1} de ${jobs.length} vacantes para ti` : 'Sin vacantes nuevas'}</span>
         </div>
-        <button onClick={load} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button>
+        <div className="flex items-center gap-2"><button onClick={load} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
       </div>
       <div className="flex flex-1 flex-col gap-4 px-5">
         <ErrorBox>{err}</ErrorBox>

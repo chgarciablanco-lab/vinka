@@ -5,6 +5,9 @@ import { useAuth } from '../lib/auth'
 import { clp } from '../lib/catalog'
 import { Avatar, ErrorBox, Sheet, Svg } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
+import { Bell } from '../components/Bell'
+import { InstallBanner } from '../components/InstallBanner'
+import { EmailToggle } from './Notifications'
 
 function Row({ to, title, sub }) {
   return (
@@ -59,7 +62,7 @@ export function CandidateProfile() {
   const c = candidate || {}
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28">
-      <div className="safe-t px-5 pb-4"><h1 className="text-[22px] font-bold">Perfil</h1></div>
+      <div className="safe-t flex items-center justify-between px-5 pb-4"><h1 className="text-[22px] font-bold">Perfil</h1><Bell /></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3.5 p-4">
           <Avatar text={`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}`.toUpperCase()} color="#302538" size={56} round />
@@ -84,6 +87,8 @@ export function CandidateProfile() {
           <ErrorBox>{err}</ErrorBox>
         </div>
         <NotifyCard />
+        <EmailToggle />
+        <InstallBanner always />
         <DangerZone />
       </div>
     </div>

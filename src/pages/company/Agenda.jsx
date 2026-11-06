@@ -6,6 +6,7 @@ import { atLocal, fmtDayLong, fmtDayShort, fmtTime, minutes, ymd } from '../../l
 import { Calendar } from '../../components/Calendar'
 import { InterviewCard } from '../../components/InterviewCard'
 import { Chips, Empty, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
+import { Bell } from '../../components/Bell'
 
 const DURS = [20, 30, 45, 60]
 const HOURS = Array.from({ length: 29 }, (_, i) => { const m = 7 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }) // 07:00–21:00
@@ -55,6 +56,7 @@ export default function Agenda() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
       <div className="safe-t flex items-end justify-between px-5 pb-3">
         <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno.</p></div>
+        <Bell />
       </div>
       <div className="flex flex-col gap-4 px-5">
         {!verified && <div className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]">Podrás publicar horarios cuando tu empresa esté verificada.</div>}
