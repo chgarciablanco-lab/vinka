@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone } from '../Account'
+import { NotifyCard } from '../../components/NotifyCard'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { useRef } from 'react'
@@ -338,6 +339,7 @@ export function CompanyAccount() {
         <ErrorBox>{err}</ErrorBox>
         <button className="btn" onClick={save}>Guardar vitrina</button>
         <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
+        <NotifyCard />
         <div className="mt-2"><DangerZone /></div>
       </div>
       <Toast msg={msg} onDone={() => setMsg('')} />

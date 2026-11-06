@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { clp } from '../lib/catalog'
 import { Avatar, ErrorBox, Sheet, Svg } from '../components/ui'
+import { NotifyCard } from '../components/NotifyCard'
 
 function Row({ to, title, sub }) {
   return (
@@ -82,6 +83,7 @@ export function CandidateProfile() {
           <span className="hint">Si lo desactivas, solo verán tu perfil las empresas a las que tú muestres interés. Tu teléfono y correo nunca se muestran sin tu permiso.</span>
           <ErrorBox>{err}</ErrorBox>
         </div>
+        <NotifyCard />
         <DangerZone />
       </div>
     </div>

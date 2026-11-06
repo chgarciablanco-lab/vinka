@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { ETAPAS, colorFor, initials } from '../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
+import { NotifyCard } from '../components/NotifyCard'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -19,6 +20,7 @@ export function ChatList() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
       <div className="safe-t px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1></div>
       <div className="flex flex-col gap-2 px-5">
+        <NotifyCard compact />
         <ErrorBox>{err}</ErrorBox>
         {rows == null ? <Spinner /> : rows.length === 0 ? (
           <Empty title="Aún no tienes matches">El chat se abre cuando ambos se interesan en la misma vacante.</Empty>
@@ -64,6 +66,7 @@ export function ChatRoom() {
 
   useEffect(() => {
     loadMatch()
+    supabase.rpc('mark_match_seen', { p_match: id })
     supabase.from('messages').select('*').eq('match_id', id).order('created_at').then(({ data }) => setMsgs(data || []))
     const ch = supabase.channel(`chat-${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${id}` },

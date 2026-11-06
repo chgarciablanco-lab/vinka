@@ -52,7 +52,7 @@ export function MatchModal({ match, onClose }) {
         <p className="mt-1 rounded-xl bg-white/10 px-4 py-2 font-display text-lg font-semibold">{match.jobTitle}</p>
         <p className="mt-4 text-sm leading-relaxed text-white/80">{match.note || 'Ya pueden conversar. Tus datos de contacto siguen privados hasta que decidas compartirlos.'}</p>
         <div className="mt-8 flex w-full flex-col gap-3">
-          <Link to={`/chats/${match.matchId}`} className="btn bg-rosa-accion shadow-[0_8px_24px_rgba(208,46,114,0.45)]">Enviar mensaje</Link>
+          <Link to={`/chats/${match.matchId}`} onClick={onClose} className="btn bg-rosa-accion shadow-[0_8px_24px_rgba(208,46,114,0.45)]">Enviar mensaje</Link>
           <button onClick={onClose} className="h-12 w-full rounded-2xl border border-white/40 text-base font-semibold text-white">{match.continueLabel || 'Seguir explorando'}</button>
         </div>
       </div>
