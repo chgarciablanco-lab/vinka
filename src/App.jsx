@@ -14,6 +14,8 @@ import { CandidateProfile } from './pages/Account'
 import { CompanyAccount, CompanyMissing, CompanyPanel, JobCandidates, JobForm } from './pages/company/Company'
 import Admin from './pages/admin/Admin'
 import Legal from './pages/Legal'
+import Agenda from './pages/company/Agenda'
+import BookInterview from './pages/candidate/BookInterview'
 
 function WithNav({ items, children }) {
   return <>{children}<BottomNav items={items} /></>
@@ -67,6 +69,7 @@ export default function App() {
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
         <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
         <Route path="/chats/:id" element={<ChatRoom />} />
+        <Route path="/chats/:id/agendar" element={<BookInterview />} />
         <Route path="/perfil" element={<WithNav items={nav}><CandidateProfile /></WithNav>} />
         <Route path="/perfil/laboral" element={<EditStep Comp={StepWork} />} />
         <Route path="/perfil/preferencias" element={<EditStep Comp={StepPrefs} />} />
@@ -81,7 +84,7 @@ export default function App() {
 
   if (!company) return <Routes>{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>
   const nav = [
-    { to: '/', label: 'Panel', icon: 'grid' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
+    { to: '/', label: 'Panel', icon: 'grid' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
     { to: '/vitrina', label: 'Vitrina', icon: 'building' }, ...adminItem,
   ]
   return (
@@ -95,6 +98,7 @@ export default function App() {
       <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
       <Route path="/chats/:id" element={<ChatRoom />} />
       <Route path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />
+      <Route path="/agenda" element={<WithNav items={nav}><Agenda /></WithNav>} />
       {isAdmin && <Route path="/admin" element={<Admin />} />}
       {common}
       <Route path="*" element={<Navigate to="/" replace />} />

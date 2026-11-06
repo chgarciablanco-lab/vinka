@@ -20,6 +20,7 @@ export const Icon = {
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   video: <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
 }
 
 export function Svg({ name, size = 22, className = '', stroke = 'currentColor', width = 2 }) {

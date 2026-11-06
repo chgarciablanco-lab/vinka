@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import { ETAPAS, colorFor, initials } from '../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
+import { InterviewCard } from '../components/InterviewCard'
+import { fmtDayShort, fmtTime } from '../lib/dates'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -16,11 +18,31 @@ export function ChatList() {
     supabase.rpc('my_matches').then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data || []) })
   }, [])
   const isCompany = profile?.role === 'company'
+  const [ivs, setIvs] = useState([])
+  useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
       <div className="safe-t px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1></div>
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />
+        {ivs.length > 0 && (
+          <div className="mb-2 flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-tinta-3">Próximas entrevistas</span>
+            {ivs.map((iv) => (
+              <Link key={iv.interview_id} to={`/chats/${iv.match_id}`} className="flex items-center gap-3 rounded-2xl border border-rosa-borde bg-white p-3">
+                <div className="flex w-14 shrink-0 flex-col items-center rounded-xl bg-rosa-palido py-1.5 text-rosa-oscuro">
+                  <span className="text-[11px] font-semibold uppercase">{fmtDayShort(iv.starts_at).split(' ')[0]}</span>
+                  <span className="font-display text-lg font-bold leading-none">{new Date(iv.starts_at).getDate()}</span>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-semibold">{fmtTime(iv.starts_at)} · {isCompany ? iv.candidate_name : iv.company_name}</span>
+                  <span className="truncate text-xs text-tinta-3">{iv.job_title} · {iv.mode === 'online' ? 'Videollamada' : 'Presencial'}</span>
+                </div>
+                <Svg name="chevron" size={18} className="text-tinta-suave" />
+              </Link>
+            ))}
+          </div>
+        )}
         <ErrorBox>{err}</ErrorBox>
         {rows == null ? <Spinner /> : rows.length === 0 ? (
           <Empty title="Aún no tienes matches">El chat se abre cuando ambos se interesan en la misma vacante.</Empty>
@@ -56,7 +78,13 @@ export function ChatRoom() {
   const [report, setReport] = useState('')
   const [reporting, setReporting] = useState(false)
   const [toast, setToast] = useState('')
+  const [ivs, setIvs] = useState([])
+  const [ivOpen, setIvOpen] = useState(false)
   const endRef = useRef()
+  const loadIvs = useCallback(async () => {
+    const { data } = await supabase.rpc('my_interviews')
+    setIvs((data || []).filter((x) => x.match_id === id))
+  }, [id])
 
   const loadMatch = useCallback(async () => {
     const { data, error } = await supabase.rpc('my_matches')
@@ -66,14 +94,16 @@ export function ChatRoom() {
 
   useEffect(() => {
     loadMatch()
+    loadIvs()
     supabase.rpc('mark_match_seen', { p_match: id })
     supabase.from('messages').select('*').eq('match_id', id).order('created_at').then(({ data }) => setMsgs(data || []))
     const ch = supabase.channel(`chat-${id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${id}` },
         (p) => setMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new])))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews', filter: `match_id=eq.${id}` }, () => loadIvs())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [id, loadMatch])
+  }, [id, loadMatch, loadIvs])
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [msgs.length])
 
   const send = async (e) => {
@@ -120,6 +150,31 @@ export function ChatRoom() {
         ))}
         {m.stage === 'descartado' && <span className="whitespace-nowrap rounded-md bg-[#F4EEF2] px-2 py-1 text-tinta-3">Proceso cerrado</span>}
       </div>
+      {!m.closed && (() => {
+        const active = ivs.find((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date())
+        if (active) return (
+          <button onClick={() => setIvOpen(true)} className="flex items-center gap-3 border-b border-rosa-borde bg-rosa-palido px-4 py-2.5 text-left">
+            <Svg name="calendar" size={22} className="text-rosa-accion" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-semibold text-rosa-oscuro">Entrevista {fmtDayShort(active.starts_at)} · {fmtTime(active.starts_at)}</span>
+              <span className="truncate text-xs text-tinta-3">{active.mode === 'online' ? 'Videollamada · toca para ver el enlace' : `Presencial · ${active.address}`}</span>
+            </span>
+            <span className="text-sm font-semibold text-rosa-texto">Ver</span>
+          </button>
+        )
+        return isCompany ? (
+          <Link to="/agenda" className="flex items-center gap-3 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
+            <Svg name="calendar" size={22} className="text-tinta-suave" />
+            <span className="flex-1 text-[13px] leading-snug text-tinta-3">Sin entrevista agendada. Publica horarios en tu <b className="text-rosa-texto">Agenda</b> y esta persona podrá elegir uno.</span>
+          </Link>
+        ) : (
+          <Link to={`/chats/${id}/agendar`} className="flex items-center gap-3 border-b border-rosa-borde bg-rosa-palido px-4 py-2.5">
+            <Svg name="calendar" size={22} className="text-rosa-accion" />
+            <span className="flex flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Agendar entrevista</span><span className="text-xs text-tinta-3">Elige un horario disponible de {m.company_name}</span></span>
+            <Svg name="chevron" size={18} className="text-rosa-accion" />
+          </Link>
+        )
+      })()}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
         <div className="self-center rounded-xl border border-rosa-borde bg-white px-3 py-2 text-center text-xs leading-relaxed text-tinta-3">
           Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.<br />VINKA nunca te pedirá pagar para postular.
@@ -180,6 +235,13 @@ export function ChatRoom() {
             {!m.closed && <button className="btn-sec text-[#B42318]" onClick={() => action('block')}>Bloquear y cerrar chat</button>}
           </div>
         )}
+      </Sheet>
+      <Sheet open={ivOpen} onClose={() => setIvOpen(false)} title="Entrevista">
+        <div className="flex flex-col gap-3">
+          {ivs.filter((x) => x.status === 'confirmada').map((iv) => (
+            <InterviewCard key={iv.interview_id} iv={iv} role={isCompany ? 'company' : 'candidate'} onChange={() => { setIvOpen(false); loadIvs() }} />
+          ))}
+        </div>
       </Sheet>
       <Toast msg={toast} onDone={() => setToast('')} />
     </div>
