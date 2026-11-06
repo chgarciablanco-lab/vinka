@@ -2,9 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, parseCLP, salaryText } from '../../lib/catalog'
+import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone } from '../Account'
+import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
+import { MatchModal } from '../../components/MatchModal'
+import { useRef } from 'react'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -210,19 +213,24 @@ export function JobCandidates() {
   useEffect(() => { load() }, [load])
 
   const c = list?.[i]
-  const act = async (action) => {
-    if (!c || busy) return
-    setBusy(true)
-    const { error } = await supabase.from('company_candidate_actions').upsert({ job_id: id, candidate_id: c.candidate_id, action, created_by: user.id })
-    setBusy(false)
+  const cardRef = useRef()
+  const [match, setMatch] = useState(null)
+  const { company } = useAuth()
+  const onSwipe = async (dir) => {
+    const cur = list[i]
+    const action = { right: 'interest', left: 'pass', up: 'save' }[dir]
+    setVideo(''); setI((n) => n + 1)
+    const { error } = await supabase.from('company_candidate_actions').upsert({ job_id: id, candidate_id: cur.candidate_id, action, created_by: user.id })
     if (error) return setErr(errMsg(error))
     if (action === 'interest') {
-      const { data: m } = await supabase.from('matches').select('id').eq('job_id', id).eq('candidate_id', c.candidate_id).maybeSingle()
-      setToast(m ? { msg: `¡Es match con ${c.display_name}! Ya pueden conversar.`, tone: 'pink', match: m.id }
-        : { msg: `Invitación enviada a ${c.display_name} para esta vacante. Será match si acepta.`, tone: 'dark' })
-    } else if (action === 'save') setToast({ msg: `${c.display_name} guardado/a. No recibe aviso.`, tone: 'dark' })
-    else setToast({ msg: '', tone: 'dark' })
-    setI((n) => n + 1)
+      const { data: m } = await supabase.from('matches').select('id').eq('job_id', id).eq('candidate_id', cur.candidate_id).maybeSingle()
+      if (m) setMatch({
+        matchId: m.id, jobTitle: job?.title, otherName: cur.display_name, continueLabel: 'Seguir revisando candidatos',
+        note: 'Ya pueden conversar. Su teléfono y correo se muestran solo si la persona decide compartirlos.',
+        leftInitials: initials(company?.display_name), leftColor: colorFor(company?.display_name || ''), rightInitials: cur.initials, rightColor: '#D02E72',
+      })
+      else setToast({ msg: `Invitación enviada a ${cur.display_name} para esta vacante. Será match si acepta.`, tone: 'dark' })
+    } else if (action === 'save') setToast({ msg: `${cur.display_name} guardado/a. No recibe aviso.`, tone: 'dark' })
   }
   const playVideo = async () => {
     const { data: path } = await supabase.rpc('candidate_video_path', { p_candidate: c.candidate_id })
@@ -242,7 +250,7 @@ export function JobCandidates() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-32">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] pb-10">
       <div className="safe-t flex items-center gap-1.5 px-4 pb-3">
         <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
         <div className="flex flex-col"><span className="text-[11px] text-tinta-suave">Candidatos para</span><span className="text-[15px] font-semibold">{job?.title || '…'}</span></div>
@@ -254,7 +262,10 @@ export function JobCandidates() {
             Vuelve más tarde: aparecerán nuevos candidatos a medida que se registren.
           </Empty>
         ) : (
-          <article className="flex flex-col gap-3.5 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
+          <>
+          <SwipeCard key={c.candidate_id} ref={cardRef} onSwipe={onSwipe} labels={{ right: 'ME INTERESA' }}
+            behind={list[i + 1] ? <div className="h-[480px] rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
+          <article className="flex min-h-[480px] flex-col gap-3.5 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
             {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya mostró interés en esta vacante · si te interesa, es match</div>}
             <div className="flex items-center gap-3">
               <Avatar text={c.initials} color="#302538" size={56} round />
@@ -286,16 +297,16 @@ export function JobCandidates() {
             )}
             <span className="text-xs leading-snug text-tinta-suave">Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>
           </article>
+          </SwipeCard>
+          <div className="mt-4 flex flex-col gap-3">
+            <SwipeButtons onPass={() => cardRef.current?.swipe('left')} onSave={() => cardRef.current?.swipe('up')} onLike={() => cardRef.current?.swipe('right')} />
+            <SwipeHint />
+          </div>
+          </>
         )}
       </div>
-      {c && (
-        <div className="safe-b fixed bottom-0 left-1/2 z-10 grid w-full max-w-md -translate-x-1/2 grid-cols-3 gap-2.5 bg-gradient-to-t from-[#FAF7F9] via-[#FAF7F9] px-4 pt-4">
-          <button className="btn-sec" disabled={busy} onClick={() => { setVideo(''); act('pass') }}>Pasar</button>
-          <button className="btn-sec" disabled={busy} onClick={() => { setVideo(''); act('save') }}>Guardar</button>
-          <button className="btn" disabled={busy} onClick={() => { setVideo(''); act('interest') }}>Me interesa</button>
-        </div>
-      )}
       <Toast msg={toast.msg} tone={toast.tone} onDone={() => setToast({ msg: '', tone: 'dark' })} />
+      <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
   )
 }

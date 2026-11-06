@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Spinner } from '../../components/ui'
+import { MatchModal } from '../../components/MatchModal'
 
 const TABS = [
   ['match', 'Matches', 'Ambos se interesaron en la misma vacante. Ya pueden conversar.'],
@@ -14,8 +15,9 @@ const TABS = [
 const PILL = { match: ['MATCH', 'bg-rosa-accion text-white'], invited: ['TE INVITARON', 'bg-[#FFE7CC] text-naranja-texto'], sent: ['ENVIADO', 'bg-[#ECE6F2] text-[#3D2F4A]'], saved: ['GUARDADA', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
 
 export default function Interests() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const nav = useNavigate()
+  const [match, setMatch] = useState(null)
   const [tab, setTab] = useState('invited')
   const [rows, setRows] = useState(null)
   const [matches, setMatches] = useState([])
@@ -34,7 +36,12 @@ export default function Interests() {
     if (error) return setErr(errMsg(error))
     if (action === 'interest') {
       const { data } = await supabase.from('matches').select('id').eq('job_id', job_id).eq('candidate_id', user.id).maybeSingle()
-      if (data) return nav(`/chats/${data.id}`)
+      const r = (rows || []).find((x) => x.job_id === job_id)
+      if (data) {
+        setMatch({ matchId: data.id, jobTitle: r?.title, otherName: r?.company_name, continueLabel: 'Volver a Intereses',
+          leftInitials: `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase(), leftColor: '#D02E72',
+          rightInitials: initials(r?.company_name), rightColor: colorFor(r?.company_name || '') })
+      }
     }
     load()
   }
@@ -89,6 +96,7 @@ export default function Interests() {
           </div>
         ))}
       </div>
+      <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
   )
 }
