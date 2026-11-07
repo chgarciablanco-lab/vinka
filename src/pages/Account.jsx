@@ -8,6 +8,7 @@ import { NotifyCard } from '../components/NotifyCard'
 import { Bell } from '../components/Bell'
 import { InstallBanner } from '../components/InstallBanner'
 import { EmailToggle } from './Notifications'
+import { CalendarSync } from '../components/CalendarSync'
 
 function Row({ to, title, sub }) {
   return (
@@ -15,6 +16,30 @@ function Row({ to, title, sub }) {
       <span className="flex flex-col gap-0.5"><span className="text-[15px] font-semibold">{title}</span>{sub && <span className="text-[13px] text-tinta-3">{sub}</span>}</span>
       <Svg name="chevron" size={18} className="text-tinta-suave" />
     </Link>
+  )
+}
+
+/** Ley 21.719: la persona puede descargar una copia de sus datos */
+export function MyData() {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const download = async () => {
+    setErr(''); setBusy(true)
+    const { data, error } = await supabase.rpc('export_my_data')
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
+    a.download = `mis-datos-vinka-${new Date().toISOString().slice(0, 10)}.json`
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+  }
+  return (
+    <div className="card flex flex-col gap-2 p-4">
+      <span className="label">Tus datos personales</span>
+      <span className="hint">Descarga una copia de todo lo que VINKA guarda sobre ti. Los procesos cerrados se eliminan automáticamente después de 12 meses.</span>
+      <ErrorBox>{err}</ErrorBox>
+      <button className="btn-sec h-11 text-sm" disabled={busy} onClick={download}><Svg name="download" size={18} />{busy ? 'Preparando…' : 'Descargar mis datos'}</button>
+    </div>
   )
 }
 
@@ -86,9 +111,11 @@ export function CandidateProfile() {
           <span className="hint">Si lo desactivas, solo verán tu perfil las empresas a las que tú muestres interés. Tu teléfono y correo nunca se muestran sin tu permiso.</span>
           <ErrorBox>{err}</ErrorBox>
         </div>
+        <CalendarSync />
         <NotifyCard />
         <EmailToggle />
         <InstallBanner always />
+        <MyData />
         <DangerZone />
       </div>
     </div>

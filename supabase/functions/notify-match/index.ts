@@ -162,9 +162,29 @@ async function render(n: any, name: string, app: string): Promise<string> {
       `Recibes este correo porque tienes una cuenta en VINKA. <a href="${prefs}" style="color:#B0245F">Preferencias de avisos</a>`, 'VINKA Talent', n.body)
   }
 
+  if (n.kind === 'offer') {
+    const id = (n.url.match(/\/ofertas\/([0-9a-f-]{36})/) || [])[1]
+    const { data: o } = id ? await sb.from('offers').select('*, companies(display_name)').eq('id', id).maybeSingle() : { data: null }
+    if (o) {
+      const co = (o as any).companies?.display_name || 'La empresa'
+      const r: [string, string][] = [['Cargo', o.position]]
+      if (o.salary) r.push(['Renta', `${clp(o.salary)} ${o.salary_type === 'bruto' ? 'bruto' : 'líquido'}`])
+      if (o.contract) r.push(['Contrato', o.contract])
+      if (o.schedule) r.push(['Jornada', o.schedule])
+      if (o.start_date) r.push(['Inicio', new Date(o.start_date + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })])
+      if (o.location) r.push(['Lugar', o.location])
+      return shell(`<tr><td style="background:#FFF4E8;padding:28px;${B}">${stepper('Oferta')}<div style="${F};font-size:34px;font-weight:700;line-height:1.15;color:${DARK}">¡Recibiste una carta oferta!</div><div style="font-size:16px;color:#4A2A00;margin-top:6px">${esc(co)} quiere que te sumes a su equipo.</div></td></tr>` +
+        body(hello + p(`<b>${esc(co)}</b> te envió una oferta formal. Revisa las condiciones y responde desde VINKA${o.expires_on ? ` antes del <b>${esc(new Date(o.expires_on + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }))}</b>` : ''}.`) +
+          rows(r) + btn(link, 'Ver y responder la oferta') +
+          note('Una oferta real nunca te pide dinero. Si tienes dudas sobre las condiciones, pregúntale a la empresa por el chat antes de aceptar.', '#FFF4E8', '#4A2A00')),
+        FOOT(prefs), 'VINKA Talent', n.body)
+    }
+  }
+
   // Genérico: contacto, entrevista solicitada, cancelaciones, verificación, avisos a empresas
-  const company = n.url === '/agenda' || n.kind.startsWith('company_')
-  const cta = n.kind === 'stage_entrevista' ? 'Elegir horario' : n.kind === 'interview_cancelled' && !company ? 'Elegir otro horario' : company && n.url === '/agenda' ? 'Ver mi agenda' : 'Abrir VINKA'
+  const company = n.url === '/agenda' || n.kind.startsWith('company_') || ['mention', 'offer_response', 'team_joined'].includes(n.kind)
+  const cta = n.kind === 'stage_entrevista' ? 'Elegir horario' : n.kind === 'interview_cancelled' && !company ? 'Elegir otro horario' : company && n.url === '/agenda' ? 'Ver mi agenda'
+    : n.kind === 'mention' ? 'Ver la nota' : n.kind === 'offer_response' ? 'Abrir el chat' : n.kind === 'offer' ? 'Ver la oferta' : 'Abrir VINKA'
   return shell(body(hello + h1(esc(n.title)) + p(esc(n.body)) + btn(link, cta)), FOOT(prefs), company ? 'VINKA Company' : 'VINKA Talent', n.body)
 }
 
@@ -212,6 +232,24 @@ Deno.serve(async (req) => {
         : await sendEmail(cfg, RESEND, e.email, `${company} te invita a continuar tu proceso en VINKA`, html, `${company} te invita a continuar tu proceso para ${job} en VINKA: ${link}`)
       await sb.from('external_applicants').update({ invite_status: status }).eq('id', e.id)
       return Response.json({ invite: status })
+    }
+    /* Invitación a sumarse al equipo de reclutamiento de una empresa */
+    if (payload.kind === 'member_invite') {
+      const { data: i } = await sb.from('company_invites').select('*, companies(display_name)').eq('id', payload.id).single()
+      if (!i) return new Response('not found', { status: 404 })
+      const company = (i as any).companies?.display_name || 'Una empresa'
+      const { data: who } = await sb.from('profiles').select('first_name, last_name').eq('id', i.invited_by).maybeSingle()
+      const inviter = who ? `${who.first_name} ${who.last_name}`.trim() : 'Alguien de tu equipo'
+      const ROLE: Record<string, string> = { admin: 'Administrador/a: gestiona vacantes, equipo y vitrina', recruiter: 'Reclutador/a: gestiona vacantes y candidatos', viewer: 'Evaluador/a: ve candidatos, evalúa y comenta' }
+      const link = `${cfg.app_url}/equipo/unirse/${i.token}`
+      const html = shell(body(h1(`${esc(inviter)} te invitó al equipo de ${esc(company)} en VINKA`) +
+        p(`VINKA es la plataforma donde ${esc(company)} recibe postulantes, agenda entrevistas y toma decisiones de contratación en equipo.`) +
+        rows([['Empresa', company], ['Tu rol', ROLE[i.role] || i.role], ['Correo', i.email]]) +
+        btn(link, 'Unirme al equipo') + note('La invitación vence en 30 días. Si no esperabas este correo, puedes ignorarlo.')),
+        `Recibes este correo porque ${esc(inviter)} te invitó a ${esc(company)} en VINKA.`, 'VINKA Company', `Únete al equipo de ${company}`)
+      const status = i.email.endsWith('@example.com') ? 'cuenta_de_prueba' : !RESEND ? 'sin_configurar'
+        : await sendEmail(cfg, RESEND, i.email, `${inviter} te invitó al equipo de ${company} en VINKA`, html, `${inviter} te invitó al equipo de ${company} en VINKA: ${link}`)
+      return Response.json({ member_invite: status })
     }
     if (payload.kind !== 'notification') return Response.json({ skipped: payload.kind })
 

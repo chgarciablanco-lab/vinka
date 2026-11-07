@@ -4,7 +4,8 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
-import { DangerZone } from '../Account'
+import { DangerZone, MyData } from '../Account'
+import { CalendarSync } from '../../components/CalendarSync'
 import { NotifyCard } from '../../components/NotifyCard'
 import { AiAssist } from '../../components/AiAssist'
 import { Bell } from '../../components/Bell'
@@ -53,6 +54,7 @@ export function CompanyPanel() {
   }, [company])
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
   const verified = company?.verification_status === 'verified'
+  const canManage = company?.member_role !== 'viewer'
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
@@ -68,9 +70,14 @@ export function CompanyPanel() {
             <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
           ))}
         </div>
+        <Link to="/reportes" className="card flex items-center gap-3 p-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="chart" /></span>
+          <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Reportes</span><span className="text-[13px] text-tinta-3">Embudo, tiempo de contratación y fuentes</span></span>
+          <Svg name="chevron" size={18} className="text-tinta-suave" />
+        </Link>
         <div className="flex items-center justify-between">
           <h2 className="text-[17px] font-semibold">Vacantes</h2>
-          <span className="flex gap-3"><Link to="/importar/vacantes" className="flex h-11 items-center text-sm font-semibold text-tinta-3">Importar</Link><Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link></span>
+          {canManage && <span className="flex gap-3"><Link to="/importar/vacantes" className="flex h-11 items-center text-sm font-semibold text-tinta-3">Importar</Link><Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link></span>}
         </div>
         {jobs == null ? <Spinner /> : jobs.length === 0 ? (
           <Empty title="Crea tu primera vacante" action={<Link to="/vacantes/nueva" className="btn-sm mt-1 bg-rosa-accion text-white">Crear vacante</Link>}>
@@ -85,11 +92,12 @@ export function CompanyPanel() {
               </div>
               <span className={`pill whitespace-nowrap ${STATUS[j.status][1]}`}>{STATUS[j.status][0]}</span>
             </div>
+            <Link to={`/vacantes/${j.id}/proceso`} className="btn-sm gap-1.5 bg-rosa-accion text-white"><Svg name="columns" size={18} />Proceso de selección{stats[j.id] ? ` · ${stats[j.id].interests + (ext[j.id] || 0)}` : ''}</Link>
             <div className="grid grid-cols-2 gap-2">
-              <Link to={`/vacantes/${j.id}`} className="btn-sm border border-linea bg-white">Editar</Link>
+              {canManage && <Link to={`/vacantes/${j.id}`} className="btn-sm border border-linea bg-white">Editar</Link>}
               {j.status === 'published'
-                ? <Link to={`/vacantes/${j.id}/candidatos`} className="btn-sm bg-rosa-accion text-white">Ver candidatos</Link>
-                : <span className="btn-sm bg-[#F4EEF2] text-tinta-3">{j.status === 'pending' ? 'Se publica al verificar' : 'No visible'}</span>}
+                ? <Link to={`/vacantes/${j.id}/candidatos`} className={`btn-sm border border-linea bg-white ${canManage ? '' : 'col-span-2'}`}>Buscar candidatos</Link>
+                : <span className={`btn-sm bg-[#F4EEF2] text-tinta-3 ${canManage ? '' : 'col-span-2'}`}>{j.status === 'pending' ? 'Se publica al verificar' : 'No visible'}</span>}
             </div>
             <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
           </div>
@@ -99,7 +107,46 @@ export function CompanyPanel() {
   )
 }
 
-const EMPTY_JOB = { title: '', area: '', level: '', description: '', requirements: [], modality: '', schedule: '', contract: '', region: '', comuna: '', salary_min: null, salary_max: null, salary_type: 'liquido', status: 'draft' }
+/** Preguntas de filtro: se responden al decir "Me interesa"; las eliminatorias marcan a quien no cumple */
+function QuestionsEditor({ value, onChange }) {
+  const [t, setT] = useState('')
+  const [type, setType] = useState('yesno')
+  const add = () => {
+    if (!t.trim() || value.length >= 8) return
+    onChange([...value, { id: 'q' + Date.now().toString(36), text: t.trim().slice(0, 200), type, knockout: type === 'yesno' ? 'no' : null }]); setT('')
+  }
+  const upd = (k, patch) => onChange(value.map((q, n) => (n === k ? { ...q, ...patch } : q)))
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="label">Preguntas de filtro</span>
+      <span className="hint -mt-1">Se responden al decir "Me interesa". Si marcas una respuesta como eliminatoria, verás a esas personas marcadas con "No cumple filtro". No preguntes por edad, sexo, estado civil, salud ni otros datos personales.</span>
+      {value.map((q, k) => (
+        <div key={q.id} className="flex flex-col gap-2 rounded-xl border border-[#EEE3EA] p-3">
+          <div className="flex items-start gap-2"><span className="flex-1 text-sm font-medium">{q.text}</span>
+            <button type="button" aria-label={`Quitar pregunta ${q.text}`} onClick={() => onChange(value.filter((_, n) => n !== k))} className="-mr-1 -mt-1 flex h-9 w-9 items-center justify-center text-tinta-suave"><Svg name="x" size={16} /></button></div>
+          {q.type === 'yesno' ? (
+            <select className="input h-10 text-sm" aria-label="Respuesta eliminatoria" value={q.knockout || ''} onChange={(e) => upd(k, { knockout: e.target.value || null })}>
+              <option value="no">Eliminatoria si responde "No"</option><option value="si">Eliminatoria si responde "Sí"</option><option value="">Solo informativa</option>
+            </select>
+          ) : <span className="text-xs text-tinta-suave">Respuesta abierta (informativa)</span>}
+        </div>
+      ))}
+      {value.length < 8 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-dashed border-linea p-3">
+          <input className="input" value={t} maxLength={200} onChange={(e) => setT(e.target.value)} placeholder="Ej.: ¿Tienes licencia de conducir clase B?" />
+          <div className="flex gap-2">
+            <div className="flex flex-1 gap-1 rounded-xl bg-[#F4EEF2] p-[3px]">
+              {[['yesno', 'Sí / No'], ['text', 'Abierta']].map(([k, l]) => <button key={k} type="button" aria-pressed={type === k} onClick={() => setType(k)} className={`h-[38px] flex-1 rounded-[9px] text-[13px] font-semibold ${type === k ? 'bg-white shadow-sm' : 'text-tinta-3'}`}>{l}</button>)}
+            </div>
+            <button type="button" className="btn-sm shrink-0 border border-rosa-accion bg-white text-rosa-texto" onClick={add}>Agregar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const EMPTY_JOB = { title: '', area: '', level: '', description: '', requirements: [], modality: '', schedule: '', contract: '', region: '', comuna: '', salary_min: null, salary_max: null, salary_type: 'liquido', status: 'draft', questions: [] }
 
 export function JobForm() {
   const { id } = useParams()
@@ -111,7 +158,7 @@ export function JobForm() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    if (id) supabase.from('jobs').select('*').eq('id', id).single().then(({ data, error }) => { if (error) setErr(errMsg(error)); setJ(data) })
+    if (id) supabase.from('jobs').select('*').eq('id', id).single().then(({ data, error }) => { if (error) setErr(errMsg(error)); setJ(data ? { ...EMPTY_JOB, ...data, requirements: data.requirements || [], questions: data.questions || [] } : data) })
   }, [id])
   if (!j) return <Spinner />
   const set = (k, v) => setJ({ ...j, [k]: v })
@@ -183,6 +230,7 @@ export function JobForm() {
               onClick={() => { if (req.trim()) { set('requirements', [...j.requirements, { text: req.trim(), essential: true }]); setReq('') } }}>Agregar</button>
           </div>
         </div>
+        <QuestionsEditor value={j.questions || []} onChange={(v) => set('questions', v)} />
         <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
           <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
           Confirmo que esta oferta es real, no cobra a postulantes y no excluye por motivos ilegales.
@@ -330,6 +378,7 @@ export function JobCandidates() {
 
 export function CompanyAccount() {
   const { company, refresh } = useAuth()
+  const isAdmin = ['owner', 'admin'].includes(company?.member_role)
   const [f, setF] = useState(() => ({ description: company?.description || '', benefits: company?.benefits || '', website: company?.website || '', display_name: company?.display_name || '' }))
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
@@ -341,7 +390,7 @@ export function CompanyAccount() {
   }
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
-      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Vitrina de empresa</h1><p className="text-[13px] text-tinta-3">Lo que verán los candidatos de tu empresa.</p></div><Bell /></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><Bell /></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
           <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />
@@ -357,11 +406,21 @@ export function CompanyAccount() {
         {f.benefits.trim() && <AiAssist task="company_benefits" title="Beneficios" label="Ordenar con IA" current={f.benefits} onApply={(t) => setF({ ...f, benefits: t.slice(0, 800) })} />}
         <Field label="Sitio web"><input className="input" type="url" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} placeholder="https://" /></Field>
         <ErrorBox>{err}</ErrorBox>
-        <button className="btn" onClick={save}>Guardar vitrina</button>
+        <button className="btn" onClick={save} disabled={!isAdmin}>Guardar vitrina</button>
+        {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
+        <div className="card px-4">
+          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes']].map(([to, icon, t, sub]) => (
+            <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
+              <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />
+            </Link>
+          ))}
+        </div>
+        <CalendarSync />
         <NotifyCard />
         <EmailToggle />
         <InstallBanner always />
+        <MyData />
         <div className="mt-2"><DangerZone /></div>
       </div>
       <Toast msg={msg} onDone={() => setMsg('')} />
@@ -371,11 +430,14 @@ export function CompanyAccount() {
 
 export function CompanyMissing() {
   const { signOut } = useAuth()
+  let team = null
+  try { team = localStorage.getItem('vinka-team-invite') } catch { /* sin almacenamiento */ }
   return (
     <Screen>
       <TopBar title="VINKA Company" />
       <div className="flex flex-1 flex-col gap-4 px-6 pb-8">
-        <Empty title="No encontramos tu empresa">Tu cuenta no tiene una empresa asociada. Escríbenos o vuelve a registrarte.</Empty>
+        {team && <Link to={`/equipo/unirse/${team}`} className="btn">Aceptar mi invitación al equipo</Link>}
+        <Empty title="No encontramos tu empresa">Tu cuenta no tiene una empresa asociada. Si te invitaron a un equipo, abre el enlace del correo de invitación.</Empty>
         <button className="btn-sec" onClick={signOut}>Cerrar sesión</button>
       </div>
     </Screen>

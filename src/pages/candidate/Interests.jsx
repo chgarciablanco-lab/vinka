@@ -7,6 +7,7 @@ import { Avatar, Empty, ErrorBox, Spinner } from '../../components/ui'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
 import { InstallBanner } from '../../components/InstallBanner'
+import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 
 const TABS = [
   ['match', 'Matches', 'Ambos se interesaron en la misma vacante. Ya pueden conversar.'],
@@ -33,8 +34,13 @@ export default function Interests() {
   useEffect(() => { load() }, [load])
   useEffect(() => { if (rows && tab === 'invited' && !rows.some((r) => r.kind === 'invited')) setTab(matches.length ? 'match' : 'sent') }, [rows]) // eslint-disable-line
 
-  const respond = async (job_id, action) => {
-    const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id, action })
+  const [ask, setAsk] = useState(null)
+  const respond = async (job_id, action, answers = null) => {
+    if (action === 'interest' && !answers) {
+      const qs = await jobQuestions(job_id)
+      if (qs.length) return setAsk({ job_id, questions: qs, title: (rows || []).find((x) => x.job_id === job_id)?.title })
+    }
+    const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id, action, ...(answers ? { answers } : {}) })
     if (error) return setErr(errMsg(error))
     if (action === 'interest') {
       const { data } = await supabase.from('matches').select('id').eq('job_id', job_id).eq('candidate_id', user.id).maybeSingle()
@@ -99,6 +105,8 @@ export default function Interests() {
           </div>
         ))}
       </div>
+      <ScreeningSheet open={!!ask} title={ask?.title} questions={ask?.questions} onClose={() => setAsk(null)}
+        onSubmit={async (answers) => { const a = ask; setAsk(null); await respond(a.job_id, 'interest', answers) }} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
   )

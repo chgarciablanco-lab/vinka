@@ -21,6 +21,15 @@ export const Icon = {
   video: <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  star: <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" />,
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  tag: <><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /></>,
+  download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  search: <><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></>,
+  columns: <><rect x="3" y="4" width="5" height="16" rx="1.5" /><rect x="10" y="4" width="5" height="11" rx="1.5" /><rect x="17" y="4" width="4" height="7" rx="1.5" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  doc: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></>,
+  link: <path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />,
 }
 
 export function Svg({ name, size = 22, className = '', stroke = 'currentColor', width = 2 }) {
@@ -196,7 +205,7 @@ export function Sheet({ open, onClose, title, children }) {
           <h2 className="text-lg font-semibold">{title}</h2>
           <button aria-label="Cerrar" onClick={onClose} className="flex h-11 w-11 items-center justify-center"><Svg name="x" /></button>
         </div>
-        <div className="max-h-[75vh] overflow-y-auto pb-4">{children}</div>
+        <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden pb-4">{children}</div>
       </div>
     </div>
   )

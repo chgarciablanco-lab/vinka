@@ -6,6 +6,7 @@ import { Avatar, Empty, ErrorBox, Sheet, Spinner, Toast, Verified } from '../../
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
+import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 
 function JobCard({ job, onDetail }) {
   return (
@@ -53,6 +54,7 @@ export default function Explore() {
   const [detail, setDetail] = useState(false)
   const [match, setMatch] = useState(null)
   const card = useRef()
+  const [ask, setAsk] = useState(null)
 
   const load = useCallback(async () => {
     setJobs(null); setI(0)
@@ -64,6 +66,8 @@ export default function Explore() {
 
   const job = jobs?.[i]
   const next = jobs?.[i + 1]
+  // Vistas del aviso (para el embudo de la empresa)
+  useEffect(() => { if (job?.id) supabase.rpc('log_views', { p_jobs: [job.id] }).then(() => {}) }, [job?.id])
   const ACTION = { right: 'interest', left: 'pass', up: 'save' }
 
   // Se llama cuando la tarjeta terminó de salir de la pantalla
@@ -72,7 +76,14 @@ export default function Explore() {
     setDetail(false)
     setI((n) => n + 1)
     const action = ACTION[dir]
-    const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id: j.id, action })
+    if (action === 'interest') {
+      const qs = await jobQuestions(j.id)
+      if (qs.length) return setAsk({ job: j, questions: qs })
+    }
+    await commit(j, action)
+  }
+  const commit = async (j, action, answers = null) => {
+    const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id: j.id, action, ...(answers ? { answers } : {}) })
     if (error) return setErr(errMsg(error))
     if (action === 'interest') {
       const { data: m } = await supabase.from('matches').select('id').eq('job_id', j.id).eq('candidate_id', user.id).maybeSingle()
@@ -135,6 +146,8 @@ export default function Explore() {
           </div>
         )}
       </Sheet>
+      <ScreeningSheet open={!!ask} title={ask?.job.title} questions={ask?.questions} onClose={() => { setAsk(null); setToast('No enviamos tu interés. La vacante volverá a aparecer más adelante.') }}
+        onSubmit={async (answers) => { const j = ask.job; setAsk(null); await commit(j, 'interest', answers) }} />
       <Toast msg={toast} onDone={() => setToast('')} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>

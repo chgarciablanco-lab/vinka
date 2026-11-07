@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { ETAPAS, colorFor, initials } from '../lib/catalog'
+import { ETAPAS, colorFor, fillVars, initials } from '../lib/catalog'
+import { useTemplates } from './company/Pipeline'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
@@ -82,6 +83,9 @@ export function ChatRoom() {
   const [toast, setToast] = useState('')
   const [ivs, setIvs] = useState([])
   const [ivOpen, setIvOpen] = useState(false)
+  const [offer, setOffer] = useState(null)
+  const [tplOpen, setTplOpen] = useState(false)
+  const { templates } = useTemplates()
   const [polishing, setPolishing] = useState(false)
   const polish = async () => {
     if (!draft.trim() || polishing) return
@@ -103,6 +107,7 @@ export function ChatRoom() {
   useEffect(() => {
     loadMatch()
     loadIvs()
+    supabase.from('offers').select('*').eq('match_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle().then(({ data }) => setOffer(data))
     supabase.rpc('mark_match_seen', { p_match: id })
     supabase.from('messages').select('*').eq('match_id', id).order('created_at').then(({ data }) => setMsgs(data || []))
     const ch = supabase.channel(`chat-${id}`)
@@ -183,6 +188,16 @@ export function ChatRoom() {
           </Link>
         )
       })()}
+      {offer && offer.status !== 'retirada' && (
+        <Link to={`/ofertas/${offer.id}`} className="flex items-center gap-3 border-b border-[#F5C892] bg-naranja-palido px-4 py-2.5">
+          <Svg name="doc" size={22} className="text-naranja-texto" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-semibold text-[#6B3800]">{offer.status === 'enviada' ? (isCompany ? 'Carta oferta enviada · esperando respuesta' : 'Tienes una carta oferta') : offer.status === 'aceptada' ? 'Oferta aceptada' : 'Oferta no aceptada'}</span>
+            <span className="truncate text-xs text-[#4A2A00]">{offer.position}</span>
+          </span>
+          <span className="text-sm font-semibold text-naranja-texto">{!isCompany && offer.status === 'enviada' ? 'Responder' : 'Ver'}</span>
+        </Link>
+      )}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
         <div className="self-center rounded-xl border border-rosa-borde bg-white px-3 py-2 text-center text-xs leading-relaxed text-tinta-3">
           Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.<br />VINKA nunca te pedirá pagar para postular.
@@ -218,6 +233,10 @@ export function ChatRoom() {
           <label className="flex-1"><span className="sr-only">Mensaje</span>
             <input value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} placeholder="Escribe un mensaje" className="h-[46px] w-full rounded-full border border-linea px-4 text-[16px] focus:border-rosa-accion focus:outline-none" />
           </label>
+          {isCompany && !draft.trim() && (
+            <button type="button" onClick={() => setTplOpen(true)} aria-label="Usar una plantilla" title="Plantillas"
+              className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-linea bg-white text-tinta-3"><Svg name="doc" size={20} /></button>
+          )}
           {draft.trim().length > 3 && (
             <button type="button" onClick={polish} disabled={polishing} aria-label="Mejorar mensaje con IA" title="Mejorar con IA"
               className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-[#E9D3F0] bg-[#F7F0FB] text-[#6B2E8F] ${polishing ? 'animate-pulse' : ''}`}><Sparkle size={20} /></button>
@@ -241,6 +260,7 @@ export function ChatRoom() {
                   {ETAPAS.map(([k, l]) => <button key={k} onClick={() => action('stage', k)} className={`chip ${m.stage === k ? 'chip-on' : ''}`}>{l}</button>)}
                 </div>
                 {!m.contact_shared && <button className="btn-sec" disabled={m.contact_requested} onClick={() => action('request_contact')}>{m.contact_requested ? 'Contacto solicitado' : 'Pedir teléfono y correo'}</button>}
+                <Link to={`/vacantes/${m.job_id}/candidato/${m.candidate_id}`} className="btn-sec">Ver ficha, evaluaciones y oferta</Link>
               </>
             )}
             <button className="btn-sec" onClick={() => setReporting(true)}>Denunciar</button>
@@ -253,6 +273,15 @@ export function ChatRoom() {
           {ivs.filter((x) => x.status === 'confirmada').map((iv) => (
             <InterviewCard key={iv.interview_id} iv={iv} role={isCompany ? 'company' : 'candidate'} onChange={() => { setIvOpen(false); loadIvs() }} />
           ))}
+        </div>
+      </Sheet>
+      <Sheet open={tplOpen} onClose={() => setTplOpen(false)} title="Plantillas">
+        <div className="flex flex-col gap-2">
+          {templates.map((t) => (
+            <button key={t.id} onClick={() => { setDraft(fillVars(t.body, { nombre: (m.candidate_name || '').split(' ')[0], cargo: m.job_title, empresa: m.company_name }).slice(0, 2000)); setTplOpen(false) }}
+              className="card flex flex-col gap-1 p-3 text-left"><span className="text-sm font-semibold">{t.name}</span><span className="line-clamp-2 text-xs text-tinta-3">{t.body}</span></button>
+          ))}
+          <Link to="/plantillas" className="py-2 text-center text-sm font-semibold text-rosa-texto">Editar plantillas</Link>
         </div>
       </Sheet>
       <Toast msg={toast} onDone={() => setToast('')} />

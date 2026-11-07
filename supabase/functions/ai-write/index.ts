@@ -73,9 +73,72 @@ Ordena y redacta los beneficios que la empresa ofrece como una lista breve separ
     case 'chat_message':
       return { max: 300, text: `${m}
 Mejora este mensaje de chat entre una empresa y una persona candidata (quien escribe es: ${c.role === 'company' ? 'la empresa' : 'la persona candidata'}). Mantén el sentido, que sea cordial, breve (máximo 3 frases) y sin datos nuevos.${cur}` }
+    case 'message_template':
+      return { max: 400, text: `${m}
+Redacta una plantilla de mensaje de una empresa a candidatos en un proceso de selección. Tipo: ${clip(c.kind, 30)}. Máximo 600 caracteres, cordial y claro. Puedes usar las variables {nombre}, {cargo} y {empresa} tal cual, entre llaves.${cur}` }
     default:
       return { max: 300, text: '' }
   }
+}
+
+/* ---------- Tareas de selección: el contexto se arma en el servidor (sin nombre ni datos sensibles) ---------- */
+const FIT = new Set(['candidate_fit', 'interview_questions'])
+async function selectionPrompt(task: string, userId: string, c: any) {
+  const { data: job } = await sb.from('jobs').select('id, company_id, title, area, level, description, requirements, modality, schedule, comuna, questions').eq('id', c.job_id).maybeSingle()
+  if (!job) throw new Error('Vacante no encontrada.')
+  const { data: mem } = await sb.from('company_members').select('role').eq('company_id', job.company_id).eq('user_id', userId).maybeSingle()
+  if (!mem) throw new Error('No tienes acceso a esta vacante.')
+  const [{ data: cp }, { data: act }, { data: m }] = await Promise.all([
+    sb.from('candidate_profiles').select('headline, has_experience, experiences, education, skills, availability, modalities, schedules, comuna, region, bio').eq('user_id', c.candidate_id).maybeSingle(),
+    sb.from('candidate_job_actions').select('action, answers').eq('job_id', job.id).eq('candidate_id', c.candidate_id).maybeSingle(),
+    sb.from('matches').select('id').eq('job_id', job.id).eq('candidate_id', c.candidate_id).maybeSingle(),
+  ])
+  const { data: cca } = await sb.from('company_candidate_actions').select('action').eq('job_id', job.id).eq('candidate_id', c.candidate_id).maybeSingle()
+  if (!cp || (!m && act?.action !== 'interest' && !cca)) throw new Error('Este candidato no participa en la vacante.')
+  const answers = (job.questions || []).map((q: any) => `- ${q.text}: ${act?.answers?.[q.id] ?? 'sin respuesta'}`).join('\n')
+  const exps = (cp.experiences || []).map((x: any) => `- ${x.role || ''} en ${x.company || ''} (${x.from || '?'} a ${x.current ? 'hoy' : x.to || '?'})${x.description ? ': ' + clip(x.description, 200) : ''}`).join('\n')
+  const edu = (cp.education || []).map((x: any) => `- ${x.title || ''} ${x.level || ''} ${x.institution || ''} (${x.status || ''})`).join('\n')
+  const ctx = `VACANTE
+Cargo: ${job.title} · Área: ${job.area} · Nivel: ${job.level || '—'} · Modalidad: ${job.modality} · Jornada: ${job.schedule} · Comuna: ${job.comuna || '—'}
+Descripción: ${clip(job.description, 1500)}
+Requisitos: ${(job.requirements || []).map((r: any) => `${r.text} (${r.essential ? 'esencial' : 'deseable'})`).join('; ') || '—'}
+
+PERFIL DE LA PERSONA CANDIDATA (sin datos personales)
+Busca: ${cp.headline || '—'} · Ubicación: ${cp.comuna || '—'}, ${cp.region || '—'} · Disponibilidad: ${cp.availability || '—'}
+Modalidades: ${(cp.modalities || []).join(', ') || '—'} · Jornadas: ${(cp.schedules || []).join(', ') || '—'}
+Experiencia: ${cp.has_experience ? '\n' + (exps || '—') : 'busca su primer empleo'}
+Estudios:\n${edu || '—'}
+Habilidades: ${(cp.skills || []).join(', ') || '—'}
+Presentación: ${clip(cp.bio, 500) || '—'}
+${answers ? 'Respuestas a preguntas de filtro:\n' + answers : ''}`
+  const BASE = `Ayudas a un equipo de selección a revisar candidaturas. Evalúa SOLO criterios relacionados con el trabajo (experiencia, estudios, habilidades, disponibilidad, ubicación y respuestas). Nunca consideres ni infieras edad, sexo, nacionalidad, estado civil, salud, apariencia ni otros motivos protegidos. Si falta información, dilo; no la inventes ni castigues por ella. Tu resultado es una sugerencia: la decisión es siempre de una persona.`
+  if (task === 'candidate_fit') return { job, kind: 'fit', max: 700, text: `${BASE}
+
+${ctx}
+
+Responde SOLO con un objeto JSON con esta forma:
+{"score": número de 0 a 100 que indica cuánto calza el perfil con la vacante,
+ "summary": "resumen en máximo 3 frases cortas",
+ "meets": ["requisito o fortaleza que cumple", ...] (máximo 5),
+ "missing": ["requisito que no se ve en el perfil", ...] (máximo 4),
+ "check": ["punto a confirmar en la entrevista", ...] (máximo 3)}` }
+  return { job, kind: 'questions', max: 700, text: `${BASE}
+
+${ctx}
+
+Sugiere 6 preguntas de entrevista para esta persona y este cargo: 2 sobre experiencia concreta, 2 de situaciones (qué harías si...), 1 sobre motivación y 1 para confirmar algo que no esté claro en el perfil. Preguntas legales, sin temas personales.
+Responde SOLO con un arreglo JSON de objetos: [{"q":"pregunta","why":"qué buscas evaluar, en pocas palabras"}]` }
+}
+
+async function callModel(key: string, cfg: any, text: string, max: number) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: cfg?.ai_model || 'claude-haiku-5-5', max_tokens: max, thinking: { type: 'disabled' }, system: RULES, messages: [{ role: 'user', content: text }] }),
+  })
+  if (!r.ok) { console.error('anthropic', r.status, await r.text()); return null }
+  const out = await r.json()
+  return (out.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim()
 }
 
 Deno.serve(async (req) => {
@@ -90,6 +153,31 @@ Deno.serve(async (req) => {
     if (!key) return json({ error: 'El asistente de IA aún no está activado.' }, 503)
 
     const { task, mode = 'write', context = {} } = await req.json()
+
+    if (FIT.has(task)) {
+      let sp
+      try { sp = await selectionPrompt(task, u.user.id, context) } catch (e) { return json({ error: (e as Error).message }, 403) }
+      const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
+      const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
+      if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
+      const text = await callModel(key, cfg, sp.text, sp.max)
+      if (text == null) return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502)
+      let data: any = null
+      try {
+        if (sp.kind === 'fit') {
+          const o = JSON.parse((text.match(/\{[\s\S]*\}/) || ['null'])[0])
+          const arr = (v: any, n: number) => (Array.isArray(v) ? v.map((x) => String(x).slice(0, 200)).slice(0, n) : [])
+          data = { score: Math.max(0, Math.min(100, Math.round(Number(o.score) || 0))), summary: String(o.summary || '').slice(0, 600), meets: arr(o.meets, 5), missing: arr(o.missing, 4), check: arr(o.check, 3) }
+        } else {
+          const a = JSON.parse((text.match(/\[[\s\S]*\]/) || ['[]'])[0])
+          data = { items: (Array.isArray(a) ? a : []).filter((x: any) => x?.q).slice(0, 8).map((x: any) => ({ q: String(x.q).slice(0, 300), why: String(x.why || '').slice(0, 160) })) }
+        }
+      } catch { data = null }
+      if (!data || (sp.kind === 'questions' && !data.items.length)) return json({ error: 'No pude generar el resultado. Inténtalo de nuevo.' }, 502)
+      await sb.from('ai_insights').upsert({ company_id: sp.job.company_id, job_id: sp.job.id, candidate_id: context.candidate_id, kind: sp.kind, data, created_by: u.user.id, created_at: new Date().toISOString() })
+      return json({ data })
+    }
+
     const p = prompt(task, mode, context)
     if (!p.text) return json({ error: 'Tarea no reconocida.' }, 400)
     if (mode !== 'write' && !String(context.current || '').trim() && !p.list) return json({ error: 'Escribe algo primero para poder mejorarlo.' }, 400)
@@ -98,14 +186,8 @@ Deno.serve(async (req) => {
     const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
     if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
 
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: cfg?.ai_model || 'claude-haiku-5-5', max_tokens: p.max, thinking: { type: 'disabled' }, system: RULES, messages: [{ role: 'user', content: p.text }] }),
-    })
-    if (!r.ok) { console.error('anthropic', r.status, await r.text()); return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502) }
-    const out = await r.json()
-    const text = (out.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim()
+    const text = await callModel(key, cfg, p.text, p.max)
+    if (text == null) return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502)
     if (p.list) {
       const m = text.match(/\[[\s\S]*\]/)
       let items: unknown[] = []

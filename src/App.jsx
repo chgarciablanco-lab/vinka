@@ -20,6 +20,12 @@ import Notifications from './pages/Notifications'
 import Invitation, { readPendingInvite } from './pages/Invitation'
 import { ExternalApplicants, ImportJobs } from './pages/company/ImportPages'
 import { useEffect } from 'react'
+import Pipeline from './pages/company/Pipeline'
+import CandidateDetail from './pages/company/CandidateDetail'
+import Talent from './pages/company/Talent'
+import Reports from './pages/company/Reports'
+import { JoinTeam, Team, Templates } from './pages/company/TeamPages'
+import Offer from './pages/candidate/Offer'
 import { useLocation } from 'react-router-dom'
 
 function PendingInvite() {
@@ -50,6 +56,7 @@ export default function App() {
   const common = [
     <Route key="legal" path="/legal/:doc" element={<Legal />} />,
     <Route key="inv" path="/invitacion/:token" element={<Invitation />} />,
+    <Route key="team" path="/equipo/unirse/:token" element={<JoinTeam />} />,
   ]
 
   if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
@@ -87,6 +94,7 @@ export default function App() {
         <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
         <Route path="/chats/:id" element={<ChatRoom />} />
         <Route path="/chats/:id/agendar" element={<BookInterview />} />
+        <Route path="/ofertas/:id" element={<Offer />} />
         <Route path="/avisos" element={<Notifications />} />
         <Route path="/perfil" element={<WithNav items={nav}><CandidateProfile /></WithNav>} />
         <Route path="/perfil/laboral" element={<EditStep Comp={StepWork} />} />
@@ -100,10 +108,10 @@ export default function App() {
     )
   }
 
-  if (!company) return <Routes>{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>
+  if (!company) return <Routes>{common}{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>
   const nav = [
-    { to: '/', label: 'Panel', icon: 'grid' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
-    { to: '/vitrina', label: 'Vitrina', icon: 'building' }, ...adminItem,
+    { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
+    { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
   ]
   return (
     <>
@@ -114,6 +122,14 @@ export default function App() {
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />
       <Route path="/vacantes/:id/externos" element={<ExternalApplicants />} />
+      <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
+      <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
+      <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
+      <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />
+      <Route path="/reportes" element={<Reports />} />
+      <Route path="/plantillas" element={<Templates />} />
+      <Route path="/equipo" element={<Team />} />
+      <Route path="/ofertas/:id" element={<Offer />} />
       <Route path="/importar/vacantes" element={<ImportJobs />} />
       <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
       <Route path="/chats/:id" element={<ChatRoom />} />

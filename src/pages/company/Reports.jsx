@@ -1,0 +1,111 @@
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../lib/auth'
+import { supabase, errMsg } from '../../lib/supabase'
+import { ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
+
+const PERIODOS = [[30, '30 días'], [90, '90 días'], [365, '12 meses'], [0, 'Todo']]
+const STEPS = [['views', 'Vieron el aviso'], ['applied', 'Dijeron "Me interesa"'], ['matches', 'Match'], ['contacted', 'Contactados'], ['interviewed', 'Entrevistados'], ['offered', 'Con oferta'], ['hired', 'Contratados']]
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
+
+/** Embudo: una sola serie, un solo tono; el número va en texto, no en color. */
+function Funnel({ data }) {
+  const max = Math.max(1, ...STEPS.map(([k]) => data[k] || 0))
+  return (
+    <ol className="flex flex-col gap-2.5" aria-label="Embudo de selección">
+      {STEPS.map(([k, l], i) => {
+        const v = data[k] || 0
+        const prev = i ? data[STEPS[i - 1][0]] || 0 : 0
+        return (
+          <li key={k} className="flex flex-col gap-1" title={`${l}: ${v}${i ? ` (${pct(v, prev)}% de la etapa anterior)` : ''}`}>
+            <div className="flex items-baseline justify-between gap-2 text-[13px]"><span className="text-tinta-2">{l}</span>
+              <span><b className="text-tinta">{v}</b>{i > 0 && prev > 0 && <span className="ml-1.5 text-tinta-suave">{pct(v, prev)}%</span>}</span></div>
+            <div className="h-2.5 rounded-full bg-[#F4EEF2]"><div className="h-2.5 rounded-full bg-rosa-accion" style={{ width: `${Math.max(v ? 2 : 0, (v / max) * 100)}%` }} /></div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+export default function Reports() {
+  const { company } = useAuth()
+  const [days, setDays] = useState(90)
+  const [r, setR] = useState(null)
+  const [err, setErr] = useState('')
+  const [job, setJob] = useState('')
+  useEffect(() => {
+    setR(null)
+    supabase.rpc('company_report', { p_company: company.id, p_days: days || null }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setR(data) })
+  }, [company, days])
+
+  const jobs = r?.jobs || []
+  const sel = job ? jobs.filter((j) => j.id === job) : jobs
+  const tot = Object.fromEntries(['views', 'applied', 'matches', 'contacted', 'interviewed', 'offered', 'hired', 'rejected', 'externals', 'offers_sent', 'offers_accepted'].map((k) => [k, sel.reduce((a, j) => a + (j[k] || 0), 0)]))
+  const dth = job ? sel[0]?.days_to_hire : r?.days_to_hire
+
+  const exportXlsx = async () => {
+    const XLSX = await import('xlsx')
+    const rows = jobs.map((j) => ({
+      Vacante: j.title, Estado: j.status, 'Vieron el aviso': j.views, 'Me interesa': j.applied, Matches: j.matches, 'De otros portales': j.externals,
+      Contactados: j.contacted, Entrevistados: j.interviewed, 'Con oferta': j.offered, 'Ofertas aceptadas': j.offers_accepted, Contratados: j.hired, Descartados: j.rejected,
+      'Días promedio a contratar': j.days_to_hire ?? '',
+    }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Por vacante')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((r.sources || []).map((s) => ({ Fuente: s.source, Postulantes: s.total, Contratados: s.hired }))), 'Por fuente')
+    XLSX.writeFile(wb, `VINKA_reporte_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  return (
+    <Screen className="bg-[#FAF7F9]">
+      <TopBar back="/" title="Reportes" right={r && jobs.length > 0 && <button aria-label="Descargar Excel" onClick={exportXlsx} className="flex h-11 w-11 items-center justify-center text-rosa-texto"><Svg name="download" /></button>} />
+      <div className="flex flex-col gap-4 px-5 pb-10 pt-2">
+        <div className="flex gap-1 rounded-xl bg-[#F4EEF2] p-[3px]">
+          {PERIODOS.map(([d, l]) => <button key={d} aria-pressed={days === d} onClick={() => setDays(d)} className={`h-[38px] flex-1 rounded-[9px] text-[13px] font-semibold ${days === d ? 'bg-white text-tinta shadow-sm' : 'text-tinta-3'}`}>{l}</button>)}
+        </div>
+        <select className="input" aria-label="Vacante" value={job} onChange={(e) => setJob(e.target.value)}>
+          <option value="">Todas las vacantes</option>{jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
+        </select>
+        <ErrorBox>{err}</ErrorBox>
+        {!r ? <Spinner /> : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {[[tot.applied + tot.externals, 'Postulantes'], [tot.interviewed, 'Entrevistas'], [tot.hired, 'Contratados']].map(([v, l]) => (
+                <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[24px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{dth != null ? `${dth} días` : '—'}</span><span className="text-xs text-tinta-3">Tiempo promedio a contratar</span></div>
+              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{!job && r.days_to_first_step != null ? `${r.days_to_first_step} días` : tot.offers_sent ? `${pct(tot.offers_accepted, tot.offers_sent)}%` : '—'}</span><span className="text-xs text-tinta-3">{!job && r.days_to_first_step != null ? 'Del match al primer paso' : 'Ofertas aceptadas'}</span></div>
+            </div>
+            <div className="card flex flex-col gap-3 p-4">
+              <span className="text-[15px] font-semibold">Embudo</span>
+              <Funnel data={tot} />
+              {tot.externals > 0 && <span className="hint">Incluye {tot.externals} postulante(s) importado(s) de otros portales desde "Contactados" en adelante.</span>}
+              {tot.views === 0 && <span className="hint">Las vistas se cuentan desde hoy: es un dato nuevo.</span>}
+            </div>
+            {!job && (r.sources || []).length > 0 && (
+              <div className="card flex flex-col gap-2 p-4">
+                <span className="text-[15px] font-semibold">Por fuente</span>
+                <table className="w-full text-sm"><thead><tr className="text-left text-xs text-tinta-suave"><th className="pb-1 font-medium">Fuente</th><th className="pb-1 text-right font-medium">Postulantes</th><th className="pb-1 text-right font-medium">Contratados</th></tr></thead>
+                  <tbody>{r.sources.map((s) => <tr key={s.source} className="border-t border-[#F1E7ED]"><td className="py-2">{s.source}</td><td className="py-2 text-right font-semibold">{s.total}</td><td className="py-2 text-right font-semibold">{s.hired}</td></tr>)}</tbody></table>
+              </div>
+            )}
+            {!job && jobs.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <span className="text-[15px] font-semibold">Por vacante</span>
+                {jobs.map((j) => (
+                  <button key={j.id} onClick={() => setJob(j.id)} className="card flex flex-col gap-1.5 p-3.5 text-left">
+                    <span className="flex justify-between gap-2"><span className="truncate text-sm font-semibold">{j.title}</span><span className="text-xs text-tinta-suave">{j.hired} contratado(s)</span></span>
+                    <span className="text-xs text-tinta-3">{j.applied} interesados · {j.matches} matches · {j.interviewed} entrevistas · {j.offered} ofertas{j.externals ? ` · ${j.externals} externos` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {jobs.length > 0 && <button className="btn-sec" onClick={exportXlsx}><Svg name="download" size={20} />Descargar en Excel</button>}
+          </>
+        )}
+      </div>
+    </Screen>
+  )
+}
