@@ -194,6 +194,25 @@ Deno.serve(async (req) => {
       }
       return Response.json(out)
     }
+    /* Invitación a un postulante importado desde otro portal */
+    if (payload.kind === 'invite') {
+      const { data: e } = await sb.from('external_applicants').select('*, jobs(title, comuna, modality), companies(display_name)').eq('id', payload.id).single()
+      if (!e) return new Response('not found', { status: 404 })
+      const company = (e as any).companies?.display_name || 'Una empresa'
+      const job = (e as any).jobs?.title || 'una vacante'
+      const link = `${cfg.app_url}/invitacion/${e.invite_token}`
+      const html = shell(body(p(`Hola ${esc(e.full_name.split(' ')[0])},`, 'margin-bottom:12px') +
+        h1(`${esc(company)} te invita a continuar tu proceso en VINKA`) +
+        p(`Postulaste a <b>${esc(job)}</b> y ${esc(company)} ahora gestiona sus procesos de selección en VINKA. Si aceptas, podrás conversar directamente con la empresa y elegir el horario de tu entrevista desde tu celular.`) +
+        rows([['Vacante', job], ['Empresa', company], ['Lugar', (e as any).jobs?.modality === 'Remota' ? 'Remoto' : ((e as any).jobs?.comuna || '—')]]) +
+        btn(link, 'Aceptar y continuar') +
+        note('Crear tu cuenta es gratis. Si no te interesa, ignora este correo: no crearemos ninguna cuenta con tus datos.')),
+        `Recibes este correo porque postulaste a una vacante de ${esc(company)}, que te invitó a VINKA.<br>VINKA nunca te pedirá pagar para postular ni ser contratado/a.`, 'VINKA Talent', `${company} te invita a continuar tu proceso`)
+      const status = !e.email ? 'sin_correo' : e.email.endsWith('@example.com') ? 'cuenta_de_prueba' : !RESEND ? 'sin_configurar'
+        : await sendEmail(cfg, RESEND, e.email, `${company} te invita a continuar tu proceso en VINKA`, html, `${company} te invita a continuar tu proceso para ${job} en VINKA: ${link}`)
+      await sb.from('external_applicants').update({ invite_status: status }).eq('id', e.id)
+      return Response.json({ invite: status })
+    }
     if (payload.kind !== 'notification') return Response.json({ skipped: payload.kind })
 
     const { data: n } = await sb.from('notifications').select('*').eq('id', payload.id).single()

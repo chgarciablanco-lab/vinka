@@ -17,6 +17,20 @@ import Legal from './pages/Legal'
 import Agenda from './pages/company/Agenda'
 import BookInterview from './pages/candidate/BookInterview'
 import Notifications from './pages/Notifications'
+import Invitation, { readPendingInvite } from './pages/Invitation'
+import { ExternalApplicants, ImportJobs } from './pages/company/ImportPages'
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+
+function PendingInvite() {
+  const nav = useNavigate()
+  const loc = useLocation()
+  useEffect(() => {
+    const t = readPendingInvite()
+    if (t && !loc.pathname.startsWith('/invitacion')) nav(`/invitacion/${t}`)
+  }, []) // eslint-disable-line
+  return null
+}
 
 function WithNav({ items, children }) {
   return <>{children}<BottomNav items={items} /></>
@@ -35,6 +49,7 @@ export default function App() {
 
   const common = [
     <Route key="legal" path="/legal/:doc" element={<Legal />} />,
+    <Route key="inv" path="/invitacion/:token" element={<Invitation />} />,
   ]
 
   if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
@@ -65,6 +80,7 @@ export default function App() {
     return (
       <>
       <MatchWatcher onCount={setUnseen} />
+      <PendingInvite />
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
@@ -97,6 +113,8 @@ export default function App() {
       <Route path="/vacantes/nueva" element={<JobForm />} />
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />
+      <Route path="/vacantes/:id/externos" element={<ExternalApplicants />} />
+      <Route path="/importar/vacantes" element={<ImportJobs />} />
       <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
       <Route path="/chats/:id" element={<ChatRoom />} />
       <Route path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />

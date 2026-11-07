@@ -43,9 +43,11 @@ export function CompanyPanel() {
   const { company } = useAuth()
   const [jobs, setJobs] = useState(null)
   const [stats, setStats] = useState({})
+  const [ext, setExt] = useState({})
   useEffect(() => {
     if (!company) return
     supabase.from('jobs').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).then(({ data }) => setJobs(data || []))
+    supabase.from('external_applicants').select('job_id').eq('company_id', company.id).then(({ data }) => { const c = {}; (data || []).forEach((r) => { c[r.job_id] = (c[r.job_id] || 0) + 1 }); setExt(c) })
     supabase.rpc('company_stats', { p_company: company.id }).then(({ data }) => setStats(Object.fromEntries((data || []).map((s) => [s.job_id, s]))))
   }, [company])
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
@@ -67,7 +69,7 @@ export function CompanyPanel() {
         </div>
         <div className="flex items-center justify-between">
           <h2 className="text-[17px] font-semibold">Vacantes</h2>
-          <Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link>
+          <span className="flex gap-3"><Link to="/importar/vacantes" className="flex h-11 items-center text-sm font-semibold text-tinta-3">Importar</Link><Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link></span>
         </div>
         {jobs == null ? <Spinner /> : jobs.length === 0 ? (
           <Empty title="Crea tu primera vacante" action={<Link to="/vacantes/nueva" className="btn-sm mt-1 bg-rosa-accion text-white">Crear vacante</Link>}>
@@ -88,6 +90,7 @@ export function CompanyPanel() {
                 ? <Link to={`/vacantes/${j.id}/candidatos`} className="btn-sm bg-rosa-accion text-white">Ver candidatos</Link>
                 : <span className="btn-sm bg-[#F4EEF2] text-tinta-3">{j.status === 'pending' ? 'Se publica al verificar' : 'No visible'}</span>}
             </div>
+            <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
           </div>
         ))}
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { REGIONES, TAMANOS, AREAS } from '../../lib/catalog'
 import { formatRut, validRut } from '../../lib/rut'
@@ -23,7 +23,8 @@ function Consent({ terms, setTerms, mkt, setMkt }) {
 
 export function SignupCandidate() {
   const nav = useNavigate()
-  const [f, setF] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' })
+  const [params] = useSearchParams()
+  const [f, setF] = useState({ first_name: '', last_name: '', email: params.get('email') || '', phone: '', password: '' })
   const [terms, setTerms] = useState(false)
   const [mkt, setMkt] = useState(false)
   const [err, setErr] = useState('')
