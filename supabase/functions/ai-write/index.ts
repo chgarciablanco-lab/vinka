@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: cfg?.ai_model || 'claude-haiku-5-5', max_tokens: p.max, system: RULES, messages: [{ role: 'user', content: p.text }] }),
+      body: JSON.stringify({ model: cfg?.ai_model || 'claude-haiku-5-5', max_tokens: p.max, thinking: { type: 'disabled' }, system: RULES, messages: [{ role: 'user', content: p.text }] }),
     })
     if (!r.ok) { console.error('anthropic', r.status, await r.text()); return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502) }
     const out = await r.json()
