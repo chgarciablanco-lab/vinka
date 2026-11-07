@@ -6,6 +6,7 @@ import { ETAPAS, colorFor, initials } from '../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
+import { Sparkle, callAi } from '../components/AiAssist'
 import { Bell } from '../components/Bell'
 import { fmtDayShort, fmtTime } from '../lib/dates'
 
@@ -81,6 +82,12 @@ export function ChatRoom() {
   const [toast, setToast] = useState('')
   const [ivs, setIvs] = useState([])
   const [ivOpen, setIvOpen] = useState(false)
+  const [polishing, setPolishing] = useState(false)
+  const polish = async () => {
+    if (!draft.trim() || polishing) return
+    setPolishing(true); setErr('')
+    try { const r = await callAi('chat_message', 'improve', { current: draft, role: profile?.role }); if (r.text) setDraft(r.text.slice(0, 2000)) } catch (e) { setErr(e.message) } finally { setPolishing(false) }
+  }
   const endRef = useRef()
   const loadIvs = useCallback(async () => {
     const { data } = await supabase.rpc('my_interviews')
@@ -211,7 +218,11 @@ export function ChatRoom() {
           <label className="flex-1"><span className="sr-only">Mensaje</span>
             <input value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} placeholder="Escribe un mensaje" className="h-[46px] w-full rounded-full border border-linea px-4 text-[16px] focus:border-rosa-accion focus:outline-none" />
           </label>
-          <button aria-label="Enviar" className="flex h-[46px] w-[46px] items-center justify-center rounded-full bg-rosa-accion"><Svg name="send" size={20} stroke="#fff" /></button>
+          {draft.trim().length > 3 && (
+            <button type="button" onClick={polish} disabled={polishing} aria-label="Mejorar mensaje con IA" title="Mejorar con IA"
+              className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-[#E9D3F0] bg-[#F7F0FB] text-[#6B2E8F] ${polishing ? 'animate-pulse' : ''}`}><Sparkle size={20} /></button>
+          )}
+          <button aria-label="Enviar" className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-rosa-accion"><Svg name="send" size={20} stroke="#fff" /></button>
         </form>
       )}
       <Sheet open={menu} onClose={() => { setMenu(false); setReporting(false) }} title="Opciones">

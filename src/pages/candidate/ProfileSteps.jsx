@@ -3,6 +3,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { AREAS, DISPONIBILIDAD, ESTADO_ESTUDIOS, JORNADAS, MODALIDADES, NIVEL_ESTUDIOS, PREGUNTAS, REGIONES, TRASLADO, clp, parseCLP } from '../../lib/catalog'
 import { Chips, ErrorBox, Field, Screen, Sheet, Svg, TagInput, TopBar } from '../../components/ui'
+import { AiAssist } from '../../components/AiAssist'
 
 async function saveCandidate(uid, patch) {
   const { error } = await supabase.from('candidate_profiles').update({ ...patch, updated_at: new Date().toISOString() }).eq('user_id', uid)
@@ -84,7 +85,10 @@ export function StepWork({ onDone, edit }) {
           <button type="button" onClick={() => setSheet({ kind: 'edu', i: -1, data: { level: '', title: '', institution: '', status: '' } })}
             className="h-11 rounded-xl border border-dashed border-rosa-accion bg-white text-sm font-semibold text-rosa-texto">+ Agregar estudio</button>
         </div>
-        <div className="flex flex-col gap-1.5"><span className="label">Habilidades</span><TagInput value={f.skills} onChange={(v) => setF({ ...f, skills: v })} placeholder="Ej.: Excel, atención al cliente" /></div>
+        <div className="flex flex-col gap-1.5"><span className="label">Habilidades</span><TagInput value={f.skills} onChange={(v) => setF({ ...f, skills: v })} placeholder="Ej.: Excel, atención al cliente" />
+          <AiAssist list task="candidate_skills" title="Habilidades sugeridas" label="Sugerir habilidades con IA"
+            getContext={() => ({ headline: f.headline, experiences: f.experiences, education: f.education, skills: f.skills })}
+            onAddItems={(items) => setF({ ...f, skills: [...new Set([...f.skills, ...items.map(String)])].slice(0, 20) })} /></div>
         <div className="grid grid-cols-2 gap-2.5">
           <Field label="Región"><select className="input" value={f.region} onChange={(e) => setF({ ...f, region: e.target.value })}><option value="">Selecciona</option>{REGIONES.map((r) => <option key={r}>{r}</option>)}</select></Field>
           <Field label="Comuna"><input className="input" value={f.comuna} onChange={(e) => setF({ ...f, comuna: e.target.value })} /></Field>
@@ -273,6 +277,11 @@ export function StepIntro({ onDone, edit }) {
               placeholder="Ej.: Tengo 3 años en atención de clientes. Mi fortaleza es…" />
             <span className="text-right text-xs text-tinta-suave">{bio.length} / 400</span>
           </label>
+        )}
+        {mode === 'text' && (
+          <AiAssist task="candidate_bio" title="Tu presentación" current={bio}
+            getContext={() => ({ question: PREGUNTAS[q], headline: candidate?.headline, experiences: candidate?.experiences, education: candidate?.education, skills: candidate?.skills })}
+            onApply={(t) => setBio(t.slice(0, 400))} />
         )}
         <fieldset className="mt-1 flex flex-col gap-2.5">
           <legend className="label mb-2">¿Quién puede verla?</legend>

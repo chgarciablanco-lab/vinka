@@ -6,6 +6,7 @@ import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorF
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone } from '../Account'
 import { NotifyCard } from '../../components/NotifyCard'
+import { AiAssist } from '../../components/AiAssist'
 import { Bell } from '../../components/Bell'
 import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
@@ -159,8 +160,15 @@ export function JobForm() {
           <span className="hint">Recomendado. Los candidatos ven este rango antes de mostrar interés.</span>
         </div>
         <Field label="Descripción" hint="Funciones principales, horario, beneficios."><textarea className="textarea h-36" maxLength={3000} value={j.description} onChange={(e) => set('description', e.target.value)} /></Field>
+        <AiAssist task="job_description" title="Descripción de la vacante" current={j.description}
+          getContext={() => ({ title: j.title, area: j.area, level: j.level, modality: j.modality, schedule: j.schedule, contract: j.contract, comuna: j.comuna, company: company?.display_name, company_description: company?.description, benefits: company?.benefits })}
+          onApply={(t) => set('description', t.slice(0, 3000))} />
         <div className="flex flex-col gap-2">
           <span className="label">Requisitos</span>
+          <AiAssist list task="job_requirements" title="Requisitos sugeridos" label="Sugerir requisitos con IA"
+            renderItem={(x) => <span><b className={x.essential ? 'text-morado' : 'text-tinta-3'}>{x.essential ? 'Esencial' : 'Deseable'}</b> · {x.text}</span>}
+            getContext={() => ({ title: j.title, area: j.area, level: j.level, description: j.description, existing: j.requirements })}
+            onAddItems={(items) => set('requirements', [...j.requirements, ...items.filter((x) => x?.text).map((x) => ({ text: String(x.text).slice(0, 200), essential: !!x.essential }))].slice(0, 20))} />
           {j.requirements.map((r, k) => (
             <div key={k} className="flex items-center gap-2 rounded-xl border border-[#EEE3EA] px-3 py-2 text-sm">
               <button type="button" onClick={() => set('requirements', j.requirements.map((x, n) => (n === k ? { ...x, essential: !x.essential } : x)))}
@@ -342,7 +350,11 @@ export function CompanyAccount() {
         </div>
         <Field label="Nombre visible"><input className="input" value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
         <Field label="Quiénes somos" hint="Propósito, cultura y qué hace tu equipo."><textarea className="textarea h-32" maxLength={1500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
+        <AiAssist task="company_description" title="Quiénes somos" current={f.description}
+          getContext={() => ({ company: f.display_name, sector: company?.sector, size: company?.size, comuna: company?.comuna, region: company?.region })}
+          onApply={(t) => setF({ ...f, description: t.slice(0, 1500) })} />
         <Field label="Beneficios"><textarea className="textarea h-24" maxLength={800} value={f.benefits} onChange={(e) => setF({ ...f, benefits: e.target.value })} placeholder="Ej.: seguro complementario, horario flexible" /></Field>
+        {f.benefits.trim() && <AiAssist task="company_benefits" title="Beneficios" label="Ordenar con IA" current={f.benefits} onApply={(t) => setF({ ...f, benefits: t.slice(0, 800) })} />}
         <Field label="Sitio web"><input className="input" type="url" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} placeholder="https://" /></Field>
         <ErrorBox>{err}</ErrorBox>
         <button className="btn" onClick={save}>Guardar vitrina</button>
