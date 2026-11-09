@@ -150,6 +150,63 @@ begin
   exception when others then log := log || pg_temp.ok(true, 'B14 perfil oculto no puede destacarse'); end;
   reset role;
 
+  ---------------- E. Bloque 2 y regla de chat ----------------
+  select to_jsonb(mm) into r from matches mm where mm.company_id = co and not mm.closed and mm.stage <> 'contratado' limit 1;
+  m := (r->>'id')::uuid; u := (r->>'candidate_id')::uuid;
+  delete from messages where match_id = m;
+  perform pg_temp.as_user(u);
+  begin insert into messages(match_id, sender_id, body) values (m, u, 'hola');
+    log := log || pg_temp.ok(false, 'E1 la persona no puede iniciar el chat');
+  exception when others then log := log || pg_temp.ok(sqlerrm like 'La empresa inicia%', 'E1 la persona no puede iniciar el chat'); end;
+  reset role;
+  perform pg_temp.as_user(nova); insert into messages(match_id, sender_id, body) values (m, nova, 'Hola, gracias por postular'); reset role;
+  perform pg_temp.as_user(u);
+  begin insert into messages(match_id, sender_id, body) values (m, u, 'gracias');
+    log := log || pg_temp.ok(true, 'E2 la persona responde después de la empresa');
+  exception when others then log := log || pg_temp.ok(false, 'E2 la persona responde después de la empresa'); end;
+  reset role;
+  select id into ext from service_requests where candidate_id = cam limit 1;
+  if ext is null then
+    insert into service_requests (candidate_id, service_id, service_name, price_clp, goal, status) select cam, id, name, price_clp, 'prueba', 'en_curso' from career_services limit 1 returning id into ext;
+  end if;
+  delete from service_messages where request_id = ext;
+  update service_requests set status = 'en_curso', assigned_to = adv where id = ext;
+  perform pg_temp.as_user(cam);
+  begin perform send_service_message(ext, 'hola asesor'); log := log || pg_temp.ok(false, 'E3 la persona no puede iniciar el chat de asesoría');
+  exception when others then log := log || pg_temp.ok(sqlerrm like 'Tu asesor/a inicia%', 'E3 la persona no puede iniciar el chat de asesoría'); end;
+  reset role;
+  perform pg_temp.as_user(adv); perform accept_advisor_terms(); perform send_service_message(ext, 'Hola, soy tu asesora'); reset role;
+  perform pg_temp.as_user(cam);
+  begin perform send_service_message(ext, 'gracias'); log := log || pg_temp.ok(true, 'E4 la persona responde después de su asesor/a');
+  exception when others then log := log || pg_temp.ok(false, 'E4 la persona responde después de su asesor/a: ' || sqlerrm); end;
+  reset role;
+  perform pg_temp.as_user(nova); o := send_offer(m, '{"position":"Prueba E","salary":"700000","salary_type":"liquido","expires_on":"2030-01-01","letter":{"signer_name":"Nova"}}'); reset role;
+  perform pg_temp.as_user(u); perform respond_offer(o, true, ''); reset role;
+  log := log || pg_temp.ok((select stage from matches where id = m) = 'contratado', 'E5 oferta aceptada pasa sola a contratado');
+  perform pg_temp.as_user(nova); o2 := send_offer(m, '{"position":"Prueba E2","salary":"700000","salary_type":"liquido","letter":{"signer_name":"Nova"}}'); reset role;
+  update offers set expires_on = current_date - 1 where id = o2;
+  perform expire_offers();
+  log := log || pg_temp.ok((select status from offers where id = o2) = 'vencida' and exists (select 1 from notifications where kind = 'offer_expired' and created_at >= t0), 'E6 oferta vencida cambia de estado y avisa a la empresa');
+  perform pg_temp.as_user(nova); log := log || pg_temp.ok(jsonb_array_length(offer_history(m)) >= 2, 'E7 historial muestra todas las versiones'); reset role;
+  perform pg_temp.as_user(agro);
+  begin perform offer_history(m); log := log || pg_temp.ok(false, 'E7b otra empresa no ve el historial');
+  exception when others then log := log || pg_temp.ok(true, 'E7b otra empresa no ve el historial'); end;
+  reset role;
+  update candidate_profiles set is_public = true where user_id = diego;
+  delete from promotions where candidate_id = diego;
+  insert into promotions (product_id, target, candidate_id, status, source, days, starts_at, ends_at) values ('profile_7', 'profile', diego, 'activa', 'cortesia', 7, now(), now() + interval '7 days') returning id into p1;
+  update candidate_profiles set is_public = false where user_id = diego;
+  log := log || pg_temp.ok((select status = 'pausada' and paused_by = 'profile' from promotions where id = p1), 'E8 ocultar el perfil pausa su destacado');
+  update candidate_profiles set is_public = true where user_id = diego;
+  log := log || pg_temp.ok((select status = 'activa' and ends_at > now() + interval '6 days 23 hours' from promotions where id = p1), 'E9 mostrarlo de nuevo lo reanuda con sus días');
+  select id into p2 from promotions where target = 'job' and status = 'activa' and ends_at > now() limit 1;
+  select coalesce(sum(impressions), 0) into n from promo_stats where promotion_id = p2;
+  perform pg_temp.as_user(null);
+  for n2 in 1..50 loop perform promo_track(array[p2], 'impression', 'navegador-de-prueba-1'); end loop;
+  perform promo_track(array[p2], 'impression', null);
+  reset role;
+  log := log || pg_temp.ok((select coalesce(sum(impressions), 0) from promo_stats where promotion_id = p2) - n = 1, 'E10 50 vistas del mismo navegador cuentan 1; sin identificador, 0');
+
   ---------------- D. Permisos (se espera error o 0 filas) ----------------
   select id into j from jobs where company_id = co and status = 'published' limit 1;
   select id into o from offers where company_id = co order by created_at desc limit 1;

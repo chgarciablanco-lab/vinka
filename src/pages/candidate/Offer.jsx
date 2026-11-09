@@ -52,8 +52,8 @@ export default function Offer() {
     <Screen className="bg-[#F6F1F4] print:bg-white" wide>
       <div className="print:hidden"><TopBar back={() => nav(isCand ? `/chats/${o.match_id}` : `/vacantes/${o.job_id}/candidato/${o.candidate_id}`)} title="Carta oferta"
         right={<button aria-label="Descargar PDF" onClick={() => window.print()} className="flex h-11 w-11 items-center justify-center"><Svg name="download" /></button>} /></div>
-      <div className="flex flex-col gap-4 px-4 pb-10 pt-2 lg:flex-row lg:items-start lg:px-8 print:p-0">
-        <div className="min-w-0 flex-1"><OfferLetter offer={o} company={d.company} candidate={d.candidate} /></div>
+      <div className="flex flex-col gap-4 px-4 pb-10 pt-2 lg:flex-row lg:items-start lg:px-8 print:block print:p-0">
+        <div className="min-w-0 flex-1 print:w-full"><OfferLetter offer={o} company={d.company} candidate={d.candidate} /></div>
 
         <aside className="flex flex-col gap-3 lg:sticky lg:top-4 lg:w-80 print:hidden">
           <ErrorBox>{err}</ErrorBox>
@@ -70,6 +70,7 @@ export default function Offer() {
           {o.status === 'aceptada' && <div className="rounded-2xl border border-[#A9D9BC] bg-[#EAF6EF] p-4 text-sm text-[#134A2B]">{isCand ? <><b>¡Aceptaste esta oferta!</b> {co} te contactará para coordinar el contrato y tu primer día.</> : <><b>La persona aceptó la oferta.</b> Márcala como contratada cuando confirmen el ingreso.</>}</div>}
           {o.status === 'rechazada' && <div className="rounded-2xl bg-white p-4 text-sm text-tinta-2">{isCand ? 'No aceptaste esta oferta.' : 'La persona no aceptó la oferta.'}{o.response_note && <> Comentario: “{o.response_note}”</>}</div>}
           {o.status === 'por_aprobar' && <div className="rounded-2xl bg-[#F7F0FB] p-4 text-sm text-[#4B2466]">Esta oferta espera la aprobación de un administrador de la empresa. La persona aún no la ve.</div>}
+          {o.status === 'vencida' && <div className="rounded-2xl bg-[#FEF3F2] p-4 text-sm text-[#912018]">{isCand ? 'Esta oferta venció sin respuesta. Escríbele a la empresa por el chat si sigues interesado/a.' : 'Venció sin respuesta. Puedes editarla y reenviarla con una nueva fecha.'}</div>}
           {o.status === 'retirada' && <div className="rounded-2xl bg-white p-4 text-sm text-tinta-2">La empresa retiró o reemplazó esta oferta.{isCand ? ' Revisa el chat.' : ''}</div>}
 
           {!isCand && d.can_manage && (
@@ -78,7 +79,7 @@ export default function Offer() {
               <button className="btn-sm h-11 bg-morado text-white disabled:opacity-50" disabled={!live} onClick={() => setMail(true)}><Svg name="send" size={18} className="mr-1.5" />Enviar por correo desde VINKA</button>
               <a href={mailto} className="btn-sm h-11 border border-linea bg-white"><Svg name="chat" size={18} className="mr-1.5" />Abrir en mi correo</a>
               <button className="btn-sm h-11 border border-linea bg-white" onClick={() => window.print()}><Svg name="download" size={18} className="mr-1.5" />Descargar PDF</button>
-              {['enviada', 'por_aprobar', 'rechazada', 'retirada'].includes(o.status) && <Link to={`/vacantes/${o.job_id}/candidato/${o.candidate_id}?oferta=editar`} className="btn-sm h-11 border border-linea bg-white"><Svg name="edit" size={18} className="mr-1.5" />Editar y reenviar</Link>}
+              {['enviada', 'por_aprobar', 'rechazada', 'retirada', 'vencida'].includes(o.status) && <Link to={`/vacantes/${o.job_id}/candidato/${o.candidate_id}?oferta=editar`} className="btn-sm h-11 border border-linea bg-white"><Svg name="edit" size={18} className="mr-1.5" />Editar y reenviar</Link>}
               <span className="text-xs leading-snug text-tinta-3">{o.emailed_at ? `Último envío por correo: ${new Date(o.emailed_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ` : ''}«Abrir en mi correo» prepara un correo con el texto de la carta{d.candidate?.email ? '' : ' (la persona aún no comparte su correo: agrégalo tú)'}; adjunta el PDF si quieres.</span>
             </div>
           )}

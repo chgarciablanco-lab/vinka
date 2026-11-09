@@ -671,7 +671,7 @@ function Promos() {
                     <div className="flex flex-wrap gap-2">
                       {x.status === 'solicitada' && <><button className="btn-sm bg-morado text-white" onClick={() => setAct({ id: x.id, paid: true, method: 'transferencia', note: '' })}>Activar</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'cancelar')}>Rechazar</button></>}
                       {x.status === 'activa' && <><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'extender', 7)}>+7 días</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'pausar')}>Pausar</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'finalizar')}>Finalizar</button></>}
-                      {x.status === 'pausada' && <>{x.paused_by === 'admin' ? <button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'reanudar')}>Reanudar</button> : <span className="text-xs text-tinta-3">En pausa porque la vacante no está publicada</span>}<button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'finalizar')}>Finalizar</button></>}
+                      {x.status === 'pausada' && <>{x.paused_by === 'admin' ? <button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'reanudar')}>Reanudar</button> : <span className="text-xs text-tinta-3">{x.paused_by === 'profile' ? 'En pausa: la persona ocultó su perfil' : 'En pausa porque la vacante no está publicada'}</span>}<button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'finalizar')}>Finalizar</button></>}
                     </div>
                   )}
                 </div>

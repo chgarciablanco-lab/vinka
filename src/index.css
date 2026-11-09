@@ -35,5 +35,5 @@
   aside[aria-label="Navegación principal"], nav { display: none !important; }
   .desk { padding-left: 0 !important; }
   body { background: #fff !important; }
-  @page { margin: 16mm; }
+  @page { size: A4; margin: 14mm 16mm; }
 }

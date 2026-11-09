@@ -55,7 +55,7 @@ export function ServiceChat({ requestId, as, disabled = false }) {
     <div className="flex flex-col gap-2">
       <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto rounded-xl bg-[#FAF7F9] p-3">
         {msgs == null ? <span className="text-center text-xs text-tinta-suave">Cargando…</span>
-          : msgs.length === 0 ? <span className="py-3 text-center text-xs text-tinta-suave">Aún no hay mensajes. Toda la asesoría se conversa aquí, dentro de VINKA.</span>
+          : msgs.length === 0 ? <span className="py-3 text-center text-xs text-tinta-suave">Aún no hay mensajes. Toda la asesoría se conversa aquí, dentro de VINKA{as === 'candidate' ? '; tu asesor/a te escribirá primero' : ''}.</span>
           : msgs.map((m) => {
             const mine = m.sender_kind === as
             return (
@@ -73,7 +73,10 @@ export function ServiceChat({ requestId, as, disabled = false }) {
           })}
         <div ref={end} />
       </div>
-      {!disabled && (
+      {!disabled && as === 'candidate' && msgs && !msgs.some((m) => m.sender_kind !== 'candidate') && (
+        <span className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-center text-sm leading-snug text-[#4A2163]">Tu asesor/a inicia la conversación. Podrás responder apenas te escriba; te avisaremos.</span>
+      )}
+      {!disabled && !(as === 'candidate' && msgs && !msgs.some((m) => m.sender_kind !== 'candidate')) && (
         <>
           <div className="flex items-end gap-2">
             <button type="button" aria-label="Adjuntar archivo" disabled={busy} onClick={() => file.current?.click()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-linea bg-white text-tinta-3">

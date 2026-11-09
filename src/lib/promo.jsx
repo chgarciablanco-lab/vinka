@@ -10,13 +10,20 @@ export function FeaturedBadge({ kind = 'job', className = '' }) {
   )
 }
 
-// Cada aparición o clic se cuenta una vez por sesión del navegador
+// Cada aparición o clic se cuenta una vez por sesión del navegador (y la base cuenta una vez por persona al día)
 const seen = new Set()
+function viewerId() {
+  try {
+    let v = localStorage.getItem('vinka-viewer')
+    if (!v) { v = (crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now()).replace(/-/g, ''); localStorage.setItem('vinka-viewer', v) }
+    return v
+  } catch { return null }
+}
 export function trackPromo(ids, kind = 'impression') {
   const fresh = (ids || []).filter(Boolean).filter((id) => !seen.has(`${kind}:${id}`))
   if (!fresh.length) return
   fresh.forEach((id) => seen.add(`${kind}:${id}`))
-  supabase.rpc('promo_track', { p_ids: fresh.slice(0, 30), p_kind: kind }).then(() => {})
+  supabase.rpc('promo_track', { p_ids: fresh.slice(0, 30), p_kind: kind, p_viewer: viewerId() }).then(() => {})
 }
 
 export const clp = (v) => `$${Number(v || 0).toLocaleString('es-CL')}`

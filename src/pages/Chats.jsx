@@ -236,6 +236,8 @@ export function ChatRoom() {
       <ErrorBox>{err}</ErrorBox>
       {m.closed ? (
         <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm text-tinta-3">Esta conversación está cerrada.</div>
+      ) : !isCompany && !msgs.some((x) => x.sender_id !== user.id) ? (
+        <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm leading-snug text-tinta-3">La empresa inicia la conversación. Podrás responder apenas te escriba; te avisaremos.</div>
       ) : (
         <form onSubmit={send} className="safe-b flex items-center gap-2 border-t border-[#EEE3EA] bg-white px-3 pt-2.5">
           <label className="flex-1"><span className="sr-only">Mensaje</span>

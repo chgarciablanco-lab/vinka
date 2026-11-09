@@ -340,8 +340,12 @@ export function OfferForm({ open, onClose, matchId, job, onSent, candidateName, 
   )
 }
 
-const OFFER_ST = { por_aprobar: ['Por aprobar', 'bg-[#F7F0FB] text-[#6B2E8F]'], enviada: ['Esperando respuesta', 'bg-naranja-palido text-naranja-texto'], aceptada: ['Aceptada', 'bg-[#EAF6EF] text-[#134A2B]'], rechazada: ['Rechazada', 'bg-[#FEF3F2] text-[#912018]'], retirada: ['Retirada', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
+const OFFER_ST = { por_aprobar: ['Por aprobar', 'bg-[#F7F0FB] text-[#6B2E8F]'], enviada: ['Esperando respuesta', 'bg-naranja-palido text-naranja-texto'], aceptada: ['Aceptada', 'bg-[#EAF6EF] text-[#134A2B]'], rechazada: ['Rechazada', 'bg-[#FEF3F2] text-[#912018]'], retirada: ['Reemplazada o retirada', 'bg-[#F1F1F1] text-[#3A3A3A]'], vencida: ['Vencida sin respuesta', 'bg-[#FEF3F2] text-[#912018]'] }
 export function OfferSummary({ o, onWithdraw, onApprove }) {
+  const [hist, setHist] = useState(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => { supabase.rpc('offer_history', { p_match: o.match_id }).then(({ data }) => setHist(data || [])) }, [o.match_id, o.id, o.status])
+  const older = (hist || []).filter((x) => x.id !== o.id)
   return (
     <div className="card flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 text-[15px] font-semibold"><Svg name="doc" size={20} />Carta oferta</span><span className={`pill ${OFFER_ST[o.status][1]}`}>{OFFER_ST[o.status][0]}</span></div>
@@ -352,6 +356,18 @@ export function OfferSummary({ o, onWithdraw, onApprove }) {
         <Link to={`/ofertas/${o.id}`} className="text-sm font-semibold text-rosa-texto">Ver carta · PDF · enviar por correo ›</Link>
         {o.status === 'enviada' && onWithdraw && <button className="text-sm font-semibold text-[#B42318]" onClick={onWithdraw}>Retirar oferta</button>}
       </div>
+      {o.status === 'vencida' && <span className="text-xs text-[#912018]">Venció sin respuesta. Puedes editarla y reenviarla con una nueva fecha.</span>}
+      {(older.length > 0 || o.emailed_at) && (
+        <div className="border-t border-[#F1E7ED] pt-2">
+          <button className="text-xs font-semibold text-tinta-3" onClick={() => setOpen(!open)}>{open ? 'Ocultar historial' : `Historial: ${older.length + 1} ${older.length ? 'versiones' : 'versión'}${o.emailed_at ? ' · enviada por correo' : ''}`} {open ? '▴' : '▾'}</button>
+          {open && (hist || []).map((x) => (
+            <Link key={x.id} to={`/ofertas/${x.id}`} className="mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-[#FAF7F9] px-2.5 py-2 text-xs">
+              <span className="min-w-0"><b>{x.position}</b>{x.salary ? ` · ${clp(x.salary)}` : ''}<br /><span className="text-tinta-suave">{fmtDate(x.created_at)}{x.sender ? ` · ${x.sender}` : ''}{x.emails ? ` · reenviada por correo ${x.emails} vez/veces` : ''}{x.responded_at ? ` · respondida el ${fmtDate(x.responded_at)}` : ''}</span></span>
+              <span className={`pill shrink-0 ${(OFFER_ST[x.status] || OFFER_ST.retirada)[1]}`}>{(OFFER_ST[x.status] || OFFER_ST.retirada)[0]}</span>
+            </Link>
+          ))}
+        </div>
+      )}
       {o.status === 'por_aprobar' && (onApprove
         ? <div className="mt-1 grid grid-cols-2 gap-2"><button className="btn-sm border border-linea bg-white" onClick={() => onApprove(false)}>No aprobar</button><button className="btn-sm bg-rosa-accion text-white" onClick={() => onApprove(true)}>Aprobar y enviar</button></div>
         : <span className="text-xs text-tinta-3">Un administrador debe aprobarla antes de que llegue al candidato.</span>)}

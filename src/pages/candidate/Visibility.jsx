@@ -56,7 +56,7 @@ export default function Visibility() {
             <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Tu perfil destacado</span><span className={`pill ${PROMO_STATUS[open.status][1]}`}>{PROMO_STATUS[open.status][0]}</span></div>
             {open.status === 'activa' && <span className="text-sm">Quedan <b>{daysLeft(open.ends_at)} día(s)</b> · termina el {fmt(open.ends_at)}</span>}
             {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} (IVA incluido). VINKA te contactará para el pago; empieza a correr cuando se active.</span>}
-            {open.status === 'pausada' && <span className="text-sm text-tinta-2">VINKA lo pausó. Escríbenos si tienes dudas.</span>}
+            {open.status === 'pausada' && <span className="text-sm text-tinta-2">{open.paused_by === 'profile' ? 'Está en pausa porque ocultaste tu perfil. Al volver a mostrarlo sigue con los días que le quedaban.' : 'VINKA lo pausó. Escríbenos si tienes dudas.'}</span>}
             {open.status !== 'solicitada' && (
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[['Apariciones', open.results.impressions], ['Empresas que lo abrieron', open.results.clicks], ['Empresas interesadas', open.results.actions]].map(([l, v]) => (

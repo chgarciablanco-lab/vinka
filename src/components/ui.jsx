@@ -62,7 +62,7 @@ export function Logo({ compact = false }) {
 }
 
 export function Screen({ children, className = '', wide = false }) {
-  return <div className={`mx-auto flex min-h-full w-full max-w-md flex-col bg-white ${wide ? 'lg:max-w-5xl' : 'lg:max-w-2xl'} ${className}`}>{children}</div>
+  return <div className={`mx-auto flex min-h-full w-full max-w-md flex-col bg-white print:max-w-none ${wide ? 'lg:max-w-5xl' : 'lg:max-w-2xl'} ${className}`}>{children}</div>
 }
 
 export function TopBar({ title, back, right, step }) {
