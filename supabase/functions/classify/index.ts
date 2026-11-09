@@ -48,14 +48,14 @@ const KEYS = Object.keys(FAMILIES)
 const PROMPT = `Clasifica cada elemento (vacantes de empleo y perfiles de personas que buscan trabajo en Chile) según:
 1) "family": la familia de funciones del cargo, una de estas claves:
 ${KEYS.map((k) => `- ${k}: ${FAMILIES[k]}`).join('\n')}
-2) "level": la importancia o jerarquía del cargo, de 1 a 6:
-   1 = Operativo, ayudante, auxiliar o primer empleo sin estudios técnicos (cajero/a, bodeguero/a, garzón, operario/a, guardia, aseo)
-   2 = Técnico/a, administrativo/a, vendedor/a o asistente con experiencia, o profesional recién titulado/a
-   3 = Profesional, analista o ejecutivo/a con algunos años de experiencia (semi senior)
-   4 = Senior, especialista, supervisor/a, encargado/a o coordinador/a
-   5 = Jefatura que lidera equipos (jefe/a de tienda, de obra, de área)
+2) "level": la jerarquía del CARGO dentro de una empresa, de 1 a 6. Depende del puesto, NO de los años de experiencia: un maestro de primera con 15 años sigue siendo nivel 2; solo sube si su cargo es de supervisión o jefatura.
+   1 = Operativo o ayudante: cajero/a, bodeguero/a, garzón/garzona, barista, operario/a, guardia, auxiliar de aseo, ayudante de cocina, reponedor/a, práctica
+   2 = Oficio o técnico/a: vendedor/a, maestro/a, conductor/a, TENS, administrativo/a, asistente, recepcionista, técnico/a, cocinero/a, guía turístico/a
+   3 = Profesional: analista, ejecutivo/a, profesor/a, desarrollador/a, enfermero/a, contador/a, diseñador/a, prevencionista
+   4 = Senior o supervisión: profesional senior, especialista, supervisor/a, encargado/a, coordinador/a, jefe/a de turno, administrador/a de obra
+   5 = Jefatura que lidera un área o un local: jefe/a de tienda, de obra, de área, de departamento
    6 = Gerencia, subgerencia o dirección
-   Para una vacante, usa el título, el nivel indicado y los requisitos. Para una persona, usa el cargo que busca y su experiencia más reciente y relevante (años y responsabilidades); si busca su primer empleo, usa 1 o 2 según sus estudios.
+   Para una vacante, usa el título y los requisitos (el "nivel indicado" por la empresa es solo una referencia). Para una persona, usa el cargo que busca y el último cargo que ocupó.
 3) "label": nombre corto y normalizado del cargo (máximo 50 caracteres).
 No uses nunca edad, sexo, nacionalidad ni datos personales.
 Elige la familia por las FUNCIONES principales del cargo, no por habilidades compartidas (por ejemplo, un guía turístico es turismo aunque atienda personas; una vendedora es venta en tienda aunque atienda clientes).
