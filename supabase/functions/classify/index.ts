@@ -1,5 +1,6 @@
 // Clasifica vacantes y perfiles por familia de cargo y nivel, para sugerir solo lo congruente.
 // La llaman los triggers de la base (secreto compartido): { kind: 'job' | 'candidate', id } o { kind: 'backfill' }.
+// Las afinidades entre familias NO las decide la IA: están definidas a mano en la tabla role_family_links.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
@@ -8,7 +9,7 @@ const FAMILIES: Record<string, string> = {
   ventas_tienda: 'Venta en tienda o retail (vendedor/a, promotor/a, reponedor/a)',
   cajero: 'Caja y cobro en local',
   comercial: 'Venta B2B o en terreno, ejecutivo/a comercial, key account',
-  atencion_cliente: 'Atención al cliente, call center, mesa de ayuda no técnica',
+  atencion_cliente: 'Atención al cliente en call center o mesón de servicio, reclamos y postventa (NO incluye ventas en tienda, caja ni turismo)',
   gestion_tienda: 'Administración o jefatura de tienda o local',
   bodega_logistica: 'Bodega, inventario, despacho, logística, abastecimiento',
   conduccion: 'Conducción y transporte (choferes, repartidores)',
@@ -23,7 +24,7 @@ const FAMILIES: Record<string, string> = {
   seguridad: 'Guardias y seguridad',
   cocina: 'Cocina (cocinero/a, ayudante de cocina, chef)',
   servicio_mesa: 'Servicio en sala, garzón/garzona, barista, bartender',
-  turismo_hoteleria: 'Hotelería y turismo (recepción de hotel, reservas)',
+  turismo_hoteleria: 'Turismo y hotelería (guías turísticos, recepción de hotel, reservas, agencias de viaje)',
   administracion: 'Administrativos/as y asistentes de oficina',
   recepcion_secretaria: 'Recepción y secretaría',
   contabilidad: 'Contabilidad, tesorería, cobranza administrativa',
@@ -47,8 +48,7 @@ const KEYS = Object.keys(FAMILIES)
 const PROMPT = `Clasifica cada elemento (vacantes de empleo y perfiles de personas que buscan trabajo en Chile) según:
 1) "family": la familia de funciones del cargo, una de estas claves:
 ${KEYS.map((k) => `- ${k}: ${FAMILIES[k]}`).join('\n')}
-2) "related": hasta 3 otras familias a las que este cargo se puede mover naturalmente por funciones parecidas (puede ser lista vacía). Sé estricto: solo funciones realmente afines.
-3) "level": la importancia o jerarquía del cargo, de 1 a 6:
+2) "level": la importancia o jerarquía del cargo, de 1 a 6:
    1 = Operativo, ayudante, auxiliar o primer empleo sin estudios técnicos (cajero/a, bodeguero/a, garzón, operario/a, guardia, aseo)
    2 = Técnico/a, administrativo/a, vendedor/a o asistente con experiencia, o profesional recién titulado/a
    3 = Profesional, analista o ejecutivo/a con algunos años de experiencia (semi senior)
@@ -56,9 +56,10 @@ ${KEYS.map((k) => `- ${k}: ${FAMILIES[k]}`).join('\n')}
    5 = Jefatura que lidera equipos (jefe/a de tienda, de obra, de área)
    6 = Gerencia, subgerencia o dirección
    Para una vacante, usa el título, el nivel indicado y los requisitos. Para una persona, usa el cargo que busca y su experiencia más reciente y relevante (años y responsabilidades); si busca su primer empleo, usa 1 o 2 según sus estudios.
-4) "label": nombre corto y normalizado del cargo (máximo 50 caracteres).
+3) "label": nombre corto y normalizado del cargo (máximo 50 caracteres).
 No uses nunca edad, sexo, nacionalidad ni datos personales.
-Responde SOLO con un arreglo JSON: [{"id": "...", "family": "...", "related": [...], "level": n, "label": "..."}]`
+Elige la familia por las FUNCIONES principales del cargo, no por habilidades compartidas (por ejemplo, un guía turístico es turismo aunque atienda personas; una vendedora es venta en tienda aunque atienda clientes).
+Responde SOLO con un arreglo JSON: [{"id": "...", "family": "...", "level": n, "label": "..."}]`
 
 const clip = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
 const years = (x: any) => {
@@ -89,7 +90,6 @@ async function classify(key: string, model: string, items: { id: string; text: s
     const ids = new Set(items.map((i) => i.id))
     return (Array.isArray(arr) ? arr : []).filter((x: any) => ids.has(String(x?.id)) && KEYS.includes(x?.family)).map((x: any) => ({
       id: String(x.id), role_family: x.family,
-      role_related: (Array.isArray(x.related) ? x.related : []).filter((f: string) => KEYS.includes(f) && f !== x.family && f !== 'otro').slice(0, 3),
       role_level: Math.min(6, Math.max(1, Math.round(Number(x.level) || 0))) || null, role_label: clip(x.label, 50),
     }))
   } catch { return [] }
