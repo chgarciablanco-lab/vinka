@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth'
 import { AREAS, DISPONIBILIDAD, ESTADO_ESTUDIOS, JORNADAS, MODALIDADES, NIVEL_ESTUDIOS, PREGUNTAS, REGIONES, TRASLADO, clp, parseCLP } from '../../lib/catalog'
 import { Chips, ErrorBox, Field, Screen, Sheet, Svg, TagInput, TopBar } from '../../components/ui'
 import { AiAssist } from '../../components/AiAssist'
+import { CvImport } from '../../components/CvImport'
 
 async function saveCandidate(uid, patch) {
   const { error } = await supabase.from('candidate_profiles').update({ ...patch, updated_at: new Date().toISOString() }).eq('user_id', uid)
@@ -22,7 +23,9 @@ export function StepWork({ onDone, edit }) {
     experiences: candidate?.experiences || [], education: candidate?.education || [], skills: candidate?.skills || [],
     region: candidate?.region || '', comuna: candidate?.comuna || '',
     salary: candidate?.salary_expectation ? clp(candidate.salary_expectation) : '',
+    bio: candidate?.bio || '', areas: candidate?.areas || [],
   }))
+  const [fromCv, setFromCv] = useState(false)
   const [sheet, setSheet] = useState(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -36,6 +39,7 @@ export function StepWork({ onDone, edit }) {
       await saveCandidate(user.id, {
         headline: f.headline.trim(), has_experience: f.has_experience, experiences: f.has_experience ? f.experiences : [],
         education: f.education, skills: f.skills, region: f.region, comuna: f.comuna.trim(), salary_expectation: parseCLP(f.salary),
+        bio: f.bio.slice(0, 600), areas: f.areas,
       })
       await refresh(); onDone()
     } catch (e) { setErr(errMsg(e)) } finally { setBusy(false) }
@@ -45,7 +49,16 @@ export function StepWork({ onDone, edit }) {
     <Screen>
       <TopBar back={edit ? '/perfil' : undefined} title={edit ? 'Perfil laboral' : ''} step={edit ? null : { label: 'Paso 2 de 4', pct: 50 }} />
       <div className="flex flex-col gap-[18px] px-6 pb-6 pt-2">
-        {!edit && <><h1 className="text-2xl font-bold">Tu perfil laboral</h1><p className="-mt-3 text-sm text-tinta-3">No necesitas CV. Puedes editarlo cuando quieras.</p></>}
+        {!edit && <><h1 className="text-2xl font-bold">Tu perfil laboral</h1><p className="-mt-3 text-sm text-tinta-3">Sube tu CV para completarlo solo, o llénalo a mano. Puedes editarlo cuando quieras.</p></>}
+        <CvImport current={f} onApply={(patch) => {
+          setF((x) => ({ ...x, ...patch, areas: patch.areas ? [...new Set([...x.areas, ...patch.areas])] : x.areas }))
+          setFromCv(true)
+        }} />
+        {fromCv && (
+          <div role="status" className="rounded-xl border border-[#A9D9BC] bg-[#EAF6EF] px-3.5 py-3 text-sm text-[#134A2B]">
+            <b>Listo, completamos tu perfil con tu CV.</b> Revisa los datos, completa lo que falte (como la renta esperada) y toca {edit ? '"Guardar"' : '"Continuar"'}.
+          </div>
+        )}
         <Field label="¿Qué cargo buscas?" hint="Ej.: Analista de marketing, Bodeguero/a, Vendedor/a">
           <input className="input" value={f.headline} maxLength={80} onChange={(e) => setF({ ...f, headline: e.target.value })} />
         </Field>

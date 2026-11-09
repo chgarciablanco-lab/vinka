@@ -130,6 +130,72 @@ Sugiere 6 preguntas de entrevista para esta persona y este cargo: 2 sobre experi
 Responde SOLO con un arreglo JSON de objetos: [{"q":"pregunta","why":"qué buscas evaluar, en pocas palabras"}]` }
 }
 
+/* ---------- Lectura de CV: extrae datos laborales y descarta datos sensibles ---------- */
+const REGIONES = ['Arica y Parinacota', 'Tarapacá', 'Antofagasta', 'Atacama', 'Coquimbo', 'Valparaíso', 'Metropolitana', "O'Higgins", 'Maule', 'Ñuble', 'Biobío', 'La Araucanía', 'Los Ríos', 'Los Lagos', 'Aysén', 'Magallanes']
+const AREAS = ['Administración', 'Ventas', 'Atención al cliente', 'Logística', 'Retail', 'Operaciones', 'Tecnología', 'Marketing', 'Finanzas', 'Recursos humanos', 'Construcción', 'Salud', 'Educación', 'Gastronomía', 'Agroindustria', 'Minería', 'Transporte', 'Manufactura', 'Legal', 'Diseño', 'Otro']
+const NIVEL = ['Enseñanza media', 'Técnico', 'Universitario', 'Postgrado', 'Otro']
+const ESTADO = ['En curso', 'Egresado/a', 'Titulado/a', 'Incompleto']
+const CV_PROMPT = `Lee el currículum adjunto de una persona que busca trabajo en Chile y extrae SOLO información laboral para su perfil en VINKA.
+NO extraigas ni menciones: RUT, fecha de nacimiento, edad, estado civil, nacionalidad, sexo, foto, dirección exacta, sueldos anteriores, salud, religión ni datos de familia.
+No inventes nada: si un dato no aparece, déjalo vacío. Fechas en formato AAAA-MM (si solo hay año, usa AAAA-01).
+Responde SOLO con un objeto JSON con esta forma exacta:
+{"headline": "cargo que busca o su cargo más reciente, máximo 60 caracteres",
+ "has_experience": true o false,
+ "experiences": [{"role": "cargo", "company": "empresa", "from": "AAAA-MM", "to": "AAAA-MM o vacío", "current": true/false, "description": "funciones principales en máximo 160 caracteres"}] (más reciente primero, máximo 8),
+ "education": [{"level": uno de ${JSON.stringify(NIVEL)}, "title": "carrera o programa", "institution": "institución", "status": uno de ${JSON.stringify(ESTADO)}}] (máximo 5),
+ "skills": ["habilidad concreta de máximo 3 palabras", ...] (máximo 15, incluye herramientas, idiomas con nivel y licencias de conducir),
+ "region": una de ${JSON.stringify(REGIONES)} o "" si no aparece,
+ "comuna": "comuna o ciudad en Chile, o vacío",
+ "areas": hasta 3 de ${JSON.stringify(AREAS)},
+ "bio": "presentación en primera persona de 2 a 3 frases, máximo 350 caracteres, basada solo en el CV"}`
+
+const str = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
+const month = (v: unknown) => { const m = String(v ?? '').match(/^(\d{4})-(\d{2})/); return m && +m[2] >= 1 && +m[2] <= 12 && +m[1] >= 1950 && +m[1] <= 2100 ? `${m[1]}-${m[2]}` : '' }
+function cleanCv(o: any) {
+  const exps = (Array.isArray(o?.experiences) ? o.experiences : []).slice(0, 8).map((x: any) => {
+    const current = !!x?.current
+    return { role: str(x?.role, 80), company: str(x?.company, 80), from: month(x?.from), to: current ? '' : month(x?.to), current, description: str(x?.description, 200) }
+  }).filter((x: any) => x.role && x.company)
+  const edu = (Array.isArray(o?.education) ? o.education : []).slice(0, 5).map((x: any) => ({
+    level: NIVEL.includes(x?.level) ? x.level : 'Otro', title: str(x?.title, 100), institution: str(x?.institution, 100), status: ESTADO.includes(x?.status) ? x.status : '',
+  })).filter((x: any) => x.title || x.institution)
+  return {
+    headline: str(o?.headline, 80), has_experience: exps.length > 0 || !!o?.has_experience,
+    experiences: exps, education: edu,
+    skills: [...new Set((Array.isArray(o?.skills) ? o.skills : []).map((x: unknown) => str(x, 40)).filter(Boolean))].slice(0, 15),
+    region: REGIONES.includes(o?.region) ? o.region : '', comuna: str(o?.comuna, 60),
+    areas: (Array.isArray(o?.areas) ? o.areas : []).filter((x: string) => AREAS.includes(x)).slice(0, 3),
+    bio: str(o?.bio, 400),
+  }
+}
+async function parseCv(key: string, cfg: any, c: any) {
+  const content: any[] = []
+  const f = c?.file
+  if (f?.data && ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(f.media_type)) {
+    if (String(f.data).length > 7_000_000) throw new Error('El archivo es muy grande. Usa uno de menos de 5 MB.')
+    content.push(f.media_type === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: f.data } }
+      : { type: 'image', source: { type: 'base64', media_type: f.media_type, data: f.data } })
+  } else if (String(c?.text || '').trim().length > 40) {
+    content.push({ type: 'text', text: `Currículum:\n<<<\n${clip(c.text, 30000)}\n>>>` })
+  } else throw new Error('No pudimos leer el archivo. Prueba con un PDF, un Word o una foto clara de tu CV.')
+  content.push({ type: 'text', text: CV_PROMPT })
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: cfg?.ai_model || 'claude-haiku-5-5', max_tokens: 2500, thinking: { type: 'disabled' }, system: RULES, messages: [{ role: 'user', content }] }),
+  })
+  if (!r.ok) { console.error('anthropic cv', r.status, await r.text()); throw new Error('No pudimos leer tu CV en este momento. Inténtalo de nuevo.') }
+  const out = await r.json()
+  const text = (out.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
+  let o
+  try { o = JSON.parse((text.match(/\{[\s\S]*\}/) || ['null'])[0]) } catch { o = null }
+  if (!o) throw new Error('No encontramos información laboral en el archivo. ¿Es tu CV?')
+  const data = cleanCv(o)
+  if (!data.headline && !data.experiences.length && !data.education.length && !data.skills.length) throw new Error('No encontramos información laboral en el archivo. ¿Es tu CV?')
+  return data
+}
+
 async function callModel(key: string, cfg: any, text: string, max: number) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -153,6 +219,13 @@ Deno.serve(async (req) => {
     if (!key) return json({ error: 'El asistente de IA aún no está activado.' }, 503)
 
     const { task, mode = 'write', context = {} } = await req.json()
+
+    if (task === 'cv_parse') {
+      const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
+      const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
+      if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
+      try { return json({ data: await parseCv(key, cfg, context) }) } catch (e) { return json({ error: (e as Error).message }, 422) }
+    }
 
     if (FIT.has(task)) {
       let sp
