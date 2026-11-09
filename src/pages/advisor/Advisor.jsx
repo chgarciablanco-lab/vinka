@@ -105,6 +105,10 @@ export default function AdvisorHome() {
   const [open, setOpen] = useState(null)
   const [note, setNote] = useState('')
   const [toast, setToast] = useState('')
+  const [q, setQ] = useState('')
+  const [fst, setFst] = useState('activas')
+  const [fsvc, setFsvc] = useState('')
+  const [limit, setLimit] = useState(20)
   const load = useCallback(() => {
     supabase.rpc('advisor_requests').then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) })
   }, [])
@@ -115,8 +119,12 @@ export default function AdvisorHome() {
     if (error) return setErr(errMsg(error))
     setNote(''); setToast('Asesoría marcada como entregada'); load()
   }
-  const active = (list || []).filter((r) => ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status))
-  const done = (list || []).filter((r) => !['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status))
+  const ACTIVE = ['solicitada', 'pago_pendiente', 'en_curso']
+  const qn = q.trim().toLowerCase()
+  const shown = (list || []).filter((r) => (fst === 'activas' ? ACTIVE.includes(r.status) : fst ? r.status === fst : true)
+    && (!fsvc || r.service_id === fsvc)
+    && (!qn || `${r.name} ${r.service} ${r.goal} ${r.headline || ''} ${r.comuna || ''}`.toLowerCase().includes(qn)))
+  const count = (k) => (list || []).filter((r) => (k === 'activas' ? ACTIVE.includes(r.status) : k ? r.status === k : true)).length
 
   const card = (r) => {
     const st = SERVICE_STATUS[r.status] || [r.status, 'bg-[#F4EEF2]']
@@ -160,10 +168,24 @@ export default function AdvisorHome() {
           <Empty title="Aún no tienes asesorías asignadas">Cuando VINKA te asigne una, te llegará un aviso y aparecerá aquí.</Empty>
         ) : (
           <>
-            {active.length > 0 && <span className="text-[15px] font-semibold">Activas ({active.length})</span>}
-            {active.map(card)}
-            {done.length > 0 && <span className="mt-2 text-[15px] font-semibold">Terminadas ({done.length})</span>}
-            {done.map(card)}
+            <div className="flex flex-col gap-2">
+              <label className="relative"><span className="sr-only">Buscar</span><Svg name="search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tinta-suave" />
+                <input className="input pl-9" placeholder="Buscar por nombre, cargo, comuna u objetivo" value={q} onChange={(e) => { setQ(e.target.value); setLimit(20) }} /></label>
+              <div className="flex flex-wrap gap-1.5">
+                {[['activas', 'Activas'], ['entregada', 'Por revisar VINKA'], ['aprobada', 'Finalizadas'], ['cancelada', 'Canceladas'], ['', 'Todas']].map(([k, l]) => (
+                  <button key={k} className={`chip h-9 text-[13px] ${fst === k ? 'chip-on' : ''}`} onClick={() => { setFst(k); setLimit(20) }}>{l} ({count(k)})</button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[['', 'Todos los servicios'], ['cv', 'Revisión de CV'], ['busqueda', 'Búsqueda'], ['completa', 'Completa']].map(([k, l]) => (
+                  <button key={k} className={`chip h-8 text-[12px] ${fsvc === k ? 'chip-on' : ''}`} onClick={() => { setFsvc(k); setLimit(20) }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <span className="text-xs text-tinta-suave">{shown.length} asesorías</span>
+            {shown.length === 0 && <p className="py-6 text-center text-sm text-tinta-3">No hay asesorías con estos filtros.</p>}
+            {shown.slice(0, limit).map(card)}
+            {shown.length > limit && <button className="btn-sec" onClick={() => setLimit(limit + 20)}>Ver más ({shown.length - limit} restantes)</button>}
           </>
         )}
         <div className="mt-2 flex gap-2 rounded-xl bg-white p-3 text-xs leading-snug text-tinta-3"><Svg name="shield" size={18} className="shrink-0" />Recuerda: toda la comunicación y los archivos van por VINKA. No compartas datos de contacto ni recibas pagos directos.</div>

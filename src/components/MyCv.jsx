@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { CV_ACCEPT, fmtDate, openPrivateFile, uploadCv } from '../lib/files'
+import { CV_ACCEPT, fmtDate, uploadCv, useSignedUrls } from '../lib/files'
+import { FileLink } from './FileLink'
 import { ErrorBox } from './ui'
 
 /** Mi CV: archivos guardados en VINKA (los que subes y las versiones mejoradas por tu asesor/a) */
@@ -11,6 +12,7 @@ export function MyCv() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const input = useRef()
+  const urls = useSignedUrls('cvs', (list || []).map((f) => f.file_path))
   const load = useCallback(() => { supabase.from('cv_files').select('*').order('version', { ascending: false }).then(({ data }) => setList(data || [])) }, [])
   useEffect(() => { load() }, [load])
   const onFile = async (e) => {
@@ -36,7 +38,7 @@ export function MyCv() {
         <div key={f.id} className="flex items-center gap-2 border-t border-[#F1E7ED] pt-2 text-sm">
           <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold ${f.kind === 'mejorado' ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2] text-tinta-2'}`}>v{f.version}</span>
           <span className="flex min-w-0 flex-1 flex-col"><span className="truncate">{f.file_name || 'CV'}</span><span className="text-xs text-tinta-3">{f.kind === 'mejorado' ? 'Mejorado por tu asesor/a' : 'Subido por ti'} · {fmtDate(f.created_at)}</span></span>
-          <button className="text-xs font-semibold text-rosa-texto" onClick={() => openPrivateFile('cvs', f.file_path).catch((x) => setErr(x.message))}>Abrir</button>
+          <FileLink url={urls[f.file_path]} className="text-xs font-semibold text-rosa-texto">Abrir</FileLink>
           {f.kind === 'original' && <button className="text-xs font-semibold text-tinta-3" onClick={() => remove(f)}>Borrar</button>}
         </div>
       ))}

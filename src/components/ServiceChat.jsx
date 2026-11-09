@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { ErrorBox, Svg } from './ui'
+import { useSignedUrls } from '../lib/files'
 
 const LABEL = {
   candidate: { candidate: 'Tú', advisor: 'Postulante', admin: 'Postulante' },
@@ -21,6 +22,7 @@ export function ServiceChat({ requestId, as, disabled = false }) {
   const [err, setErr] = useState('')
   const file = useRef()
   const end = useRef()
+  const urls = useSignedUrls('asesorias', (msgs || []).map((m) => m.file_path))
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('service_messages').select('id, sender_kind, body, file_path, file_name, created_at').eq('request_id', requestId).order('created_at')
@@ -48,11 +50,6 @@ export function ServiceChat({ requestId, as, disabled = false }) {
     await send(path, f.name)
     setBusy(false)
   }
-  const open = async (m) => {
-    const { data, error } = await supabase.storage.from('asesorias').createSignedUrl(m.file_path, 300)
-    if (error) return setErr('No pudimos abrir el archivo.')
-    window.open(data.signedUrl, '_blank', 'noopener')
-  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -65,9 +62,9 @@ export function ServiceChat({ requestId, as, disabled = false }) {
               <div key={m.id} className={`flex max-w-[85%] flex-col gap-0.5 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
                 <span className="text-[11px] font-semibold text-tinta-suave">{LABEL[as][m.sender_kind]} · {fmt(m.created_at)}</span>
                 {m.file_path ? (
-                  <button onClick={() => open(m)} className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold ${mine ? 'bg-rosa-accion text-white' : 'border border-linea bg-white text-tinta'}`}>
+                  <a href={urls[m.file_path] || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!urls[m.file_path]} className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold ${urls[m.file_path] ? '' : 'pointer-events-none opacity-60'} ${mine ? 'bg-rosa-accion text-white' : 'border border-linea bg-white text-tinta'}`}>
                     <Svg name="doc" size={18} />{m.file_name || 'Archivo'}<Svg name="download" size={16} />
-                  </button>
+                  </a>
                 ) : (
                   <span className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${mine ? 'bg-rosa-accion text-white' : 'border border-linea bg-white text-tinta'}`}>{m.body}</span>
                 )}

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 export const CV_ACCEPT = '.pdf,.doc,.docx,.png,.jpg,.jpeg'
@@ -14,11 +15,26 @@ export async function uploadCv(candidateId, file, { requestId = null, note = '' 
   return path
 }
 
-/** Abre un archivo privado con un enlace temporal de 5 minutos */
-export async function openPrivateFile(bucket, path) {
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300)
-  if (error) throw new Error('No pudimos abrir el archivo.')
-  window.open(data.signedUrl, '_blank', 'noopener')
+/**
+ * Enlaces temporales (1 hora) para archivos privados, preparados al mostrar la lista.
+ * Así el toque abre un enlace real: Safari en iPhone bloquea ventanas que se abren después de esperar al servidor.
+ */
+export function useSignedUrls(bucket, paths) {
+  const [urls, setUrls] = useState({})
+  const key = (paths || []).filter(Boolean).join('|')
+  useEffect(() => {
+    const list = key ? key.split('|') : []
+    if (!list.length) { setUrls({}); return undefined }
+    let alive = true
+    const load = async () => {
+      const { data } = await supabase.storage.from(bucket).createSignedUrls(list, 3600)
+      if (alive) setUrls(Object.fromEntries((data || []).filter((x) => x.signedUrl).map((x) => [x.path, x.signedUrl])))
+    }
+    load()
+    const t = setInterval(load, 50 * 60 * 1000)
+    return () => { alive = false; clearInterval(t) }
+  }, [bucket, key])
+  return urls
 }
 
 export const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })

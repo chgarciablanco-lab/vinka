@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
-import { CV_ACCEPT, fmtDate, fmtDateTime, openPrivateFile, uploadCv } from '../lib/files'
+import { CV_ACCEPT, fmtDate, fmtDateTime, uploadCv, useSignedUrls } from '../lib/files'
+import { FileLink } from './FileLink'
 import { ErrorBox, Spinner, Svg } from './ui'
 import { ServiceChat } from './ServiceChat'
 
@@ -28,6 +29,7 @@ export function CvTab({ requestId, canUpload, asCandidate = false }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const input = useRef()
+  const urls = useSignedUrls('cvs', (d?.files || []).map((f) => f.file_path))
   const load = useCallback(() => { supabase.rpc('request_cvs', { p_request: requestId }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [requestId])
   useEffect(() => { load() }, [load])
   const onFile = async (e) => {
@@ -48,7 +50,7 @@ export function CvTab({ requestId, canUpload, asCandidate = false }) {
             <span className="text-xs text-tinta-3">{f.kind === 'mejorado' ? 'Versión mejorada' : 'Subido por la persona'} · {fmtDate(f.created_at)}{f.request_id === requestId ? ' · esta asesoría' : ''}</span>
             {f.note && <span className="text-xs text-tinta-2">«{f.note}»</span>}
           </span>
-          <button className="btn-sm shrink-0 border border-linea bg-white" onClick={() => openPrivateFile('cvs', f.file_path).catch((x) => setErr(x.message))}>Abrir</button>
+          <FileLink url={urls[f.file_path]} className="btn-sm shrink-0 border border-linea bg-white">Abrir</FileLink>
         </div>
       ))}
       {canUpload && (
