@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { salaryText } from '../lib/catalog'
 import { ErrorBox, Field, Spinner, Svg } from '../components/ui'
+import { FeaturedBadge, trackPromo } from '../lib/promo'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
 
@@ -44,6 +45,7 @@ export function PublicCompany() {
   const [d, setD] = useState()
   useEffect(() => { supabase.rpc('public_company', { p_slug: slug }).then(({ data }) => setD(data || null)) }, [slug])
   useEffect(() => { if (d?.company) document.title = `Empleos en ${d.company.display_name} · VINKA` }, [d])
+  useEffect(() => { if (d?.jobs) trackPromo(d.jobs.map((j) => j.promotion_id)) }, [d])
   if (d === undefined) return <Spinner />
   if (!d) return <NotFound what="Esta página de empleos" />
   const c = d.company
@@ -57,8 +59,9 @@ export function PublicCompany() {
       </section>
       <h2 className="text-[18px] font-semibold">{d.jobs.length ? `${d.jobs.length} ${d.jobs.length === 1 ? 'vacante abierta' : 'vacantes abiertas'}` : 'Sin vacantes abiertas por ahora'}</h2>
       {d.jobs.map((j) => (
-        <Link key={j.id} to={`/empleo/${j.id}`} className="card flex items-center gap-3 p-4 hover:border-rosa">
+        <Link key={j.id} to={`/empleo/${j.id}`} onClick={() => j.promotion_id && trackPromo([j.promotion_id], 'click')} className={`card flex items-center gap-3 p-4 hover:border-rosa ${j.featured ? 'border-[#E6C66A]' : ''}`}>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {j.featured && <FeaturedBadge className="mb-1" />}
             <span className="text-[16px] font-semibold">{j.title}</span>
             <span className="text-[13px] text-tinta-3">{meta(j)}</span>
             {salaryText(j) && <span className="text-[13px] font-semibold text-tinta-2">{salaryText(j)}</span>}

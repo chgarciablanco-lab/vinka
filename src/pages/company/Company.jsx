@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
+import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
 import { useAuth } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
@@ -55,11 +56,14 @@ export function CompanyPanel() {
   const approve = async (j) => { const { error } = await supabase.rpc('approve_job', { p_job: j.id }); setToast(error ? errMsg(error) : `«${j.title}» publicada`); setReload((n) => n + 1) }
   const [stats, setStats] = useState({})
   const [ext, setExt] = useState({})
+  const [promos, setPromos] = useState({})
   useEffect(() => {
     if (!company) return
     supabase.from('jobs').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).then(({ data }) => setJobs(data || []))
     supabase.from('external_applicants').select('job_id').eq('company_id', company.id).then(({ data }) => { const c = {}; (data || []).forEach((r) => { c[r.job_id] = (c[r.job_id] || 0) + 1 }); setExt(c) })
     supabase.rpc('company_stats', { p_company: company.id }).then(({ data }) => setStats(Object.fromEntries((data || []).map((s) => [s.job_id, s]))))
+    supabase.from('promotions').select('job_id, status, ends_at').eq('company_id', company.id).in('status', ['solicitada', 'activa', 'pausada'])
+      .then(({ data }) => setPromos(Object.fromEntries((data || []).map((p) => [p.job_id, p]))))
   }, [company, reload])
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
   const verified = company?.verification_status === 'verified'
@@ -119,6 +123,16 @@ export function CompanyPanel() {
             {j.status === 'review' && (isAdmin
               ? <button className="btn-sm bg-[#6B2E8F] text-white" onClick={() => approve(j)}>Aprobar y publicar</button>
               : <span className="text-xs text-[#6B2E8F]">Un administrador debe aprobarla para publicarla.</span>)}
+            {j.status === 'published' && verified && canManage && (() => {
+              const pr = promos[j.id]
+              const live = pr?.status === 'activa' && new Date(pr.ends_at) > new Date()
+              return (
+                <Link to={`/vacantes/${j.id}/destacar`} className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${live ? 'bg-[#FFF4D6] text-[#7A5200]' : 'border border-dashed border-[#E6C66A] text-[#7A5200]'}`}>
+                  <span className="flex items-center gap-1.5">{live ? <FeaturedBadge className="!bg-white" /> : '★'}{live ? `${daysLeft(pr.ends_at)} día(s) más entre los primeros` : pr?.status === 'solicitada' ? 'Destacado pendiente de pago' : pr?.status === 'pausada' ? 'Destacado en pausa' : 'Destacar para aparecer entre los primeros'}</span>
+                  <span>{live ? 'Ver rendimiento ›' : '›'}</span>
+                </Link>
+              )
+            })()}
             <div className="flex items-center justify-between gap-2">
               <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
               {j.status === 'published' && verified && <button onClick={() => share(`${window.location.origin}/empleo/${j.id}`)} className="flex items-center gap-1 text-xs font-semibold text-[#2C4A8A]"><Svg name="link" size={14} />Copiar enlace</button>}
@@ -354,6 +368,7 @@ export function JobCandidates() {
 
   const c = list?.[i]
   const pres = usePresence({ users: [c?.candidate_id] })
+  useEffect(() => { if (c?.promotion_id) trackPromo([c.promotion_id]) }, [c?.promotion_id])
   const cardRef = useRef()
   const [match, setMatch] = useState(null)
   const { company } = useAuth()
@@ -361,6 +376,7 @@ export function JobCandidates() {
     const cur = list[i]
     const action = { right: 'interest', left: 'pass', up: 'save' }[dir]
     setVideo(''); setI((n) => n + 1)
+    if (cur.promotion_id && action !== 'pass') trackPromo([cur.promotion_id], 'click')
     const { error } = await supabase.from('company_candidate_actions').upsert({ job_id: id, candidate_id: cur.candidate_id, action, created_by: user.id })
     if (error) return setErr(errMsg(error))
     if (action === 'interest') {
@@ -412,6 +428,7 @@ export function JobCandidates() {
             behind={list[i + 1] ? <div className="h-[480px] rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
           <article className="flex min-h-[480px] flex-col gap-3.5 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
             {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya mostró interés en esta vacante · si te interesa, es match</div>}
+            {c.featured && <FeaturedBadge kind="profile" />}
             <div className="flex items-center gap-3">
               <Avatar text={c.initials} color="#302538" size={56} round />
               <div className="flex flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span><PresenceLine p={pres[c.candidate_id]} /></div>

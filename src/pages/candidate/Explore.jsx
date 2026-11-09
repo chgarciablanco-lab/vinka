@@ -9,6 +9,7 @@ import { Bell } from '../../components/Bell'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine } from '../../components/Presence'
 import { ScreeningSheet, jobQuestions } from '../../components/Screening'
+import { FeaturedBadge, trackPromo } from '../../lib/promo'
 
 function JobCard({ job, onDetail, p }) {
   return (
@@ -26,6 +27,7 @@ function JobCard({ job, onDetail, p }) {
           <PresenceLine p={p} company />
         </div>
       </div>
+      {job.featured && <FeaturedBadge />}
       <h2 className="text-[23px] font-semibold leading-tight">{job.title}</h2>
       <div className="flex flex-wrap gap-1.5">
         {[job.modality === 'Remota' ? 'Remoto · Chile' : [job.comuna, job.region].filter(Boolean).join(', '), job.modality, job.schedule && `Jornada ${job.schedule.toLowerCase()}`, job.contract].filter(Boolean)
@@ -44,7 +46,7 @@ function JobCard({ job, onDetail, p }) {
         </div>
       )}
       <div className="flex-1" />
-      {onDetail && <button onClick={onDetail} className="self-start py-1 text-sm font-semibold text-rosa-texto">Ver vacante y empresa</button>}
+      {onDetail && <button onClick={() => { if (job.promotion_id) trackPromo([job.promotion_id], 'click'); onDetail() }} className="self-start py-1 text-sm font-semibold text-rosa-texto">Ver vacante y empresa</button>}
     </article>
   )
 }
@@ -74,6 +76,7 @@ export default function Explore() {
   const pres = usePresence({ companies: [job?.company_id, next?.company_id] })
   // Vistas del aviso (para el embudo de la empresa)
   useEffect(() => { if (job?.id) supabase.rpc('log_views', { p_jobs: [job.id] }).then(() => {}) }, [job?.id])
+  useEffect(() => { if (job?.promotion_id) trackPromo([job.promotion_id]) }, [job?.promotion_id])
   const ACTION = { right: 'interest', left: 'pass', up: 'save' }
 
   // Se llama cuando la tarjeta terminó de salir de la pantalla

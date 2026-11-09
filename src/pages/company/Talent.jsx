@@ -264,7 +264,7 @@ export default function Talent() {
                             <button className="flex items-center gap-3 text-left" onClick={() => openPerson(x)}>
                               <WithDot p={pres[x.candidate_id]}><Avatar text={initialsOf(x.name)} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={36} round /></WithDot>
                               <span className="flex min-w-0 flex-col">
-                                <span className="flex items-center gap-1.5 font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={13} className="text-naranja" />}{x.duplicate && <span className="rounded bg-naranja-palido px-1 text-[10px] text-naranja-texto">duplicado</span>}</span>
+                                <span className="flex items-center gap-1.5 font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={13} className="text-naranja" />}{x.featured && <span title="Perfil destacado" className="rounded bg-[#FFF4D6] px-1 text-[10px] font-bold text-[#7A5200]">★ Destacado</span>}{x.duplicate && <span className="rounded bg-naranja-palido px-1 text-[10px] text-naranja-texto">duplicado</span>}</span>
                                 <span className="max-w-[240px] truncate text-xs text-tinta-3">{x.headline || '—'}{x.kind === 'externo' ? ' · Otro portal' : ''}</span>
                                 {where && <span className="text-[11px] text-[#6B2E8F]">Coincide en {where}</span>}
                               </span>
@@ -287,7 +287,7 @@ export default function Talent() {
                   <button className="flex items-center gap-3 text-left" onClick={() => openPerson(x)}>
                     <WithDot p={pres[x.candidate_id]}><Avatar text={initialsOf(x.name)} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={44} round /></WithDot>
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={14} className="text-naranja" />}</span>
+                      <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={14} className="text-naranja" />}{x.featured && <span title="Perfil destacado" className="rounded bg-[#FFF4D6] px-1 text-[10px] font-bold text-[#7A5200]">★ Destacado</span>}</span>
                       <span className="truncate text-[13px] text-tinta-3">{x.headline || '—'}{x.comuna ? ` · ${x.comuna}` : ''}</span>
                       {roleLine(x) && <span className="truncate text-xs text-tinta-suave">{roleLine(x)}{x.has_experience === false ? ' · Primer empleo' : ''}</span>}
                       {where && <span className="text-[11px] font-semibold text-[#6B2E8F]">Coincide en {where}</span>}

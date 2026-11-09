@@ -64,7 +64,9 @@ export default function Plan() {
             <Meter label="Vacantes publicadas a la vez" used={d.usage.jobs} max={p.max_active_jobs} />
             <Meter label="Personas en el equipo" used={d.usage.members} max={p.max_members} />
             <Meter label="Consultas de IA del mes" used={d.usage.ai} max={p.ai_monthly} />
+            {p.promo_credits > 0 && <Meter label={`Destacados incluidos (${p.promo_days} días c/u)`} used={d.usage.promos || 0} max={p.promo_credits} />}
             <p className="hint">Cada uso de la IA queda registrado en el historial del candidato. Al llegar a un límite, VINKA te avisa y no se pierde nada.</p>
+            <p className="hint">Destacar una vacante la muestra entre los primeros resultados para las personas a quienes calza; no cambia cómo se evalúa a nadie. {p.promo_credits > 0 ? 'Úsalos desde cada vacante en el Panel.' : 'Con plan Gratis puedes comprar destacados sueltos desde cada vacante.'}</p>
           </div>
         </div>
         <div className="flex flex-col gap-3">
@@ -72,7 +74,7 @@ export default function Plan() {
           {(d.plans || []).map((x) => (
             <div key={x.id} className={`card flex flex-col gap-2 p-4 ${x.id === p.id ? 'border-2 border-rosa-accion' : ''}`}>
               <div className="flex items-baseline justify-between gap-2"><span className="text-[17px] font-bold">{x.name}</span><span className="text-sm font-semibold text-tinta-2">{money(x.price_clp)}</span></div>
-              <span className="text-sm text-tinta-3">{lim(x.max_active_jobs, x.max_active_jobs === 1 ? 'vacante publicada' : 'vacantes publicadas')} · {lim(x.max_members, x.max_members === 1 ? 'persona' : 'personas')} · {x.ai_monthly} consultas de IA al mes</span>
+              <span className="text-sm text-tinta-3">{lim(x.max_active_jobs, x.max_active_jobs === 1 ? 'vacante publicada' : 'vacantes publicadas')} · {lim(x.max_members, x.max_members === 1 ? 'persona' : 'personas')} · {x.ai_monthly} consultas de IA al mes · {x.promo_credits ? `${x.promo_credits} ${x.promo_credits === 1 ? 'destacado' : 'destacados'} de ${x.promo_days} días al mes` : 'destacados sueltos desde $4.990 + IVA'}</span>
               {x.id === p.id ? <span className="text-xs font-semibold text-rosa-texto">Plan actual</span>
                 : isAdmin && <button className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => setPick(x.id)}>{x.price_clp == null ? 'Pedir cotización' : 'Cambiar a este plan'}</button>}
             </div>

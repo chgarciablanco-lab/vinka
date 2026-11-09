@@ -54,6 +54,8 @@ const Compare = lz(() => import('./pages/company/Compare'))
 const Automations = lz(() => import('./pages/company/Automations'))
 const Plan = lz(() => import('./pages/company/Plan'))
 const Advisory = lz(() => import('./pages/candidate/Advisory'))
+const Visibility = lz(() => import('./pages/candidate/Visibility'))
+const Promote = lz(() => import('./pages/company/Promote'))
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -176,7 +178,7 @@ export default function App() {
       { to: '/postulantes', label: 'Usuarios', icon: 'people' }, { to: '/verificar', label: 'Empresas', icon: 'building' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' },
     ]
     const deskNav = [
-      { to: '/', label: 'Negocio y planes', icon: 'chart' },
+      { to: '/', label: 'Negocio y planes', icon: 'chart' }, { to: '/promociones', label: 'Destacados', icon: 'star' },
       { section: 'Asesorías' },
       { to: '/asesorias', label: 'Solicitudes', icon: 'chat' }, { to: '/asesores', label: 'Asesores', icon: 'star' },
       { section: 'Usuarios' },
@@ -195,6 +197,7 @@ export default function App() {
         <Route path="/asesorias" element={<WithNav items={nav}><Admin section="advisory" /></WithNav>} />
         <Route path="/postulantes" element={<WithNav items={nav}><Admin section="candidates" /></WithNav>} />
         <Route path="/asesores" element={<WithNav items={nav}><Admin section="advisors" /></WithNav>} />
+        <Route path="/promociones" element={<WithNav items={nav}><Admin section="promos" /></WithNav>} />
         <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />
         <Route path="/empresas" element={<WithNav items={nav}><Admin section="all" /></WithNav>} />
         <Route path="/denuncias" element={<WithNav items={nav}><Admin section="reports" /></WithNav>} />
@@ -219,7 +222,7 @@ export default function App() {
       <>
       <MatchWatcher onCount={setUnseen} />
       <PendingInvite />
-      <GoNext allowed={['/asesoria']} />
+      <GoNext allowed={['/asesoria', '/visibilidad']} />
       {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
@@ -234,6 +237,7 @@ export default function App() {
         <Route path="/perfil/preferencias" element={<EditStep Comp={StepPrefs} />} />
         <Route path="/perfil/presentacion" element={<EditStep Comp={StepIntro} />} />
         <Route path="/asesoria" element={<Advisory />} />
+        <Route path="/visibilidad" element={<Visibility />} />
         {isAdmin && <Route path="/admin" element={<Admin />} />}
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -272,6 +276,7 @@ export default function App() {
       <Route path="/vacantes/:id/comparar" element={<Compare />} />
       <Route path="/automatizaciones" element={<Automations />} />
       <Route path="/plan" element={<Plan />} />
+      <Route path="/vacantes/:id/destacar" element={<Promote />} />
       <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
       <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />

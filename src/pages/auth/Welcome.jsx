@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Svg } from '../../components/ui'
+import { FeaturedBadge, trackPromo } from '../../lib/promo'
+import { salaryText } from '../../lib/catalog'
 
 const money = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`
 /** Recuerda qué quería contratar la persona para llevarla ahí después de registrarse o ingresar */
@@ -26,6 +28,7 @@ const EMPRESAS = [
 const FAQ = [
   ['¿Cuánto cuesta para quienes buscan trabajo?', 'Nada. Crear tu perfil, postular, hacer match y conversar con empresas es gratis. La asesoría con reclutador es un servicio opcional.'],
   ['¿Cómo pago una asesoría?', 'Al solicitarla no pagas nada. Un reclutador de VINKA te contacta, confirma el servicio y te envía los datos para pagar por transferencia o tarjeta. La asesoría comienza al confirmar el pago.'],
+  ['¿Qué es un perfil o una oferta destacada?', 'Es opcional: aparece entre los primeros resultados, con una etiqueta, solo donde ya calza. No cambia cómo se evalúa a nadie, no oculta a los demás y se puede desactivar cuando quieras.'],
   ['¿La asesoría me da ventaja ante las empresas?', 'No. Las empresas no saben si contrataste una asesoría y no cambia tus matches. Te ayuda a presentarte mejor y a buscar con un plan.'],
   ['¿Cómo funciona la prueba para empresas?', 'Toda empresa nueva parte con 30 días del plan Pyme. Si no eliges un plan, pasa al plan Gratis sin perder nada.'],
   ['¿Cómo verifican a las empresas?', 'Revisamos el RUT y la razón social antes de publicar. Así quienes postulan saben que la oferta es real.'],
@@ -45,7 +48,11 @@ export default function Welcome() {
   const nav = useNavigate()
   const [services, setServices] = useState(null)
   const [plans, setPlans] = useState(null)
+  const [promo, setPromo] = useState([])
+  const [featuredJobs, setFeaturedJobs] = useState([])
   useEffect(() => {
+    supabase.from('promo_products').select('id, target, days, price_clp, price_mode').eq('active', true).order('sort').then(({ data }) => setPromo(data || []))
+    supabase.rpc('public_featured_jobs', { p_limit: 6 }).then(({ data }) => { setFeaturedJobs(data || []); trackPromo((data || []).map((j) => j.promotion_id)) })
     supabase.from('career_services').select('id, name, summary, includes, price_clp, delivery').eq('active', true).order('sort').then(({ data }) => setServices(data || []))
     supabase.from('plans').select('*').order('sort').then(({ data }) => setPlans(data || []))
   }, [])
@@ -108,6 +115,26 @@ export default function Welcome() {
         </div>
       </section>
 
+      {/* Ofertas destacadas (pagadas por las empresas; rotan) */}
+      {featuredJobs.length > 0 && (
+        <section className="mx-auto flex max-w-6xl flex-col gap-4 px-5 pb-12">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="font-display text-[22px] font-bold md:text-[26px]">Ofertas destacadas</h2>
+            <span className="text-xs text-tinta-3">Empresas verificadas · publicidad</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredJobs.map((j) => (
+              <Link key={j.id} to={`/empleo/${j.id}`} onClick={() => trackPromo([j.promotion_id], 'click')} className="flex flex-col gap-1.5 rounded-2xl border border-[#F0DDA0] bg-white p-4 hover:border-[#E6C66A]">
+                <FeaturedBadge />
+                <span className="font-display text-[16px] font-semibold leading-snug">{j.title}</span>
+                <span className="text-sm text-tinta-3">{j.company} · {j.modality === 'Remota' ? 'Remoto' : [j.comuna, j.region].filter(Boolean).join(', ')}</span>
+                {salaryText(j) && <span className="text-sm font-semibold text-tinta-2">{salaryText(j)}</span>}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Para personas */}
       <section id="personas" className="scroll-mt-16 bg-white py-14">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5">
@@ -144,6 +171,21 @@ export default function Welcome() {
             </div>
           )}
           <p className="text-[13px] text-tinta-3">No pagas al solicitar: te contactamos para confirmar y coordinar el pago. Contratar una asesoría no cambia tus postulaciones ni cómo te ven las empresas.</p>
+          {promo.some((x) => x.target === 'profile') && (
+            <div className="mt-2 flex flex-col gap-4 rounded-3xl border border-[#F0DDA0] bg-[#FFF9E8] p-5 md:flex-row md:items-center">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <FeaturedBadge kind="profile" />
+                <h3 className="font-display text-[20px] font-bold">Perfil destacado <span className="text-base font-medium text-tinta-3">(opcional)</span></h3>
+                <p className="text-sm leading-relaxed text-tinta-2">Aparece entre los primeros cuando una empresa busca personas para una vacante que te calza. Postular sigue siendo gratis y no cambia cómo te evalúan.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {promo.filter((x) => x.target === 'profile').map((x) => (
+                  <span key={x.id} className="flex flex-col rounded-xl border border-[#F0DDA0] bg-white px-3.5 py-2"><b className="text-[15px]">{x.days} días</b><span className="text-sm">{money(x.price_clp)}</span></span>
+                ))}
+              </div>
+              <button onClick={() => go('/registro/candidato', '/visibilidad')} className="btn-sec shrink-0 md:w-auto md:px-6">Destacar mi perfil</button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -183,6 +225,7 @@ export default function Welcome() {
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.max_active_jobs == null ? 'Vacantes sin límite' : `${p.max_active_jobs} ${p.max_active_jobs === 1 ? 'vacante publicada' : 'vacantes publicadas'} a la vez`}</li>
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.max_members == null ? 'Equipo sin límite' : `${p.max_members} ${p.max_members === 1 ? 'persona' : 'personas'} en el equipo`}</li>
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.ai_monthly.toLocaleString('es-CL')} consultas de IA al mes</li>
+                      <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.promo_credits ? `${p.promo_credits} ${p.promo_credits === 1 ? 'oferta destacada' : 'ofertas destacadas'} de ${p.promo_days} días al mes` : 'Ofertas destacadas sueltas'}</li>
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />Proceso de selección, chat, agenda y reportes</li>
                     </ul>
                     <button onClick={() => go('/registro/empresa', p.id === 'gratis' ? null : '/plan')} className={`mt-auto ${featured ? 'btn' : 'btn-sec'}`}>
@@ -193,7 +236,7 @@ export default function Welcome() {
               })}
             </div>
           )}
-          <p className="text-[13px] text-tinta-3">Toda empresa nueva parte con 30 días del plan Pyme. Si no eliges un plan, pasa al plan Gratis sin perder tus datos. Pago por transferencia o tarjeta, con factura.</p>
+          <p className="text-[13px] text-tinta-3">Toda empresa nueva parte con 30 días del plan Pyme. Si no eliges un plan, pasa al plan Gratis sin perder tus datos. Pago por transferencia o tarjeta, con factura.{promo.some((x) => x.target === 'job') && <> Ofertas destacadas sueltas, con cualquier plan: {promo.filter((x) => x.target === 'job').map((x) => `${x.days} días ${money(x.price_clp)}`).join(' · ')} + IVA.</>}</p>
         </div>
       </section>
 

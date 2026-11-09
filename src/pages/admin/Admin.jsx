@@ -15,11 +15,12 @@ const money = (v) => `$${Number(v || 0).toLocaleString('es-CL')}`
 const short = (v) => (v >= 1e6 ? `$${(v / 1e6).toLocaleString('es-CL', { maximumFractionDigits: 1 })} M` : v >= 1e3 ? `$${Math.round(v / 1e3)} mil` : money(v))
 const monthLabel = (ym) => { const [y, m] = ym.split('-'); return `${MES[Number(m) - 1]} ${y.slice(2)}` }
 
-/** Ingresos mensuales: barras apiladas de planes (morado) y asesorías (rosa) */
+/** Ingresos mensuales netos de IVA: barras apiladas de planes (morado), asesorías (rosa) y destacados (dorado) */
 function RevenueChart({ series }) {
   const [sel, setSel] = useState(series.length - 2)
   const W = 720, H = 220, L = 52, B = 26, T = 10
-  const max = Math.max(1, ...series.map((x) => x.plans + x.advisory))
+  const tot = (x) => x.plans + x.advisory + (x.promos || 0)
+  const max = Math.max(1, ...series.map(tot))
   const step = max > 4e6 ? 1e6 : max > 2e6 ? 5e5 : max > 5e5 ? 2.5e5 : 1e5
   const top = Math.ceil(max / step) * step
   const y = (v) => T + (H - T - B) * (1 - v / top)
@@ -31,7 +32,8 @@ function RevenueChart({ series }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-tinta-2">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#4A2163]" />Planes de empresas</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#D02E72]" />Asesorías</span>
-        {cur && <span className="ml-auto font-semibold text-tinta">{monthLabel(cur.month)}: {money(cur.plans + cur.advisory)} <span className="font-normal text-tinta-3">({money(cur.plans)} planes · {money(cur.advisory)} asesorías)</span></span>}
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#C99A1E]" />Destacados</span>
+        {cur && <span className="ml-auto font-semibold text-tinta">{monthLabel(cur.month)}: {money(tot(cur))} <span className="font-normal text-tinta-3">({money(cur.plans)} planes · {money(cur.advisory)} asesorías · {money(cur.promos || 0)} destacados)</span></span>}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Ingresos por mes de los últimos 24 meses">
         {ticks.map((t) => <g key={t}><line x1={L} x2={W} y1={y(t)} y2={y(t)} stroke="#EEE3EA" /><text x={L - 6} y={y(t) + 4} textAnchor="end" fontSize="10" fill="#8A8090">{short(t)}</text></g>)}
@@ -43,6 +45,7 @@ function RevenueChart({ series }) {
               <rect x={cx} y={T} width={bw} height={H - T - B} fill={i === sel ? '#FAF4F8' : 'transparent'} />
               {x.plans > 0 && <rect x={cx + 2} y={yp} width={w} height={y(0) - yp} fill="#4A2163" rx="2"><title>{`${monthLabel(x.month)} · planes ${money(x.plans)}`}</title></rect>}
               {x.advisory > 0 && <rect x={cx + 2} y={ya} width={w} height={Math.max(0, yp - ya - (x.plans > 0 ? 2 : 0))} fill="#D02E72" rx="2"><title>{`${monthLabel(x.month)} · asesorías ${money(x.advisory)}`}</title></rect>}
+              {(x.promos || 0) > 0 && <rect x={cx + 2} y={y(tot(x))} width={w} height={Math.max(0, ya - y(tot(x)) - 2)} fill="#C99A1E" rx="2"><title>{`${monthLabel(x.month)} · destacados ${money(x.promos)}`}</title></rect>}
               {(i % 3 === series.length % 3 || i === series.length - 1) && <text x={cx + bw / 2} y={H - 8} textAnchor="middle" fontSize="10" fill="#8A8090">{monthLabel(x.month)}</text>}
             </g>
           )
@@ -63,7 +66,7 @@ function Revenue() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[17px] font-bold">Ingresos</span>
+        <span className="flex flex-col"><span className="text-[17px] font-bold">Ingresos</span><span className="text-xs text-tinta-3">Montos netos, sin IVA</span></span>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración</label>
       </div>
       <ErrorBox>{err}</ErrorBox>
@@ -76,7 +79,7 @@ function Revenue() {
             <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Últimos 12 meses</span><span className="font-display text-[22px] font-bold">{money(r.last12)}</span></div>
             <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Ingreso recurrente mensual (planes)</span><span className="font-display text-[22px] font-bold">{money(r.mrr)}</span><span className="text-xs text-tinta-3">{r.paying} empresas pagando</span></div>
           </div>
-          {r.total === 0 ? <div className="card p-4 text-sm text-tinta-3">Aún no hay pagos registrados. Se registran al confirmar el pago de una asesoría (pasa a «En curso») o con «Registrar pago» en cada empresa.</div> : (
+          {r.total === 0 ? <div className="card p-4 text-sm text-tinta-3">Aún no hay pagos registrados. Se registran al confirmar el pago de una asesoría (pasa a «En curso»), al activar un destacado pagado o con «Registrar pago» en cada empresa.</div> : (
             <div className="card p-4"><RevenueChart series={r.series} /></div>
           )}
           <div className="grid gap-3 lg:grid-cols-2">
@@ -84,6 +87,8 @@ function Revenue() {
               <span className="text-[15px] font-semibold">Este mes</span>
               <span className="flex justify-between text-sm"><span>Planes de empresas</span><b>{money(r.month_plans)}</b></span>
               <span className="flex justify-between text-sm"><span>Asesorías ({r.advisory_month_count})</span><b>{money(r.month_advisory)}</b></span>
+              <span className="flex justify-between text-sm"><span>Destacados ({r.promo_month_count || 0})</span><b>{money(r.month_promos)}</b></span>
+              <span className="flex justify-between text-xs text-tinta-3"><span>IVA cobrado este mes (no es ingreso)</span><span>{money(r.month_iva)}</span></span>
               <span className="mt-1 text-[13px] font-semibold">Ingreso recurrente por plan</span>
               {r.by_plan.map((p) => <span key={p.plan} className="flex justify-between text-sm"><span>{PLAN_NAME[p.plan] || p.plan} · {p.n} empresas</span><b>{money(p.mrr)}</b></span>)}
             </div>
@@ -91,7 +96,7 @@ function Revenue() {
               <span className="text-[15px] font-semibold">Últimos pagos</span>
               {r.recent.map((p, i) => (
                 <span key={i} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] pb-1.5 text-xs last:border-0">
-                  <span className="min-w-0"><span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${p.kind === 'plan' ? 'bg-[#4A2163]' : 'bg-[#D02E72]'}`} /><b className="text-tinta">{p.who}</b> · {p.what}{p.demo ? ' · demo' : ''}<br /><span className="text-tinta-suave">{new Date(p.paid_at).toLocaleDateString('es-CL')} · {p.method}</span></span>
+                  <span className="min-w-0"><span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${p.kind === 'plan' ? 'bg-[#4A2163]' : p.kind === 'promocion' ? 'bg-[#C99A1E]' : 'bg-[#D02E72]'}`} /><b className="text-tinta">{p.who}</b> · {p.what}{p.demo ? ' · demo' : ''}<br /><span className="text-tinta-suave">{new Date(p.paid_at).toLocaleDateString('es-CL')} · {p.method}</span></span>
                   <b className="shrink-0 text-sm">{money(p.amount)}</b>
                 </span>
               ))}
@@ -561,7 +566,127 @@ function Advisors() {
   )
 }
 
-const TITLES = { business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
+const P_STATUS = { solicitada: 'Pendiente de pago', activa: 'Activa', pausada: 'Pausada', finalizada: 'Terminada', cancelada: 'Cancelada' }
+const P_PILL = { solicitada: 'bg-[#FFF4D6] text-[#7A5200]', activa: 'bg-[#EAF6EF] text-[#1E6B3F]', pausada: 'bg-[#F4EEF2] text-tinta-3', finalizada: 'bg-[#F4EEF2] text-tinta-3', cancelada: 'bg-[#F4EEF2] text-tinta-3' }
+const P_SOURCE = { compra: 'Compra', plan: 'Incluido en plan', cortesia: 'Cortesía' }
+
+/** Destacados: solicitudes, activos, precios, reglas de espacios e indicadores (empresas y personas por separado) */
+function Promos() {
+  const [target, setTarget] = useState('job')
+  const [demo, setDemo] = useState(true)
+  const [st, setSt] = useState('abiertas')
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [toast, setToast] = useState('')
+  const [act, setAct] = useState(null)
+  const [cfg, setCfg] = useState(null)
+  const load = useCallback(() => { supabase.rpc('admin_promotions', { p_target: target, p_include_demo: demo }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [target, demo])
+  useEffect(() => { setD(null); load() }, [load])
+  const activate = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_activate_promotion', { p_id: act.id, p_paid: act.paid, p_method: act.method, p_note: act.note })
+    if (error) return setErr(errMsg(error))
+    setAct(null); setToast('Destacado activado'); load()
+  }
+  const set = async (id, action, days = null) => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_set_promotion', { p_id: id, p_action: action, p_days: days })
+    if (error) return setErr(errMsg(error))
+    setToast('Listo'); load()
+  }
+  const saveCfg = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_promo_config', { p_products: cfg.products.map((x) => ({ id: x.id, days: Number(x.days), price_clp: Number(String(x.price_clp).replace(/\D/g, '')), active: x.active })), p_settings: cfg.settings })
+    if (error) return setErr(errMsg(error))
+    setCfg(null); setToast('Precios y reglas guardados'); load()
+  }
+  const items = (d?.items || []).filter((x) => st === 'todas' || (st === 'abiertas' ? ['solicitada', 'activa', 'pausada'].includes(x.status) : x.status === st))
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {[['job', 'Ofertas de empresas'], ['profile', 'Perfiles de personas']].map(([k, l]) => (
+          <button key={k} onClick={() => setTarget(k)} className={`h-10 rounded-full border px-3.5 text-[13px] font-semibold ${target === k ? 'border-morado bg-morado text-white' : 'border-linea bg-white'}`}>{l}</button>
+        ))}
+        <label className="ml-auto flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir demostración</label>
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      {!d ? <Spinner /> : (
+        <>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+            {[['Activos ahora', n(d.active)], ['Por activar (pago)', n(d.requested)], ['Ingreso neto del mes', money(d.month_net)], ['Vendidos / del plan este mes', `${n(d.month_sold)} / ${n(d.month_plan)}`], ['Apariciones · clics 30 días', `${n(d.impressions_30d)} · ${n(d.clicks_30d)}`]].map(([l, v]) => (
+              <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[19px] font-bold">{v}</span></div>
+            ))}
+          </div>
+          <div className="card flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[15px] font-semibold">Precios y reglas</span>
+              {!cfg && <button className="btn-sm border border-linea bg-white" onClick={() => setCfg({ products: d.products.map((x) => ({ ...x })), settings: { ...d.settings } })}>Editar</button>}
+            </div>
+            {!cfg ? (
+              <>
+                <span className="text-sm text-tinta-2">{d.products.map((x) => `${x.days} días ${money(x.price_clp)}${x.price_mode === 'neto' ? ' + IVA' : ' IVA incl.'}${x.active ? '' : ' (oculto)'}`).join(' · ')}</span>
+                <span className="text-xs text-tinta-3">Máximo {d.settings.slots_per_ten} destacados por cada 10 resultados · {d.settings.home_slots} en la página principal · hasta {target === 'job' ? d.settings.max_jobs : d.settings.max_profiles} activos a la vez</span>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {cfg.products.map((x, i) => (
+                  <div key={x.id} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                    <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Días</span><input className="input h-11" inputMode="numeric" value={x.days} onChange={(e) => { const p = [...cfg.products]; p[i] = { ...x, days: e.target.value }; setCfg({ ...cfg, products: p }) }} /></label>
+                    <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Precio ({x.price_mode === 'neto' ? '+ IVA' : 'IVA incluido'})</span><input className="input h-11" inputMode="numeric" value={x.price_clp} onChange={(e) => { const p = [...cfg.products]; p[i] = { ...x, price_clp: e.target.value }; setCfg({ ...cfg, products: p }) }} /></label>
+                    <label className="flex h-11 items-center gap-1.5 text-sm"><input type="checkbox" checked={x.active} onChange={(e) => { const p = [...cfg.products]; p[i] = { ...x, active: e.target.checked }; setCfg({ ...cfg, products: p }) }} className="h-4 w-4 accent-[#D02E72]" />Visible</label>
+                  </div>
+                ))}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[['slots_per_ten', 'Destacados por cada 10'], ['home_slots', 'En página principal'], ['max_jobs', 'Ofertas activas máx.'], ['max_profiles', 'Perfiles activos máx.']].map(([k, l]) => (
+                    <label key={k} className="flex flex-col gap-1"><span className="text-xs text-tinta-3">{l}</span><input className="input h-11" inputMode="numeric" value={cfg.settings[k]} onChange={(e) => setCfg({ ...cfg, settings: { ...cfg.settings, [k]: e.target.value.replace(/\D/g, '') } })} /></label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => setCfg(null)}>Cancelar</button><button className="btn h-11" onClick={saveCfg}>Guardar</button></div>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[['abiertas', 'Vigentes y por activar'], ['solicitada', 'Por activar'], ['activa', 'Activas'], ['finalizada', 'Terminadas'], ['todas', 'Todas']].map(([k, l]) => (
+              <button key={k} onClick={() => setSt(k)} className={`h-9 rounded-full border px-3 text-[13px] font-semibold ${st === k ? 'border-rosa-accion bg-rosa-palido text-rosa-texto' : 'border-linea bg-white'}`}>{l}</button>
+            ))}
+          </div>
+          {items.length === 0 ? <Empty title="Nada por aquí">{target === 'job' ? 'Las empresas piden destacados desde cada vacante.' : 'Las personas los piden desde su perfil.'}</Empty> : (
+            <div className="grid gap-2 lg:grid-cols-2">
+              {items.map((x) => (
+                <div key={x.id} className="card flex flex-col gap-1.5 p-3.5 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0"><b className="block truncate">{x.who || '—'}{x.demo && <span className="ml-1.5 rounded bg-[#F4EEF2] px-1.5 py-0.5 text-[11px] font-semibold text-tinta-3">Demo</span>}</b><span className="block truncate text-xs text-tinta-3">{x.what || '—'}</span></span>
+                    <span className={`pill shrink-0 ${P_PILL[x.status]}`}>{P_STATUS[x.status]}</span>
+                  </div>
+                  <span className="text-xs text-tinta-2">{x.days} días · {P_SOURCE[x.source]}{x.total ? ` · ${money(x.net)} + IVA ${money(x.iva)} = ${money(x.total)}` : ''}</span>
+                  <span className="text-xs text-tinta-3">{x.starts_at ? `${dt(x.starts_at)} → ${dt(x.ends_at)} · ${n(x.results.impressions)} apariciones · ${n(x.results.clicks)} clics · ${n(x.results.actions)} ${target === 'job' ? 'postulaciones' : 'empresas interesadas'}` : `Pedido el ${dt(x.created_at)}`}</span>
+                  {act?.id === x.id ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select className="input h-11" value={act.paid ? 'pago' : 'cortesia'} onChange={(e) => setAct({ ...act, paid: e.target.value === 'pago' })}><option value="pago">Pago recibido ({money(x.total)})</option><option value="cortesia">Cortesía (sin cobro)</option></select>
+                      {act.paid && <select className="input h-11" value={act.method} onChange={(e) => setAct({ ...act, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((m) => <option key={m}>{m}</option>)}</select>}
+                      <input className="input h-11 sm:col-span-2" placeholder="Nota (comprobante, motivo de cortesía)" value={act.note} onChange={(e) => setAct({ ...act, note: e.target.value })} />
+                      <button className="btn-sec h-11" onClick={() => setAct(null)}>Cancelar</button><button className="btn h-11" onClick={activate}>Activar ahora</button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {x.status === 'solicitada' && <><button className="btn-sm bg-morado text-white" onClick={() => setAct({ id: x.id, paid: true, method: 'transferencia', note: '' })}>Activar</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'cancelar')}>Rechazar</button></>}
+                      {x.status === 'activa' && <><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'extender', 7)}>+7 días</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'pausar')}>Pausar</button><button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'finalizar')}>Finalizar</button></>}
+                      {x.status === 'pausada' && <>{x.paused_by === 'admin' ? <button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'reanudar')}>Reanudar</button> : <span className="text-xs text-tinta-3">En pausa porque la vacante no está publicada</span>}<button className="btn-sm border border-linea bg-white" onClick={() => set(x.id, 'finalizar')}>Finalizar</button></>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="hint">Destacar solo cambia la posición en las listas (máximo {d.settings.slots_per_ten} de cada 10) y agrega una etiqueta. No toca evaluaciones, puntajes ni la IA, y solo aparece donde ya calza.</p>
+        </>
+      )}
+      <Toast msg={toast} onDone={() => setToast('')} />
+    </div>
+  )
+}
+
+const TITLES = { promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
 
 /** Cuenta de administración: datos, avisos y cierre de sesión */
 export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Para probar la app como postulante o empresa, usa las cuentas de prueba.' }) {
@@ -573,7 +698,7 @@ export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Pa
         <div className="card flex flex-col gap-0.5 p-4"><span className="font-semibold">{`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Administración'}</span><span className="text-sm text-tinta-3">{user?.email}</span></div>
         {isAdmin && (
           <div className="card px-4 lg:hidden">
-            {[['/asesores', 'Asesores'], ['/empresas', 'Todas las empresas'], ['/denuncias', 'Denuncias']].map(([to, l]) => (
+            {[['/promociones', 'Destacados'], ['/asesores', 'Asesores'], ['/empresas', 'Todas las empresas'], ['/denuncias', 'Denuncias']].map(([to, l]) => (
               <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
             ))}
           </div>
@@ -621,12 +746,12 @@ export default function Admin({ section }) {
       {section ? <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">{TITLES[tab]}</h1></div> : <TopBar back="/" title="Administración" />}
       <div className={`flex flex-col gap-3 px-5 lg:px-8 ${section ? 'pb-28 lg:pb-10' : 'pb-10'}`}>
         <div className={`flex flex-wrap gap-1.5 ${section ? 'hidden' : ''}`}>
-          {[['business', 'Negocio y planes'], ['advisory', 'Asesorías'], ['candidates', 'Postulantes'], ['advisors', 'Asesores'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
+          {[['business', 'Negocio y planes'], ['promos', 'Destacados'], ['advisory', 'Asesorías'], ['candidates', 'Postulantes'], ['advisors', 'Asesores'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-10 rounded-full border px-3 text-[13px] font-semibold ${tab === k ? 'border-morado bg-morado text-white' : 'border-linea bg-white'}`}>{l}</button>
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>
