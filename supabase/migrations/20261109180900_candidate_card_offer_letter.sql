@@ -1,5 +1,4 @@
--- 1) Búsqueda de candidatos: la empresa ve el perfil completo (sin datos de contacto) al buscar y hacer match
--- 2) Logo de la empresa (archivo público) y carta oferta formal, editable y enviable por correo
+-- Migración aplicada en Supabase (20261109180900). Exportada tal cual desde supabase_migrations.schema_migrations.
 
 create table if not exists backup.offers_20261109 as select * from public.offers;
 
@@ -58,7 +57,6 @@ end $function$;
 revoke execute on function public.candidates_for_job(uuid, boolean) from public, anon;
 grant execute on function public.candidates_for_job(uuid, boolean) to authenticated;
 
--- Logo de la empresa
 alter table public.companies add column if not exists logo_path text;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('logos', 'logos', true, 2097152, array['image/png', 'image/jpeg', 'image/webp'])
@@ -78,7 +76,6 @@ end $$;
 revoke execute on function public.set_company_logo(uuid, text) from public, anon;
 grant execute on function public.set_company_logo(uuid, text) to authenticated;
 
--- Carta oferta: texto formal editable (saludo, cuerpo, cierre y firma)
 alter table public.offers add column if not exists letter jsonb not null default '{}'::jsonb;
 alter table public.offers add column if not exists emailed_at timestamptz;
 alter table public.offers drop constraint if exists offers_letter_size;
@@ -117,7 +114,6 @@ begin
   return v_id;
 end $function$;
 
--- Datos para dibujar la carta (la ven la persona y la empresa)
 create or replace function public.offer_letter(p_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare o offers; mine boolean; m matches;
@@ -139,7 +135,6 @@ end $$;
 revoke execute on function public.offer_letter(uuid) from public, anon;
 grant execute on function public.offer_letter(uuid) to authenticated;
 
--- Reenviar la carta por correo (a la persona y, si se pide, una copia a quien la envía). Máximo una vez cada 10 minutos.
 create or replace function public.email_offer(p_id uuid, p_copy_me boolean default false) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare o offers; co text;

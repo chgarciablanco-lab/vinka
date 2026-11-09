@@ -1,5 +1,5 @@
--- Evalúa auth.uid() una vez por consulta en vez de una vez por fila (asesor auth_rls_initplan).
--- No cambia quién puede ver o editar qué: solo envuelve la misma función en un subselect.
+-- Migración aplicada en Supabase (20261109060037). Exportada tal cual desde supabase_migrations.schema_migrations.
+
 do $$
 declare p record; q text; c text; stmt text;
 begin

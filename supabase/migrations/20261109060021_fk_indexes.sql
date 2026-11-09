@@ -1,4 +1,5 @@
--- Índices para las 45 claves foráneas sin índice (asesor de rendimiento de Supabase)
+-- Migración aplicada en Supabase (20261109060021). Exportada tal cual desde supabase_migrations.schema_migrations.
+
 create index if not exists idx_companies_owner_id on companies (owner_id);
 create index if not exists idx_company_members_user_id on company_members (user_id);
 create index if not exists idx_jobs_company_id on jobs (company_id);

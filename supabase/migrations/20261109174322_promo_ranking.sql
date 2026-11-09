@@ -1,5 +1,4 @@
--- Destacados en las listas: se intercalan (máximo 2 de cada 10 por defecto) solo entre resultados que ya corresponden.
--- La relevancia (puntaje y motivos) no cambia: el destacado solo mueve la posición.
+-- Migración aplicada en Supabase (20261109174322). Exportada tal cual desde supabase_migrations.schema_migrations.
 
 drop function if exists public.job_feed(boolean);
 create function public.job_feed(p_broad boolean default false)
@@ -104,7 +103,6 @@ end $function$;
 revoke execute on function public.candidates_for_job(uuid, boolean) from public, anon;
 grant execute on function public.candidates_for_job(uuid, boolean) to authenticated;
 
--- Portal público de cada empresa: destacadas primero y con etiqueta
 create or replace function public.public_company(p_slug text)
  returns jsonb language sql stable security definer set search_path to 'public'
 as $function$
@@ -120,7 +118,6 @@ as $function$
   from companies c where c.slug = p_slug and c.verification_status = 'verified'
 $function$;
 
--- Banco de talentos: etiqueta de perfil destacado (no cambia el orden ni los datos)
 do $do$
 declare d text := pg_get_functiondef('public.talent_pool(uuid)'::regprocedure);
 begin
@@ -130,7 +127,6 @@ begin
   end if;
 end $do$;
 
--- Ingresos: se informan netos de IVA e incluyen destacados
 create or replace function public.admin_revenue(p_include_demo boolean default true) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare m0 timestamptz := date_trunc('month', now() at time zone 'America/Santiago') at time zone 'America/Santiago';

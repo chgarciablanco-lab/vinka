@@ -12,9 +12,12 @@ import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 const TABS = [
   ['match', 'Matches', 'Ambos se interesaron en la misma vacante. Ya pueden conversar.'],
   ['invited', 'Te invitaron', 'Una empresa verificada se interesó en ti para una vacante concreta. Si aceptas, es match.'],
-  ['sent', 'Enviados', 'Mostraste interés. Será match solo si la empresa también se interesa.'],
+  ['sent', 'Enviados', 'Mostraste interés. Será match si la empresa también se interesa. Si elige a otras personas o cierra la vacante, te lo mostramos aquí.'],
   ['saved', 'Guardadas', 'Solo tú ves lo que guardas. La empresa no recibe aviso.'],
 ]
+const STATUS_PILL = { no_seleccionado: ['NO SELECCIONADO', 'bg-[#F4EEF2] text-tinta-3'], cerrada: ['VACANTE CERRADA', 'bg-[#F4EEF2] text-tinta-3'] }
+const STATUS_TXT = { no_seleccionado: 'La empresa decidió avanzar con otras personas. ¡Sigue postulando!', cerrada: 'La empresa cerró o pausó esta vacante.' }
+const ORDER = { pendiente: 0, no_seleccionado: 1, cerrada: 2 }
 const PILL = { match: ['MATCH', 'bg-rosa-accion text-white'], invited: ['TE INVITARON', 'bg-[#FFE7CC] text-naranja-texto'], sent: ['ENVIADO', 'bg-[#ECE6F2] text-[#3D2F4A]'], saved: ['GUARDADA', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
 
 export default function Interests() {
@@ -55,10 +58,11 @@ export default function Interests() {
   }
   const unsave = async (job_id) => { await supabase.from('candidate_job_actions').delete().eq('candidate_id', user.id).eq('job_id', job_id); load() }
 
-  const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k).length)
+  const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length)
   const list = tab === 'match'
     ? matches.map((m) => ({ key: m.match_id, title: m.job_title, company: m.company_name, match_id: m.match_id }))
-    : (rows || []).filter((r) => r.kind === tab).map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
+    : (rows || []).filter((r) => r.kind === tab).sort((a, b) => (ORDER[a.status] || 0) - (ORDER[b.status] || 0))
+      .map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, status: r.status, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
@@ -87,8 +91,9 @@ export default function Interests() {
                 <span className="text-[15px] font-semibold">{r.title}</span>
                 <span className="truncate text-[13px] text-tinta-3">{r.company}</span>
               </div>
-              <span className={`pill whitespace-nowrap ${PILL[tab][1]}`}>{PILL[tab][0]}</span>
+              <span className={`pill whitespace-nowrap ${(STATUS_PILL[r.status] || PILL[tab])[1]}`}>{(STATUS_PILL[r.status] || PILL[tab])[0]}</span>
             </div>
+            {STATUS_TXT[r.status] && <span className="text-[13px] leading-snug text-tinta-3">{STATUS_TXT[r.status]}</span>}
             {tab === 'invited' && (
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn-sm border border-linea bg-white" onClick={() => respond(r.job_id, 'pass')}>No, gracias</button>
@@ -96,7 +101,8 @@ export default function Interests() {
               </div>
             )}
             {tab === 'match' && <Link to={`/chats/${r.match_id}`} className="btn-sm bg-rosa-palido text-rosa-oscuro">Abrir chat</Link>}
-            {tab === 'saved' && (
+            {tab === 'saved' && r.status !== 'pendiente' && <button className="btn-sm self-start border border-linea bg-white" onClick={() => unsave(r.job_id)}>Quitar de guardadas</button>}
+            {tab === 'saved' && r.status === 'pendiente' && (
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn-sm border border-linea bg-white" onClick={() => unsave(r.job_id)}>Quitar</button>
                 <button className="btn-sm bg-rosa-accion text-white" onClick={() => respond(r.job_id, 'interest')}>Me interesa</button>

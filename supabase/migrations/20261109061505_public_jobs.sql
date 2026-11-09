@@ -1,4 +1,5 @@
--- Página pública de empleos por empresa y postulación sin cuenta.
+-- Migración aplicada en Supabase (20261109061505). Exportada tal cual desde supabase_migrations.schema_migrations.
+
 alter table public.companies add column if not exists slug text;
 
 create or replace function public.slugify(t text) returns text language sql immutable as $$
@@ -19,7 +20,6 @@ begin
 end $$;
 drop trigger if exists company_slug on public.companies;
 create trigger company_slug before insert or update of slug on public.companies for each row execute function company_slug();
--- una empresa a la vez, para que cada slug vea los anteriores
 do $$ declare r record; begin for r in select id from public.companies where slug is null order by created_at loop update public.companies set slug = null where id = r.id; end loop; end $$;
 create unique index if not exists companies_slug_key on public.companies (slug);
 
@@ -50,7 +50,7 @@ create or replace function public.public_apply(p_job uuid, p_name text, p_email 
 returns text language plpgsql security definer set search_path = public as $$
 declare j jobs; v_email text := lower(trim(coalesce(p_email, ''))); v_name text := trim(coalesce(p_name, ''));
 begin
-  if coalesce(p_hp, '') <> '' then return 'ok'; end if;  -- campo trampa para bots
+  if coalesce(p_hp, '') <> '' then return 'ok'; end if;
   if not coalesce(p_consent, false) then raise exception 'Debes aceptar la política de privacidad para postular'; end if;
   if char_length(v_name) < 3 or char_length(v_name) > 120 then raise exception 'Escribe tu nombre y apellido'; end if;
   if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(v_email) > 160 then raise exception 'Revisa tu correo'; end if;

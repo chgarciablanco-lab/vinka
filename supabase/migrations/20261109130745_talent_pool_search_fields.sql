@@ -1,10 +1,7 @@
--- Banco de talento: agrega familia y nivel del cargo, experiencia y estudios para el buscador (solo suma campos)
-CREATE OR REPLACE FUNCTION public.talent_pool(p_company uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'auth'
-AS $function$
+-- Migración aplicada en Supabase (20261109130745). Exportada tal cual desde supabase_migrations.schema_migrations.
+
+create or replace function public.talent_pool(p_company uuid)
+returns jsonb language plpgsql stable security definer set search_path = public, auth as $function$
 declare res jsonb;
 begin
   if not is_company_member(p_company) then raise exception 'Sin acceso'; end if;

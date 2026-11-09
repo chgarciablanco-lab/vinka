@@ -1,5 +1,4 @@
--- Asesoría con reclutador para postulantes: servicios opcionales y pagados (revisión de CV y búsqueda de empleo).
--- No influyen en postulaciones ni matches. Precios predeterminados editables desde Administración.
+-- Migración aplicada en Supabase (20261109131514). Exportada tal cual desde supabase_migrations.schema_migrations.
 
 create table if not exists public.career_services (
   id text primary key,
@@ -46,7 +45,6 @@ create index if not exists idx_service_requests_status on public.service_request
 alter table public.service_requests enable row level security;
 create policy "asesorías: la persona ve las suyas" on public.service_requests for select to authenticated
   using (candidate_id = (select auth.uid()) or (select is_admin()));
--- se crean y modifican solo con las funciones de abajo
 
 create or replace function public.request_career_service(p_service text, p_goal text, p_contact text, p_consent boolean)
 returns uuid language plpgsql security definer set search_path = public as $$
@@ -87,7 +85,6 @@ end $$;
 revoke execute on function public.cancel_service_request(uuid) from public, anon;
 grant execute on function public.cancel_service_request(uuid) to authenticated;
 
--- Administración: solicitudes con el perfil laboral y contacto (la persona lo autorizó al pedir el servicio)
 create or replace function public.admin_service_requests()
 returns jsonb language plpgsql stable security definer set search_path = public, auth as $$
 begin
@@ -139,7 +136,6 @@ end $$;
 revoke execute on function public.admin_upsert_service(text, text, text, text[], int, text, boolean, int) from public, anon;
 grant execute on function public.admin_upsert_service(text, text, text, text[], int, text, boolean, int) to authenticated;
 
--- Exportación de datos personales: incluye las asesorías
 create or replace function public.export_my_data()
  returns jsonb language plpgsql stable security definer set search_path to 'public', 'auth' as $function$
 declare uid uuid := auth.uid();

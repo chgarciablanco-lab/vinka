@@ -5,14 +5,18 @@ import { useAuth } from './lib/auth'
 import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner, Svg } from './components/ui'
 import { DesktopNav } from './components/DesktopNav'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorBoundary, isStaleChunk, reloadForNewVersion } from './components/ErrorBoundary'
 import Welcome from './pages/auth/Welcome'
 import { CheckEmail, Forgot, Login, NewPassword } from './pages/auth/AuthPages'
 import { SignupCandidate, SignupCompany } from './pages/auth/Signup'
 import { readPendingInvite } from './pages/Invitation'
 
 // Cada pantalla se descarga solo cuando se abre: la app inicial pesa menos y carga más rápido
-const lz = (load, name = 'default') => lazy(() => load().then((m) => ({ default: m[name] })))
+// Pantallas con carga diferida. Si la app quedó abierta durante una publicación, el archivo antiguo ya no existe: se recarga sola.
+const lz = (load, name = 'default') => lazy(() => load().then((m) => ({ default: m[name] }), (err) => {
+  if (isStaleChunk(err?.message) && reloadForNewVersion()) return new Promise(() => {})
+  throw err
+}))
 const Onboarding = lz(() => import('./pages/candidate/ProfileSteps'), 'Onboarding')
 const StepWork = lz(() => import('./pages/candidate/ProfileSteps'), 'StepWork')
 const StepPrefs = lz(() => import('./pages/candidate/ProfileSteps'), 'StepPrefs')

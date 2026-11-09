@@ -1,15 +1,12 @@
--- Fase 3: planes, suscripciones y límites aplicados en el servidor; registro de uso de IA;
--- una persona puede pertenecer a varias empresas; el administrador global ya no depende de un correo fijo.
+-- Migración aplicada en Supabase (20261109122235). Exportada tal cual desde supabase_migrations.schema_migrations.
 
--- fecha de ingreso al equipo (para elegir la empresa más reciente y ordenar el selector de empresas)
 alter table public.company_members add column if not exists created_at timestamptz not null default now();
 
--- ---------- Planes ----------
 create table if not exists public.plans (
   id text primary key,
   name text not null,
-  price_clp int,                 -- mensual, sin IVA; null = cotización
-  max_active_jobs int,           -- null = sin límite
+  price_clp int,
+  max_active_jobs int,
   max_members int,
   ai_monthly int not null,
   sort int not null default 0
@@ -38,9 +35,7 @@ create index if not exists idx_subscriptions_plan on public.subscriptions (plan_
 create index if not exists idx_subscriptions_updated_by on public.subscriptions (updated_by);
 alter table public.subscriptions enable row level security;
 create policy "suscripción: equipo y admin leen" on public.subscriptions for select to authenticated using (is_company_member(company_id) or is_admin());
--- solo se modifica con admin_set_plan (sin políticas de escritura)
 
--- toda empresa nueva parte con 30 días de prueba del plan Pyme
 create or replace function public.company_add_subscription() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -48,7 +43,6 @@ begin
   on conflict (company_id) do nothing;
   return new;
 end $$;
-drop trigger if exists company_add_subscription on public.companies; -- (no existía al aplicarse)
 create trigger company_add_subscription after insert on public.companies for each row execute function company_add_subscription();
 
 insert into public.subscriptions (company_id, plan_id, status, trial_ends_at, note)
@@ -60,7 +54,6 @@ select c.id,
 from public.companies c
 on conflict (company_id) do nothing;
 
--- al terminar la prueba sin contratar, pasa al plan Gratis (no se borra nada; solo aplican los límites)
 create or replace function public.expire_trials() returns void
 language plpgsql security definer set search_path = public as $$
 declare r record;
@@ -72,7 +65,7 @@ begin
   end loop;
 end $$;
 revoke all on function public.expire_trials() from public, anon, authenticated;
-select cron.schedule('vinka-fin-de-prueba', '41 6 * * *', $$select public.expire_trials()$$);
+select cron.schedule('vinka-fin-de-prueba', '41 6 * * *', $cron$select public.expire_trials()$cron$);
 
 create or replace function public.plan_of(p_company uuid) returns plans
 language sql stable security definer set search_path = public as $$
@@ -80,7 +73,6 @@ language sql stable security definer set search_path = public as $$
   where p.id = coalesce((select case when s.status = 'canceled' then 'gratis' else s.plan_id end from subscriptions s where s.company_id = p_company), 'gratis')
 $$;
 
--- ---------- Uso de IA por empresa y registro de cada uso ----------
 create table if not exists public.ai_log (
   id bigint generated always as identity primary key,
   user_id uuid references auth.users(id) on delete set null,
@@ -97,7 +89,6 @@ create index if not exists idx_ai_log_candidate on public.ai_log (candidate_id);
 alter table public.ai_log enable row level security;
 create policy "ia registro: admins de empresa" on public.ai_log for select to authenticated using (is_company_admin(company_id) or is_admin());
 
--- devuelve null si puede usar la IA, o el motivo si no
 create or replace function public.ai_quota(p_user uuid, p_daily int, p_task text, p_job uuid default null, p_candidate uuid default null)
 returns text language plpgsql security definer set search_path = public as $$
 declare v_company uuid; v_plan plans; v_used int; v_day int;
@@ -123,7 +114,6 @@ end $$;
 revoke all on function public.ai_quota(uuid, int, text, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.ai_quota(uuid, int, text, uuid, uuid) to service_role;
 
--- ---------- Límites del plan ----------
 create or replace function public.job_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare v_plan plans; v_active int;
@@ -172,7 +162,6 @@ begin
   return v_id;
 end $$;
 
--- una persona puede ser parte de varias empresas (consultoras, holdings)
 create or replace function public.join_company(p_user uuid, p_email text, p_token uuid)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare i company_invites; v_plan plans;
@@ -191,7 +180,6 @@ begin
   return i.company_id;
 end $$;
 
--- el administrador global se gestiona solo en la tabla admins (sin correos fijos en el código)
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare r text := coalesce(new.raw_user_meta_data->>'role','candidate');
@@ -212,7 +200,6 @@ begin
   return new;
 end $$;
 
--- ---------- Plan y uso para la empresa ----------
 create or replace function public.company_plan(p_company uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare s subscriptions; p plans;
@@ -242,7 +229,6 @@ begin
 end $$;
 grant execute on function public.request_plan_change(uuid, text, text) to authenticated;
 
--- ---------- Administración de VINKA ----------
 create or replace function public.admin_set_plan(p_company uuid, p_plan text, p_status text, p_period_end timestamptz, p_note text default '')
 returns void language plpgsql security definer set search_path = public as $$
 begin

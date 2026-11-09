@@ -2,6 +2,20 @@ import { Component } from 'react'
 import { supabase } from '../lib/supabase'
 
 let sent = 0
+
+/** Errores típicos cuando la app abierta pide archivos de una versión anterior ya reemplazada (Chrome, Safari/iPhone, Firefox) */
+export const isStaleChunk = (msg) => /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|is not a valid JavaScript MIME type|Loading (CSS )?chunk|Unable to preload CSS/i.test(String(msg || ''))
+
+/** Recarga la app para traer la versión nueva; como máximo una vez cada 30 segundos para no quedar en bucle */
+export function reloadForNewVersion() {
+  try {
+    const last = Number(sessionStorage.getItem('vinka-reloaded-at') || 0)
+    if (Date.now() - last < 30000) return false
+    sessionStorage.setItem('vinka-reloaded-at', String(Date.now()))
+  } catch { /* sin almacenamiento: recarga igual */ }
+  window.location.reload()
+  return true
+}
 /** Guarda el error en Supabase (tabla client_errors, solo la ve el administrador). Nunca lanza. */
 export function reportError(error, extra = '') {
   try {
@@ -9,10 +23,7 @@ export function reportError(error, extra = '') {
     sent++
     const msg = String(error?.message || error || 'Error desconocido')
     // cargar una ruta después de publicar una versión nueva falla una vez; se recarga en vez de registrarlo
-    if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg)) {
-      if (!sessionStorage.getItem('vinka-reloaded')) { sessionStorage.setItem('vinka-reloaded', '1'); window.location.reload() }
-      return
-    }
+    if (isStaleChunk(msg)) { reloadForNewVersion(); return }
     supabase.rpc('log_client_error', {
       p_message: msg, p_stack: `${error?.stack || ''}${extra ? `\n${extra}` : ''}`,
       p_path: window.location.pathname, p_ua: navigator.userAgent,
@@ -21,6 +32,8 @@ export function reportError(error, extra = '') {
 }
 
 export function installGlobalErrorHandlers() {
+  // Vite avisa cuando no puede precargar un archivo de la versión anterior
+  window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault() })
   window.addEventListener('error', (e) => reportError(e.error || e.message))
   window.addEventListener('unhandledrejection', (e) => reportError(e.reason))
 }

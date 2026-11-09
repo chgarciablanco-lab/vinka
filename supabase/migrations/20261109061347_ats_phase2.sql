@@ -1,7 +1,5 @@
--- Fase 2 del ATS: límites anti-spam, aviso al cerrar vacante, reglas automáticas por etapa,
--- aviso de procesos detenidos, tiempo por etapa, aprobaciones y alertas de vacantes para candidatos.
+-- Migración aplicada en Supabase (20261109061347). Exportada tal cual desde supabase_migrations.schema_migrations.
 
--- ---------- 1. Límites de envío ----------
 create index if not exists idx_messages_sender_created on public.messages (sender_id, created_at desc);
 
 create or replace function public.message_rate_guard() returns trigger
@@ -36,14 +34,12 @@ begin
   return n;
 end $$;
 
--- ---------- 2. Aviso cuando una vacante se cierra ----------
 create or replace function public.notify_job_closed() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare co text;
 begin
   if new.status = 'closed' and old.status in ('published', 'paused') then
     select display_name into co from companies where id = new.company_id;
-    -- quienes dijeron "Me interesa" y no tuvieron respuesta
     perform notify_users(array(
       select a.candidate_id from candidate_job_actions a
       where a.job_id = new.id and a.action = 'interest'
@@ -51,7 +47,6 @@ begin
         and not exists (select 1 from company_candidate_actions c where c.job_id = new.id and c.candidate_id = a.candidate_id and c.action = 'pass')),
       'job_closed', 'La vacante «' || new.title || '» cerró',
       co || ' cerró este proceso. Gracias por tu interés: sigue explorando vacantes parecidas en VINKA.', '/', false);
-    -- quienes seguían en proceso
     perform notify_users(array(
       select m.candidate_id from matches m
       where m.job_id = new.id and not m.closed and m.stage not in ('contratado', 'descartado')),
@@ -63,7 +58,6 @@ end $$;
 drop trigger if exists on_job_closed on public.jobs;
 create trigger on_job_closed after update of status on public.jobs for each row execute function notify_job_closed();
 
--- ---------- 3. Reglas automáticas por etapa ----------
 create table if not exists public.stage_rules (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -86,11 +80,9 @@ language plpgsql security definer set search_path = public as $$
 declare r stage_rules; v_uid uuid := auth.uid(); v_body text;
 begin
   if new.stage is not distinct from old.stage or new.closed then return new; end if;
-  -- solo cuando una persona del equipo mueve la etapa (no en procesos automáticos)
   if v_uid is null or not is_company_member(new.company_id) then return new; end if;
   select * into r from stage_rules where company_id = new.company_id and stage = new.stage and enabled;
   if r.id is null then return new; end if;
-  -- si quien movió ya escribió en este chat en el último minuto (por ejemplo, con una plantilla), no se duplica
   if exists (select 1 from messages where match_id = new.id and sender_id = v_uid and created_at > now() - interval '1 minute') then return new; end if;
   v_body := replace(replace(replace(r.body,
     '{nombre}', coalesce((select first_name from profiles where id = new.candidate_id), '')),
@@ -100,12 +92,11 @@ begin
   perform log_event(new.company_id, new.job_id, new.candidate_id, null, 'auto_message', jsonb_build_object('stage', new.stage));
   return new;
 exception when others then
-  return new; -- una regla nunca debe impedir mover a una persona de etapa
+  return new;
 end $$;
 drop trigger if exists apply_stage_rule on public.matches;
 create trigger apply_stage_rule after update of stage on public.matches for each row execute function apply_stage_rule();
 
--- ---------- 4. Aviso de procesos detenidos ----------
 alter table public.companies add column if not exists stale_days int not null default 5 check (stale_days between 0 and 60);
 
 create or replace function public.stale_digest() returns void
@@ -133,7 +124,6 @@ end $$;
 revoke all on function public.stale_digest() from public, anon, authenticated;
 select cron.schedule('vinka-procesos-detenidos', '7 12 * * 1-5', $$select public.stale_digest()$$);
 
--- ---------- 5. Tiempo promedio por etapa ----------
 create or replace function public.stage_times(p_company uuid, p_days int default 90)
 returns table (stage text, avg_days numeric, n bigint)
 language sql stable security definer set search_path = public as $$
@@ -154,7 +144,6 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function public.stage_times(uuid, int) to authenticated;
 
--- ---------- 6. Aprobaciones de vacantes y ofertas ----------
 alter table public.companies add column if not exists require_approval boolean not null default false;
 alter table public.jobs drop constraint jobs_status_check;
 alter table public.jobs add constraint jobs_status_check check (status in ('draft', 'pending', 'review', 'published', 'paused', 'closed'));
@@ -240,11 +229,9 @@ begin
 end $$;
 grant execute on function public.approve_offer(uuid, boolean) to authenticated;
 
--- el candidato no ve ofertas que aún no se aprueban
 alter policy "ofertas: participantes" on public.offers
   using ((candidate_id = (select auth.uid()) and status <> 'por_aprobar') or is_company_member(company_id));
 
--- ---------- 7. Alertas de vacantes nuevas para candidatos ----------
 alter table public.candidate_profiles add column if not exists job_alerts boolean not null default true;
 
 create or replace function public.job_alerts_digest() returns void

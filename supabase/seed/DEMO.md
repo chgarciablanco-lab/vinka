@@ -60,3 +60,8 @@ delete from payments where promotion_id in (select id from seed.promotions);
 delete from promotions where id in (select id from seed.promotions);
 drop table seed.promotions;
 ```
+
+
+## Cuentas de prueba
+
+Las 6 cuentas `*.test@example.com` (admin, asesor, camila, diego, nova, agro) y sus empresas Nova Retail y Agroexport Maule están registradas en `seed.users` (con `kind = 'test'`) y `seed.companies`. Así sus pagos y destacados cuentan como demostración y no como ingreso real. La limpieza de arriba también las borra; hazla solo al lanzar.

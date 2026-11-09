@@ -1,15 +1,11 @@
--- Destacados: ofertas laborales destacadas (empresas) y perfiles destacados (personas).
--- Pagar solo cambia la posición en las listas y agrega una etiqueta. No toca evaluaciones, puntajes ni la IA.
--- Sin pasarela de pago todavía: las compras quedan "solicitadas" y administración las activa al recibir el pago.
+-- Migración aplicada en Supabase (20261109174238). Exportada tal cual desde supabase_migrations.schema_migrations.
 
--- 0) Respaldo de las tablas que se modifican (esquema no expuesto por la API)
 create schema if not exists backup;
 revoke all on schema backup from public, anon, authenticated;
 create table if not exists backup.payments_20261109 as select * from public.payments;
 create table if not exists backup.plans_20261109 as select * from public.plans;
 create table if not exists backup.subscriptions_20261109 as select * from public.subscriptions;
 
--- 1) Registro de pagos con neto, IVA y total (los montos registrados no se modifican)
 alter table public.payments
   add column if not exists net_clp int,
   add column if not exists iva_clp int,
@@ -20,7 +16,6 @@ alter table public.payments
 alter table public.payments drop constraint if exists payments_kind_check;
 alter table public.payments add constraint payments_kind_check check (kind in ('plan', 'asesoria', 'promocion'));
 
--- Planes se cobran + IVA (el monto registrado es neto); asesorías se cobran con IVA incluido
 update public.payments set
   net_clp = case when kind = 'plan' then amount_clp else round(amount_clp / 1.19)::int end,
   iva_clp = case when kind = 'plan' then round(amount_clp * 0.19)::int else amount_clp - round(amount_clp / 1.19)::int end
@@ -42,7 +37,6 @@ revoke execute on function public.payment_split() from public, anon, authenticat
 drop trigger if exists payment_split on public.payments;
 create trigger payment_split before insert on public.payments for each row execute function public.payment_split();
 
--- 2) Destacados incluidos en cada plan de empresa (por mes)
 alter table public.plans
   add column if not exists promo_credits int not null default 0 check (promo_credits >= 0),
   add column if not exists promo_days int not null default 7 check (promo_days between 1 and 60);
@@ -51,7 +45,6 @@ update public.plans set promo_credits = 1, promo_days = 7 where id = 'pyme';
 update public.plans set promo_credits = 3, promo_days = 15 where id = 'equipo';
 update public.plans set promo_credits = 5, promo_days = 30 where id = 'empresa';
 
--- 3) Catálogo de productos
 create table if not exists public.promo_products (
   id text primary key,
   target text not null check (target in ('job', 'profile')),
@@ -63,8 +56,7 @@ create table if not exists public.promo_products (
   sort int not null default 0
 );
 alter table public.promo_products enable row level security;
-create policy "destacados: catálogo público" on public.promo_products for select to anon using (active);
-create policy "destacados: catálogo con sesión" on public.promo_products for select to authenticated using (active or (select is_admin()));
+create policy "destacados: catálogo público" on public.promo_products for select to anon, authenticated using (active or (select is_admin()));
 insert into public.promo_products (id, target, name, days, price_clp, price_mode, sort) values
   ('job_7', 'job', 'Oferta destacada 7 días', 7, 4990, 'neto', 1),
   ('job_15', 'job', 'Oferta destacada 15 días', 15, 8990, 'neto', 2),
@@ -74,7 +66,6 @@ insert into public.promo_products (id, target, name, days, price_clp, price_mode
   ('profile_30', 'profile', 'Perfil destacado 30 días', 30, 5990, 'iva_incluido', 6)
 on conflict (id) do nothing;
 
--- 4) Reglas de espacios
 create table if not exists public.promo_settings (
   id boolean primary key default true check (id),
   slots_per_ten int not null default 2 check (slots_per_ten between 0 and 5),
@@ -87,7 +78,6 @@ insert into public.promo_settings (id) values (true) on conflict do nothing;
 alter table public.promo_settings enable row level security;
 create policy "destacados: reglas solo administración" on public.promo_settings for select to authenticated using ((select is_admin()));
 
--- 5) Promociones
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
   product_id text references public.promo_products(id),
@@ -138,7 +128,6 @@ alter table public.promo_stats enable row level security;
 create policy "destacados: estadísticas propias" on public.promo_stats for select to authenticated
   using (exists (select 1 from promotions p where p.id = promotion_id and ((select is_admin()) or p.candidate_id = (select auth.uid()) or (p.company_id is not null and is_company_member(p.company_id)))));
 
--- Activa ahora (para filtrar listas)
 create or replace function public.job_featured(p_job uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from promotions where job_id = p_job and target = 'job' and status = 'activa' and ends_at > now())
@@ -152,7 +141,6 @@ revoke execute on function public.profile_featured(uuid) from public, anon;
 grant execute on function public.job_featured(uuid) to authenticated;
 grant execute on function public.profile_featured(uuid) to authenticated;
 
--- Posición en una lista con destacados intercalados: máximo `slots` por cada 10, el resto orgánico
 create or replace function public.promo_slot(p_featured boolean, p_k bigint) returns numeric
 language sql stable set search_path = public as $$
   select case
@@ -167,10 +155,9 @@ create or replace function public.admin_ids() returns uuid[]
 language sql stable security definer set search_path = public as $$ select coalesce(array_agg(user_id), '{}') from admins $$;
 revoke execute on function public.admin_ids() from public, anon, authenticated;
 
--- 6) Solicitar un destacado (empresa: oferta; persona: su perfil)
 create or replace function public.request_promotion(p_product text, p_job uuid default null, p_use_credit boolean default false, p_consent boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare pr promo_products; j jobs; pl plans; used int; v_id uuid; v_days int; v_net int; v_iva int; v_open int; st promo_settings; who text;
+declare pr promo_products; j jobs; pl plans; used int; v_id uuid; v_net int; v_iva int; v_open int; st promo_settings; who text;
 begin
   select * into st from promo_settings;
   if p_job is not null then
@@ -203,7 +190,6 @@ begin
     return jsonb_build_object('id', v_id, 'status', 'solicitada');
   end if;
 
-  -- Perfil destacado de la persona que pide
   if not exists (select 1 from candidate_profiles where user_id = auth.uid() and onboarding_done) then raise exception 'Completa tu perfil primero'; end if;
   if not coalesce((select is_public from candidate_profiles where user_id = auth.uid()), false) then
     raise exception 'Tu perfil está oculto para empresas. Hazlo visible para poder destacarlo.'; end if;
@@ -221,14 +207,12 @@ end $$;
 revoke execute on function public.request_promotion(text, uuid, boolean, boolean) from public, anon;
 grant execute on function public.request_promotion(text, uuid, boolean, boolean) to authenticated;
 
--- Cancelar una solicitud o detener un destacado propio
 create or replace function public.stop_promotion(p_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare p promotions;
 begin
   select * into p from promotions where id = p_id;
-  if p.id is null or not coalesce(p.candidate_id = auth.uid() or (p.company_id is not null and can_manage(p.company_id)) or is_admin(), false) then
-    raise exception 'Destacado no encontrado'; end if;
+  if p.id is null or not (p.candidate_id = auth.uid() or (p.company_id is not null and can_manage(p.company_id)) or is_admin()) then raise exception 'Destacado no encontrado'; end if;
   if p.status = 'solicitada' then update promotions set status = 'cancelada', updated_at = now() where id = p_id;
   elsif p.status in ('activa', 'pausada') then update promotions set status = 'finalizada', ends_at = least(coalesce(ends_at, now()), now()), updated_at = now() where id = p_id;
   else raise exception 'Este destacado ya terminó'; end if;
@@ -236,7 +220,6 @@ end $$;
 revoke execute on function public.stop_promotion(uuid) from public, anon;
 grant execute on function public.stop_promotion(uuid) to authenticated;
 
--- 7) Administración
 create or replace function public.admin_activate_promotion(p_id uuid, p_paid boolean, p_method text default 'transferencia', p_note text default '')
 returns void language plpgsql security definer set search_path = public as $$
 declare p promotions; st promo_settings; v_open int; v_max int; v_pay uuid; v_users uuid[];
@@ -311,7 +294,6 @@ end $$;
 revoke execute on function public.admin_promo_config(jsonb, jsonb) from public, anon;
 grant execute on function public.admin_promo_config(jsonb, jsonb) to authenticated;
 
--- Resultado de cada destacado: apariciones y clics (seguimiento) + postulaciones o contactos (del proceso)
 create or replace function public.promo_results(p promotions) returns jsonb
 language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
@@ -358,7 +340,6 @@ end $$;
 revoke execute on function public.admin_promotions(text, boolean) from public, anon;
 grant execute on function public.admin_promotions(text, boolean) to authenticated;
 
--- 8) Lo que ve cada dueño
 create or replace function public.job_promotions(p_job uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare j jobs; pl plans; used int;
@@ -397,7 +378,6 @@ $$;
 revoke execute on function public.my_profile_promotion() from public, anon;
 grant execute on function public.my_profile_promotion() to authenticated;
 
--- Seguimiento de apariciones y clics (solo cuenta destacados activos; máximo 30 por llamada)
 create or replace function public.promo_track(p_ids uuid[], p_kind text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -410,7 +390,6 @@ end $$;
 revoke execute on function public.promo_track(uuid[], text) from public;
 grant execute on function public.promo_track(uuid[], text) to anon, authenticated;
 
--- Destacadas para la página de inicio y el portal público (rotan al azar)
 create or replace function public.public_featured_jobs(p_limit int default 6) returns jsonb
 language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_agg(x), '[]'::jsonb) from (
@@ -423,7 +402,6 @@ $$;
 revoke execute on function public.public_featured_jobs(int) from public;
 grant execute on function public.public_featured_jobs(int) to anon, authenticated;
 
--- 9) La vacante se pausa o cierra: el destacado se pausa y conserva sus días; al volver a publicarse, sigue
 create or replace function public.promo_follow_job() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -440,7 +418,6 @@ revoke execute on function public.promo_follow_job() from public, anon, authenti
 drop trigger if exists promo_follow_job on public.jobs;
 create trigger promo_follow_job after update of status on public.jobs for each row execute function public.promo_follow_job();
 
--- 10) Vencimientos y aviso 2 días antes (cada hora)
 create or replace function public.promo_housekeeping() returns void
 language plpgsql security definer set search_path = public as $$
 declare r record;
@@ -459,7 +436,6 @@ end $$;
 revoke execute on function public.promo_housekeeping() from public, anon, authenticated;
 select cron.schedule('vinka-destacados', '5 * * * *', $$select public.promo_housekeeping()$$);
 
--- 11) Uso del plan incluye destacados
 create or replace function public.company_plan(p_company uuid)
  returns jsonb language plpgsql stable security definer set search_path to 'public' as $function$
 declare s subscriptions; p plans;

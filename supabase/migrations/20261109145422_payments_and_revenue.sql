@@ -1,5 +1,4 @@
--- Registro de pagos (planes de empresas y asesorías) e ingresos para administración.
--- El ingreso del panel sale de pagos registrados, no de estimaciones.
+-- Migración aplicada en Supabase (20261109145422). Exportada tal cual desde supabase_migrations.schema_migrations.
 
 alter table public.subscriptions add column if not exists custom_price_clp int check (custom_price_clp is null or custom_price_clp >= 0);
 
@@ -27,10 +26,8 @@ create index if not exists idx_payments_created_by on public.payments (created_b
 alter table public.payments enable row level security;
 create policy "pagos: solo administración" on public.payments for select to authenticated using ((select is_admin()));
 
--- El catálogo de asesorías y los planes se muestran en la página de inicio (sin sesión)
 create policy "asesorías: catálogo público" on public.career_services for select to anon using (active);
 
--- Registrar el pago de un plan: activa el plan y extiende el período pagado
 create or replace function public.admin_record_payment(p_company uuid, p_plan text, p_amount int, p_months int, p_method text, p_note text)
 returns void language plpgsql security definer set search_path = public as $$
 declare s subscriptions; v_from timestamptz;
@@ -54,7 +51,6 @@ end $$;
 revoke execute on function public.admin_record_payment(uuid, text, int, int, text, text) from public, anon;
 grant execute on function public.admin_record_payment(uuid, text, int, int, text, text) to authenticated;
 
--- Al confirmar el pago de una asesoría (pasa a "en curso") queda registrado el ingreso
 create or replace function public.service_payment_on_start() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -69,7 +65,6 @@ revoke execute on function public.service_payment_on_start() from public, anon, 
 drop trigger if exists service_payment_on_start on public.service_requests;
 create trigger service_payment_on_start after update of status on public.service_requests for each row execute function public.service_payment_on_start();
 
--- Ingresos para el panel de administración (con o sin datos de demostración)
 create or replace function public.admin_revenue(p_include_demo boolean default true) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare m0 timestamptz := date_trunc('month', now() at time zone 'America/Santiago') at time zone 'America/Santiago';

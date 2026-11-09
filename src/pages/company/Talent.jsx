@@ -7,6 +7,7 @@ import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../../compo
 import { Bell } from '../../components/Bell'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
+import { norm, parseQuery } from '../../lib/search'
 
 const STAGE_TXT = (s) => ({ guardado: 'Guardado', invitado: 'Invitado', postulante: 'Postuló' }[s] || colLabel(s))
 const ACTIVE = ['postulante', 'invitado', 'match', 'contacto', 'entrevista', 'oferta']
@@ -15,25 +16,6 @@ const SITUACION = [['', 'Todas'], ['activo', 'En proceso'], ['avanzado', 'Entrev
 const ACTIVIDAD = [['', 'Cualquier fecha'], ['30', 'Últimos 30 días'], ['90', 'Últimos 3 meses'], ['365', 'Último año'], ['old', 'Hace más de un año']]
 const ORDEN = [['rel', 'Más relevantes'], ['reciente', 'Actividad más reciente'], ['nombre', 'Nombre A–Z'], ['procesos', 'Más procesos']]
 const KEYS = ['q', 'src', 'sit', 'job', 'nivel', 'exp', 'area', 'region', 'comuna', 'tag', 'act', 'orden']
-
-/** Minúsculas y sin tildes: "Técnico" encuentra "tecnico" y al revés */
-const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-
-/** Separa la búsqueda en términos: palabras, "frases exactas", #etiquetas y -exclusiones */
-function parseQuery(q) {
-  const terms = []
-  const re = /(-?)"([^"]+)"|(\S+)/g
-  let m
-  while ((m = re.exec(q))) {
-    if (m[2]) terms.push({ neg: m[1] === '-', text: norm(m[2]), tag: false })
-    else {
-      let w = m[3]; const neg = w.startsWith('-') && w.length > 1; if (neg) w = w.slice(1)
-      const tag = w.startsWith('#') && w.length > 1; if (tag) w = w.slice(1)
-      if (w) terms.push({ neg, text: norm(w), tag })
-    }
-  }
-  return terms
-}
 
 // Campos donde se busca, con su peso para ordenar por relevancia y el nombre que se muestra si la coincidencia está ahí
 const FIELDS = [
