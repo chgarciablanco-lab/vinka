@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
+import { ServiceChat } from '../../components/ServiceChat'
 
 export const SERVICE_STATUS = {
   solicitada: ['Solicitada', 'bg-[#F4EEF2] text-tinta-2', 'Te contactaremos pronto para coordinar.'],
@@ -23,6 +24,7 @@ export default function Advisory() {
   const [form, setForm] = useState({ goal: '', contact: 'whatsapp', consent: false })
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
+  const [chat, setChat] = useState(null)
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -72,7 +74,14 @@ export default function Advisory() {
                     <span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span>
                   </div>
                   {st[2] && <p className="text-sm text-tinta-2">{st[2]}</p>}
+                  {r.assigned_name && r.status !== 'cancelada' && <span className="text-sm">Tu asesor/a: <b>{r.assigned_name}</b>, reclutador/a de VINKA</span>}
                   {r.admin_note && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-sm leading-relaxed text-[#4A2163]"><b>Mensaje del reclutador:</b> {r.admin_note}</div>}
+                  {r.status !== 'cancelada' && (
+                    <button className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>
+                      <Svg name="chat" size={16} className="mr-1.5" />{chat === r.id ? 'Ocultar conversación' : 'Conversación y archivos'}
+                    </button>
+                  )}
+                  {chat === r.id && <ServiceChat requestId={r.id} as="candidate" />}
                   {['solicitada', 'pago_pendiente'].includes(r.status) && <button className="self-start text-sm font-semibold text-tinta-3 underline" onClick={() => cancel(r)}>Cancelar solicitud</button>}
                 </div>
               )

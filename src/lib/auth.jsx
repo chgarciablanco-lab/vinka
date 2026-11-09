@@ -11,12 +11,13 @@ export function AuthProvider({ children }) {
   const [company, setCompany] = useState(null)
   const [companies, setCompanies] = useState([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [advisor, setAdvisor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [recovery, setRecovery] = useState(false)
 
   const load = useCallback(async (sess) => {
     if (!sess?.user) {
-      setProfile(null); setCandidate(null); setCompany(null); setCompanies([]); setIsAdmin(false)
+      setProfile(null); setCandidate(null); setCompany(null); setCompanies([]); setIsAdmin(false); setAdvisor(null)
       return
     }
     const uid = sess.user.id
@@ -25,6 +26,11 @@ export function AuthProvider({ children }) {
       supabase.from('admins').select('user_id').eq('user_id', uid).maybeSingle(),
     ])
     setProfile(p); setIsAdmin(!!a)
+    if (p?.role === 'advisor') {
+      const { data: adv } = await supabase.from('advisors').select('*').eq('user_id', uid).maybeSingle()
+      setAdvisor(adv || null); setCandidate(null); setCompany(null); setCompanies([])
+      return
+    }
     if (p?.role === 'candidate') {
       const { data: c } = await supabase.from('candidate_profiles').select('*').eq('user_id', uid).maybeSingle()
       setCandidate(c); setCompany(null)
@@ -73,7 +79,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => { await supabase.auth.signOut(); setRecovery(false) }
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, loading, refresh, signOut, recovery, setRecovery }}>
+    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, advisor, loading, refresh, signOut, recovery, setRecovery }}>
       {children}
     </Ctx.Provider>
   )

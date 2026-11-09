@@ -29,7 +29,7 @@ const DOCS = {
       'Si postulas sin cuenta desde la página de empleos de una empresa, guardamos solo los datos que escribes (nombre, correo, teléfono, cargo y mensaje) para ese proceso. Los ve únicamente esa empresa y se eliminan a los 12 meses si no sigues en el proceso ni creas una cuenta.',
       'Conservación: las notas, evaluaciones y resultados de IA de procesos cerrados se eliminan automáticamente 12 meses después del cierre. Los postulantes importados desde otros portales que no aceptaron la invitación se eliminan a los 12 meses.',
       'Puedes editar tus datos, descargar una copia de ellos, ocultar tu perfil o eliminar tu cuenta en cualquier momento desde Perfil. Al eliminarla, borramos tu perfil, intereses, matches, mensajes y video.',
-      'Si pides una asesoría con reclutador, autorizas que un reclutador de VINKA vea tu perfil laboral y te contacte por teléfono o correo solo para coordinar y entregar ese servicio. Las empresas no ven si contrataste una asesoría.',
+      'Si pides una asesoría con reclutador, autorizas que el equipo de VINKA vea tu perfil laboral y te contacte para coordinar el servicio y su pago. El asesor o asesora que VINKA te asigne ve tu perfil laboral, tu nombre con la inicial del apellido y lo que compartas en el chat de la asesoría, pero no tu teléfono ni tu correo. Toda la asesoría (mensajes y archivos) ocurre dentro de VINKA; VINKA puede revisar esas conversaciones para resguardar la calidad y tu seguridad. Las empresas no ven si contrataste una asesoría.',
       'Contacto para solicitudes de datos: [CORREO DE CONTACTO].',
     ],
   },

@@ -29,6 +29,9 @@ const JobCandidates = lz(() => import('./pages/company/Company'), 'JobCandidates
 const JobForm = lz(() => import('./pages/company/Company'), 'JobForm')
 const Admin = lz(() => import('./pages/admin/Admin'))
 const AdminAccount = lz(() => import('./pages/admin/Admin'), 'AdminAccount')
+const AdvisorHome = lz(() => import('./pages/advisor/Advisor'))
+const AdvisorTerms = lz(() => import('./pages/advisor/Advisor'), 'AdvisorTerms')
+const ForcePassword = lz(() => import('./pages/advisor/Advisor'), 'ForcePassword')
 const Legal = lz(() => import('./pages/Legal'))
 const Agenda = lz(() => import('./pages/company/Agenda'))
 const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
@@ -92,7 +95,7 @@ function ChatsSplit({ items }) {
 const Loading = () => <div className="flex h-full min-h-[50vh]"><Spinner /></div>
 
 export default function App() {
-  const { session, profile, candidate, company, isAdmin, loading, recovery } = useAuth()
+  const { session, profile, candidate, company, isAdmin, advisor, loading, recovery } = useAuth()
   useHeartbeat(!!session && !!profile && profile.show_online !== false)
   const [unseen, setUnseen] = useState(0)
   const loc = useLocation()
@@ -128,14 +131,43 @@ export default function App() {
 
   const adminItem = isAdmin ? [{ to: '/admin', label: 'Admin', icon: 'shield' }] : []
 
+  // Cuentas entregadas por VINKA con clave temporal: primero crean su contraseña
+  if (profile.must_change_password) return wrap(<Routes><Route path="*" element={<ForcePassword />} /></Routes>)
+
+  // Asesores de VINKA: solo sus asesorías asignadas
+  if (profile.role === 'advisor') {
+    if (!advisor?.active) return wrap(<Routes><Route path="*" element={<AdminAccount subtitle="Tu cuenta de asesor/a no está activa. Escribe a VINKA si crees que es un error." hint="" />} /></Routes>)
+    if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
+    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
+    return (
+      <>
+      <DesktopNav items={nav} />
+      <div className="desk h-full lg:pl-64">
+      {wrap(
+      <Routes>
+        <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
+        <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
+        <Route path="/avisos" element={<Notifications />} />
+        {common}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>)}
+      </div>
+      </>
+    )
+  }
+
   // Cuentas de administración de VINKA: su propio espacio, sin las pantallas de postulante
   if (isAdmin && profile.role === 'candidate') {
     const nav = [
-      { to: '/', label: 'Negocio', icon: 'chart' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' },
-      { to: '/verificar', label: 'Verificar', icon: 'shield' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' },
+      { to: '/', label: 'Negocio', icon: 'chart' }, { to: '/asesorias', label: 'Asesorías', icon: 'chat' },
+      { to: '/postulantes', label: 'Usuarios', icon: 'people' }, { to: '/verificar', label: 'Empresas', icon: 'building' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' },
     ]
     const deskNav = [
-      { to: '/', label: 'Negocio y planes', icon: 'chart' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' },
+      { to: '/', label: 'Negocio y planes', icon: 'chart' },
+      { section: 'Asesorías' },
+      { to: '/asesorias', label: 'Solicitudes', icon: 'chat' }, { to: '/asesores', label: 'Asesores', icon: 'star' },
+      { section: 'Usuarios' },
+      { to: '/postulantes', label: 'Postulantes', icon: 'people' },
       { section: 'Empresas' },
       { to: '/verificar', label: 'Por verificar', icon: 'shield' }, { to: '/empresas', label: 'Todas las empresas', icon: 'building' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' },
       { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Mi cuenta', icon: 'user' },
@@ -148,6 +180,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Admin section="business" /></WithNav>} />
         <Route path="/asesorias" element={<WithNav items={nav}><Admin section="advisory" /></WithNav>} />
+        <Route path="/postulantes" element={<WithNav items={nav}><Admin section="candidates" /></WithNav>} />
+        <Route path="/asesores" element={<WithNav items={nav}><Admin section="advisors" /></WithNav>} />
         <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />
         <Route path="/empresas" element={<WithNav items={nav}><Admin section="all" /></WithNav>} />
         <Route path="/denuncias" element={<WithNav items={nav}><Admin section="reports" /></WithNav>} />

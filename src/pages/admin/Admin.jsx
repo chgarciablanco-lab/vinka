@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../../lib/supabase'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { Empty, ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
+import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
+import { ServiceChat } from '../../components/ServiceChat'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
@@ -91,11 +92,13 @@ function Advisory() {
   const [edit, setEdit] = useState({})
   const [svc, setSvc] = useState(null)
   const [only, setOnly] = useState(true)
+  const [advisors, setAdvisors] = useState([])
+  const [chat, setChat] = useState(null)
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
-    const [a, b] = await Promise.all([supabase.rpc('admin_service_requests'), supabase.from('career_services').select('*').order('sort')])
+    const [a, b, c] = await Promise.all([supabase.rpc('admin_service_requests'), supabase.from('career_services').select('*').order('sort'), supabase.rpc('admin_advisors')])
     if (a.error) setErr(errMsg(a.error))
-    setReqs(a.data || []); setServices(b.data || [])
+    setReqs(a.data || []); setServices(b.data || []); setAdvisors((c.data || []).filter((x) => x.active))
   }, [])
   useEffect(() => { load() }, [load])
   const save = async (r) => {
@@ -104,6 +107,12 @@ function Advisory() {
     const { error } = await supabase.rpc('admin_update_service_request', { p_id: r.id, p_status: e.status ?? r.status, p_note: e.note ?? r.note })
     if (error) return setErr(errMsg(error))
     setEdit({ ...edit, [r.id]: undefined }); load()
+  }
+  const assign = async (r, advisorId) => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_assign_request', { p_id: r.id, p_advisor: advisorId || null })
+    if (error) return setErr(errMsg(error))
+    load()
   }
   const saveSvc = async () => {
     setErr('')
@@ -136,7 +145,17 @@ function Advisory() {
             </div>
             <span>Prefiere: <b>{CONTACT_TXT[r.contact_pref]}</b> · {r.phone ? <a className="text-rosa-texto underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">{r.phone}</a> : 'sin teléfono'} · <a className="text-rosa-texto underline" href={`mailto:${r.email}`}>{r.email}</a></span>
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
-            <button className="self-start text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
+            <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
+              <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>
+                <option value="">Sin asignar</option>
+                {advisors.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open} abiertas)</option>)}
+                {r.advisor_id && !advisors.some((a) => a.id === r.advisor_id) && <option value={r.advisor_id}>{r.advisor} (inactivo)</option>}
+              </select></label>
+            <div className="flex flex-wrap gap-3">
+              <button className="text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
+              <button className="text-xs font-semibold text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>{chat === r.id ? 'Ocultar conversación' : `Ver conversación (${r.messages || 0})`}</button>
+            </div>
+            {chat === r.id && <ServiceChat requestId={r.id} as="admin" />}
             {open === r.id && (
               <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] p-3 text-xs text-tinta-2">
                 <span><b>{r.headline || 'Sin cargo'}</b> · {[r.comuna, r.region].filter(Boolean).join(', ')}</span>
@@ -180,22 +199,208 @@ function Advisory() {
   )
 }
 
-const TITLES = { business: 'Negocio y planes', advisory: 'Asesorías', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
+const CAND_FILTERS = [['', 'Todos'], ['reales', 'Sin demostración'], ['activos', 'Activos'], ['suspendidos', 'Suspendidos'], ['incompletos', 'Perfil incompleto'], ['asesoria', 'Con asesoría']]
+const STAGE_TXT = { postulante: 'Postuló', match: 'Match', contacto: 'Contacto', entrevista: 'Entrevista', oferta: 'Oferta', contratado: 'Contratado/a', descartado: 'Descartado/a' }
+const dt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
+
+/** Usuarios postulantes: buscar, revisar actividad y suspender o reactivar cuentas */
+function Candidates() {
+  const [q, setQ] = useState('')
+  const [qd, setQd] = useState('')
+  const [filter, setFilter] = useState('')
+  const [page, setPage] = useState(0)
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [sel, setSel] = useState(null)
+  const [det, setDet] = useState(null)
+  const [reason, setReason] = useState('')
+  const [toast, setToast] = useState('')
+  const PER = 40
+  useEffect(() => { const t = setTimeout(() => { setQd(q); setPage(0) }, 300); return () => clearTimeout(t) }, [q])
+  const load = useCallback(() => {
+    supabase.rpc('admin_candidates', { p_q: qd, p_filter: filter, p_limit: PER, p_offset: page * PER }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) })
+  }, [qd, filter, page])
+  useEffect(() => { load() }, [load])
+  const openUser = async (u) => {
+    setSel(u); setDet(null); setReason('')
+    const { data, error } = await supabase.rpc('admin_candidate_detail', { p_user: u.id })
+    if (error) setErr(errMsg(error)); else setDet(data)
+  }
+  const suspend = async (on) => {
+    setErr('')
+    if (on && !reason.trim()) return setErr('Escribe el motivo de la suspensión.')
+    const { error } = await supabase.rpc('admin_set_suspended', { p_user: sel.id, p_suspend: on, p_reason: reason.trim() })
+    if (error) return setErr(errMsg(error))
+    setToast(on ? 'Cuenta suspendida: ya no puede ingresar' : 'Cuenta reactivada'); setSel(null); load()
+  }
+  const total = d?.total || 0
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <label className="relative flex-1"><span className="sr-only">Buscar</span><Svg name="search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tinta-suave" />
+          <input className="input pl-9" placeholder="Nombre, correo, teléfono, cargo o comuna" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+      </div>
+      <div className="flex flex-wrap gap-1.5">{CAND_FILTERS.map(([k, l]) => <button key={k} className={`chip h-9 text-[13px] ${filter === k ? 'chip-on' : ''}`} onClick={() => { setFilter(k); setPage(0) }}>{l}</button>)}</div>
+      <ErrorBox>{!sel && err}</ErrorBox>
+      {d == null ? <Spinner /> : (
+        <>
+          <span className="text-xs text-tinta-suave">{n(total)} postulantes{total > PER ? ` · página ${page + 1} de ${Math.ceil(total / PER)}` : ''}</span>
+          <div className="card overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-[#EEE3EA] text-xs uppercase tracking-wide text-tinta-suave">
+                <tr><th className="px-4 py-3 font-semibold">Persona</th><th className="hidden px-3 py-3 font-semibold md:table-cell">Cargo y comuna</th><th className="hidden px-3 py-3 font-semibold sm:table-cell">Actividad</th><th className="px-3 py-3 font-semibold">Estado</th></tr>
+              </thead>
+              <tbody>
+                {d.rows.map((u) => (
+                  <tr key={u.id} className="cursor-pointer border-b border-[#F4EEF2] last:border-0 hover:bg-[#FBF7FA]" onClick={() => openUser(u)}>
+                    <td className="px-4 py-2.5"><span className="flex flex-col"><b>{u.name || 'Sin nombre'}{u.demo && <span className="ml-1.5 rounded bg-[#F4EEF2] px-1 text-[10px] font-semibold text-tinta-3">demo</span>}</b><span className="text-xs text-tinta-3">{u.email}</span></span></td>
+                    <td className="hidden px-3 py-2.5 text-xs text-tinta-2 md:table-cell">{u.headline || '—'}{u.comuna ? ` · ${u.comuna}` : ''}</td>
+                    <td className="hidden px-3 py-2.5 text-xs text-tinta-3 sm:table-cell">{u.matches} matches · {u.interests} intereses{u.requests ? ` · ${u.requests} asesorías` : ''}<br />Registro {dt(u.created_at)}</td>
+                    <td className="px-3 py-2.5">{u.suspended_at ? <span className="pill bg-[#FEF3F2] text-[#912018]">Suspendida</span> : !u.onboarding_done ? <span className="pill bg-naranja-palido text-naranja-texto">Incompleto</span> : <span className="pill bg-[#EAF6EF] text-[#134A2B]">Activa</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {d.rows.length === 0 && <p className="p-6 text-center text-sm text-tinta-3">Nadie coincide con la búsqueda.</p>}
+          </div>
+          {total > PER && (
+            <div className="flex justify-between gap-2">
+              <button className="btn-sm border border-linea bg-white" disabled={page === 0} onClick={() => setPage(page - 1)}>Anterior</button>
+              <button className="btn-sm border border-linea bg-white" disabled={(page + 1) * PER >= total} onClick={() => setPage(page + 1)}>Siguiente</button>
+            </div>
+          )}
+        </>
+      )}
+      <Sheet open={!!sel} onClose={() => setSel(null)} title={sel?.name || 'Postulante'}>
+        {sel && (
+          <div className="flex flex-col gap-3 text-sm">
+            <div className="flex flex-col gap-0.5"><span>{sel.email}{sel.phone ? ` · ${sel.phone}` : ''}</span><span className="text-xs text-tinta-3">Registro {dt(sel.created_at)} · última conexión {dt(sel.last_seen_at)} · perfil {sel.is_public ? 'visible' : 'oculto'} para empresas</span></div>
+            {sel.suspended_at && <div className="rounded-xl bg-[#FEF3F2] p-3 text-[#912018]">Suspendida el {dt(sel.suspended_at)}{sel.suspended_reason ? `: ${sel.suspended_reason}` : ''}</div>}
+            {!det ? <Spinner /> : (
+              <>
+                {det.profile && <div className="rounded-xl bg-[#FAF7F9] p-3 text-xs text-tinta-2"><b>{det.profile.headline || 'Sin cargo'}</b>{det.profile.comuna ? ` · ${det.profile.comuna}` : ''}{(det.profile.skills || []).length ? <><br />Habilidades: {det.profile.skills.join(', ')}</> : null}</div>}
+                <div className="flex flex-col gap-1"><span className="font-semibold">Procesos ({det.matches.length})</span>
+                  {det.matches.slice(0, 8).map((m, i) => <span key={i} className="text-xs text-tinta-2">{m.job} · {m.company} · <b>{STAGE_TXT[m.stage] || m.stage}</b> · {dt(m.at)}</span>)}
+                  {det.matches.length === 0 && <span className="text-xs text-tinta-3">Sin matches.</span>}</div>
+                {det.requests.length > 0 && <div className="flex flex-col gap-1"><span className="font-semibold">Asesorías</span>{det.requests.map((r, i) => <span key={i} className="text-xs">{r.service} · ${n(r.price)} · {r.status} · {dt(r.at)}</span>)}</div>}
+                {det.log.length > 0 && <div className="flex flex-col gap-1"><span className="font-semibold">Historial de administración</span>{det.log.map((l, i) => <span key={i} className="text-xs text-tinta-3">{dt(l.at)} · {l.action === 'user_suspended' ? 'Suspendida' : l.action === 'user_reactivated' ? 'Reactivada' : l.action}{l.detail?.reason ? `: ${l.detail.reason}` : ''}</span>)}</div>}
+              </>
+            )}
+            <ErrorBox>{err}</ErrorBox>
+            {sel.suspended_at ? <button className="btn" onClick={() => suspend(false)}>Reactivar cuenta</button> : (
+              <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
+                <input className="input h-11" maxLength={300} placeholder="Motivo de la suspensión (queda registrado)" value={reason} onChange={(e) => setReason(e.target.value)} />
+                <button className="btn-sec border-[#C0362C] text-[#912018]" onClick={() => suspend(true)}>Suspender cuenta</button>
+                <span className="hint">La persona no podrá ingresar y su perfil deja de verse para las empresas. Puedes reactivarla cuando quieras.</span>
+              </div>
+            )}
+          </div>
+        )}
+      </Sheet>
+      <Toast msg={toast} onDone={() => setToast('')} />
+    </div>
+  )
+}
+
+/** Asesores: cuentas entregadas por VINKA, con clave temporal; se pueden suspender y reiniciar */
+function Advisors() {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  const [form, setForm] = useState(null)
+  const [cred, setCred] = useState(null)
+  const [toast, setToast] = useState('')
+  const load = useCallback(() => { supabase.rpc('admin_advisors').then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
+  useEffect(() => { load() }, [load])
+  const create = async () => {
+    setErr('')
+    const { data, error } = await supabase.rpc('admin_create_advisor', { p_email: form.email, p_first: form.first, p_last: form.last, p_phone: form.phone, p_specialty: form.specialty })
+    if (error) return setErr(errMsg(error))
+    setForm(null); setCred({ name: `${form.first} ${form.last}`, email: data.email, password: data.password }); load()
+  }
+  const reset = async (a) => {
+    setErr('')
+    const { data, error } = await supabase.rpc('admin_reset_advisor_password', { p_user: a.id })
+    if (error) return setErr(errMsg(error))
+    setCred({ name: a.name, email: a.email, password: data }); load()
+  }
+  const toggle = async (a) => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_set_suspended', { p_user: a.id, p_suspend: a.active, p_reason: a.active ? 'Suspendido desde administración' : '' })
+    if (error) return setErr(errMsg(error))
+    setToast(a.active ? `${a.name} suspendido/a` : `${a.name} reactivado/a`); load()
+  }
+  const copy = async () => { try { await navigator.clipboard.writeText(`VINKA — acceso de asesor/a\nIngresa en ${window.location.origin}/ingresar\nCorreo: ${cred.email}\nClave temporal: ${cred.password}\nAl entrar te pedirá crear tu propia contraseña.`); setToast('Datos de acceso copiados') } catch { setToast('No se pudo copiar; anótalos a mano') } }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2"><p className="text-sm text-tinta-3">Las cuentas de asesor las crea VINKA. Cada asesor/a solo ve las asesorías que le asignes, sin teléfono ni correo de las personas.</p>
+        <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={() => { setForm({ email: '', first: '', last: '', phone: '', specialty: '' }); setErr('') }}>Nuevo asesor/a</button></div>
+      <ErrorBox>{!form && err}</ErrorBox>
+      {cred && (
+        <div className="card flex flex-col gap-2 border-2 border-[#2F7A4F] p-4 text-sm">
+          <b>Acceso de {cred.name}</b>
+          <span>Correo: <b>{cred.email}</b></span>
+          <span>Clave temporal: <b className="font-mono">{cred.password}</b></span>
+          <span className="hint">Entrégala por un medio seguro. Solo se muestra ahora; al ingresar, la persona deberá crear su propia contraseña.</span>
+          <div className="flex gap-2"><button className="btn-sm bg-morado text-white" onClick={copy}>Copiar datos de acceso</button><button className="btn-sm border border-linea bg-white" onClick={() => setCred(null)}>Listo</button></div>
+        </div>
+      )}
+      {list == null ? <Spinner /> : list.length === 0 ? <Empty title="Aún no hay asesores">Crea la primera cuenta para asignarle solicitudes de asesoría.</Empty> : list.map((a) => (
+        <div key={a.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <span className="flex flex-col"><b>{a.name}</b><span className="text-xs text-tinta-3">{a.email}{a.phone ? ` · ${a.phone}` : ''}{a.specialty ? ` · ${a.specialty}` : ''}</span></span>
+            <span className={`pill ${a.active ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#FEF3F2] text-[#912018]'}`}>{a.active ? 'Activo/a' : 'Suspendido/a'}</span>
+          </div>
+          <span className="text-xs text-tinta-3">{a.open} abiertas · {a.delivered} entregadas · {a.terms_accepted_at ? `aceptó el acuerdo el ${dt(a.terms_accepted_at)}` : 'aún no acepta el acuerdo'}{a.pending_password ? ' · no ha creado su contraseña' : ''} · última conexión {dt(a.last_seen_at)}</span>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>
+            <button className={`btn-sm border ${a.active ? 'border-[#C0362C] text-[#912018]' : 'border-linea'} bg-white`} onClick={() => toggle(a)}>{a.active ? 'Suspender' : 'Reactivar'}</button>
+          </div>
+        </div>
+      ))}
+      <Sheet open={!!form} onClose={() => setForm(null)} title="Nuevo asesor/a">
+        {form && (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <input className="input" placeholder="Nombre" value={form.first} onChange={(e) => setForm({ ...form, first: e.target.value })} />
+              <input className="input" placeholder="Apellido" value={form.last} onChange={(e) => setForm({ ...form, last: e.target.value })} />
+            </div>
+            <input className="input" type="email" placeholder="Correo con el que ingresará" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input className="input" placeholder="Teléfono (solo lo ve administración)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input className="input" placeholder="Especialidad (ej.: retail, salud, TI)" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
+            <p className="hint">VINKA genera una clave temporal. La verás una sola vez para entregarla. Al primer ingreso, la persona acepta el acuerdo de confidencialidad y crea su contraseña.</p>
+            <ErrorBox>{err}</ErrorBox>
+            <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setForm(null)}>Cancelar</button><button className="btn" onClick={create}>Crear cuenta</button></div>
+          </div>
+        )}
+      </Sheet>
+      <Toast msg={toast} onDone={() => setToast('')} />
+    </div>
+  )
+}
+
+const TITLES = { business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
 
 /** Cuenta de administración: datos, avisos y cierre de sesión */
-export function AdminAccount() {
-  const { profile, user, signOut } = useAuth()
+export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Para probar la app como postulante o empresa, usa las cuentas de prueba.' }) {
+  const { profile, user, signOut, isAdmin } = useAuth()
   return (
     <Screen className="bg-[#FAF7F9]">
-      <div className="safe-t px-5 pb-3 pt-2"><h1 className="text-[22px] font-bold">Cuenta</h1><p className="text-[13px] text-tinta-3">Administración de VINKA</p></div>
+      <div className="safe-t px-5 pb-3 pt-2"><h1 className="text-[22px] font-bold">Cuenta</h1><p className="text-[13px] text-tinta-3">{subtitle}</p></div>
       <div className="flex flex-col gap-3 px-5 pb-28">
         <div className="card flex flex-col gap-0.5 p-4"><span className="font-semibold">{`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Administración'}</span><span className="text-sm text-tinta-3">{user?.email}</span></div>
+        {isAdmin && (
+          <div className="card px-4 lg:hidden">
+            {[['/asesores', 'Asesores'], ['/empresas', 'Todas las empresas'], ['/denuncias', 'Denuncias']].map(([to, l]) => (
+              <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
+            ))}
+          </div>
+        )}
         <div className="card px-4">
           {[['/avisos', 'Avisos'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
             <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
           ))}
         </div>
-        <p className="hint">Para probar la app como postulante o empresa, usa las cuentas de prueba.</p>
+        {hint && <p className="hint">{hint}</p>}
         <button className="btn-sec" onClick={signOut}>Cerrar sesión</button>
       </div>
     </Screen>
@@ -233,12 +438,12 @@ export default function Admin({ section }) {
       {section ? <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">{TITLES[tab]}</h1></div> : <TopBar back="/" title="Administración" />}
       <div className={`flex flex-col gap-3 px-5 lg:px-8 ${section ? 'pb-28 lg:pb-10' : 'pb-10'}`}>
         <div className={`flex flex-wrap gap-1.5 ${section ? 'hidden' : ''}`}>
-          {[['business', 'Negocio y planes'], ['advisory', 'Asesorías'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
+          {[['business', 'Negocio y planes'], ['advisory', 'Asesorías'], ['candidates', 'Postulantes'], ['advisors', 'Asesores'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-10 rounded-full border px-3 text-[13px] font-semibold ${tab === k ? 'border-morado bg-morado text-white' : 'border-linea bg-white'}`}>{l}</button>
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'advisory' ? <Advisory /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>

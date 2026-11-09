@@ -10,7 +10,7 @@ export function DesktopNav({ items }) {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#EEE3EA] bg-white lg:flex" aria-label="Navegación principal">
       <div className="flex flex-col gap-1 px-5 pb-4 pt-6">
         <span className="font-display text-[19px] font-bold tracking-wide text-tinta">VINKA</span>
-        {!company && isAdmin && <span className="text-[13px] text-tinta-3">Administración</span>}
+        {!company && (isAdmin || profile?.role === 'advisor') && <span className="text-[13px] text-tinta-3">{isAdmin ? 'Administración' : 'Asesor/a VINKA'}</span>}
         {company && (companies?.length > 1 ? (
           <label className="mt-1"><span className="sr-only">Empresa</span>
             <select className="h-9 w-full rounded-lg border border-linea bg-white px-2 text-[13px] font-semibold text-tinta-2" value={company.id} onChange={(e) => { switchCompany(e.target.value); window.location.assign('/') }}>

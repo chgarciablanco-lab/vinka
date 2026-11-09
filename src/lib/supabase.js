@@ -14,6 +14,7 @@ export function errMsg(e) {
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.'
   if (/Email not confirmed/i.test(m)) return 'Aún no confirmas tu correo. Revisa tu bandeja de entrada.'
   if (/already registered|already been registered/i.test(m)) return 'Ese correo ya tiene una cuenta. Inicia sesión.'
+  if (/banned/i.test(m)) return 'Tu cuenta está suspendida. Escríbenos si crees que es un error.'
   if (/rate limit/i.test(m)) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
   if (/Password should be/i.test(m)) return 'La contraseña debe tener al menos 8 caracteres.'
   return m || 'Ocurrió un error. Inténtalo de nuevo.'
