@@ -16,6 +16,22 @@ Generados el 9 de noviembre de 2026 directamente en la base de Supabase. Todo es
 | Evaluaciones / notas internas | ~1.300 / ~600 |
 | Postulantes de otros portales | ~790 |
 
+### Asesorías con reclutador (simulación de 2 años, desde nov. 2024)
+
+| Qué | Cantidad aprox. |
+|---|---|
+| Asesores | 6 (5 de demostración + asesor.test; Matías suspendido en abril 2026) |
+| Solicitudes de asesoría | 430 (313 aprobadas, 75 canceladas, el resto en curso o por revisar) |
+| Mensajes del chat de asesoría | ~3.600 |
+| Registros de historial de trabajo | ~4.800 |
+| Sesiones (calendario) | ~415 (≈15 próximas) |
+| Ofertas sugeridas | ~1.100 |
+| Notas internas asesor ↔ VINKA | ~280 |
+| CV guardados (PDF reales, originales y mejorados) | 500 |
+
+- Precios históricos: hasta junio 2025 $12.990 / $19.990 / $29.990; desde julio 2025 los actuales.
+- Solicitudes registradas en `seed.advisory`; asesores en `seed.advisors` y `seed.users`.
+
 - Todas las cuentas usan correos `@example.com` (VINKA nunca les envía correos) y la contraseña `Prueba2026`.
 - Las cuentas demo están marcadas con `"demo": true` en `raw_app_meta_data` y registradas en `seed.users` y `seed.companies`.
 - Catálogos usados (cargos, nombres, comunas, tipos de empresa): tablas del esquema `seed`.
@@ -25,6 +41,8 @@ Generados el 9 de noviembre de 2026 directamente en la base de Supabase. Todo es
 Ejecutar en el SQL Editor de Supabase:
 
 ```sql
+delete from storage.objects where bucket_id = 'cvs' and split_part(name, '/', 1)::uuid in (select id from seed.users);
+delete from service_requests where id in (select request_id from seed.advisory);
 delete from companies where id in (select id from seed.companies);
 delete from auth.users where id in (select id from seed.users);
 drop schema seed cascade;
