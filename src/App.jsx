@@ -28,6 +28,7 @@ const CompanyPanel = lz(() => import('./pages/company/Company'), 'CompanyPanel')
 const JobCandidates = lz(() => import('./pages/company/Company'), 'JobCandidates')
 const JobForm = lz(() => import('./pages/company/Company'), 'JobForm')
 const Admin = lz(() => import('./pages/admin/Admin'))
+const AdminAccount = lz(() => import('./pages/admin/Admin'), 'AdminAccount')
 const Legal = lz(() => import('./pages/Legal'))
 const Agenda = lz(() => import('./pages/company/Agenda'))
 const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
@@ -126,6 +127,40 @@ export default function App() {
   }
 
   const adminItem = isAdmin ? [{ to: '/admin', label: 'Admin', icon: 'shield' }] : []
+
+  // Cuentas de administración de VINKA: su propio espacio, sin las pantallas de postulante
+  if (isAdmin && profile.role === 'candidate') {
+    const nav = [
+      { to: '/', label: 'Negocio', icon: 'chart' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' },
+      { to: '/verificar', label: 'Verificar', icon: 'shield' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' },
+    ]
+    const deskNav = [
+      { to: '/', label: 'Negocio y planes', icon: 'chart' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' },
+      { section: 'Empresas' },
+      { to: '/verificar', label: 'Por verificar', icon: 'shield' }, { to: '/empresas', label: 'Todas las empresas', icon: 'building' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' },
+      { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Mi cuenta', icon: 'user' },
+    ]
+    return (
+      <>
+      <DesktopNav items={deskNav} />
+      <div className="desk h-full lg:pl-64">
+      {wrap(
+      <Routes>
+        <Route path="/" element={<WithNav items={nav}><Admin section="business" /></WithNav>} />
+        <Route path="/asesorias" element={<WithNav items={nav}><Admin section="advisory" /></WithNav>} />
+        <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />
+        <Route path="/empresas" element={<WithNav items={nav}><Admin section="all" /></WithNav>} />
+        <Route path="/denuncias" element={<WithNav items={nav}><Admin section="reports" /></WithNav>} />
+        <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount /></WithNav>} />
+        <Route path="/admin" element={<Navigate to="/" replace />} />
+        <Route path="/avisos" element={<Notifications />} />
+        {common}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>)}
+      </div>
+      </>
+    )
+  }
 
   if (profile.role === 'candidate') {
     if (!candidate?.onboarding_done) return wrap(<Routes>{common}<Route path="*" element={<Onboarding />} /></Routes>)

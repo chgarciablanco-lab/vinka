@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../../lib/supabase'
-import { Empty, ErrorBox, Screen, Spinner, TopBar } from '../../components/ui'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../../lib/auth'
+import { Empty, ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
@@ -178,8 +180,31 @@ function Advisory() {
   )
 }
 
-export default function Admin() {
-  const [tab, setTab] = useState('business')
+const TITLES = { business: 'Negocio y planes', advisory: 'Asesorías', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
+
+/** Cuenta de administración: datos, avisos y cierre de sesión */
+export function AdminAccount() {
+  const { profile, user, signOut } = useAuth()
+  return (
+    <Screen className="bg-[#FAF7F9]">
+      <div className="safe-t px-5 pb-3 pt-2"><h1 className="text-[22px] font-bold">Cuenta</h1><p className="text-[13px] text-tinta-3">Administración de VINKA</p></div>
+      <div className="flex flex-col gap-3 px-5 pb-28">
+        <div className="card flex flex-col gap-0.5 p-4"><span className="font-semibold">{`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Administración'}</span><span className="text-sm text-tinta-3">{user?.email}</span></div>
+        <div className="card px-4">
+          {[['/avisos', 'Avisos'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
+            <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
+          ))}
+        </div>
+        <p className="hint">Para probar la app como postulante o empresa, usa las cuentas de prueba.</p>
+        <button className="btn-sec" onClick={signOut}>Cerrar sesión</button>
+      </div>
+    </Screen>
+  )
+}
+
+export default function Admin({ section }) {
+  const [tab, setTab] = useState(section || 'business')
+  useEffect(() => { if (section) setTab(section) }, [section])
   const [companies, setCompanies] = useState(null)
   const [reports, setReports] = useState([])
   const [notes, setNotes] = useState({})
@@ -205,9 +230,9 @@ export default function Admin() {
   const list = (companies || []).filter((c) => (tab === 'pending' ? c.verification_status === 'pending' : tab === 'all' ? true : false))
   return (
     <Screen className="bg-[#FAF7F9]" wide>
-      <TopBar back="/" title="Administración" />
-      <div className="flex flex-col gap-3 px-5 pb-10">
-        <div className="flex flex-wrap gap-1.5">
+      {section ? <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">{TITLES[tab]}</h1></div> : <TopBar back="/" title="Administración" />}
+      <div className={`flex flex-col gap-3 px-5 lg:px-8 ${section ? 'pb-28 lg:pb-10' : 'pb-10'}`}>
+        <div className={`flex flex-wrap gap-1.5 ${section ? 'hidden' : ''}`}>
           {[['business', 'Negocio y planes'], ['advisory', 'Asesorías'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-10 rounded-full border px-3 text-[13px] font-semibold ${tab === k ? 'border-morado bg-morado text-white' : 'border-linea bg-white'}`}>{l}</button>
           ))}

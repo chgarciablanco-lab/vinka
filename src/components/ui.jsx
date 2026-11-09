@@ -15,6 +15,7 @@ export const Icon = {
   send: <path d="M4 12l16-8-6 16-2-7z" />,
   dots: <><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></>,
   edit: <path d="M4 20h4L19 9l-4-4L4 16v4z" />,
+  bell: <path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15zM10 20a2 2 0 004 0" />,
   shield: <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />,
   chevron: <path d="M9 6l6 6-6 6" />,
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,
