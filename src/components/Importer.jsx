@@ -58,7 +58,7 @@ export function Importer({ fields, build, onConfirm, template, templateName, pre
       {step === 1 && (
         <>
           <p className="text-sm leading-relaxed text-tinta-3">Descarga la planilla desde tu otro portal (Laborum, Trabajando, Computrabajo, Buk u otro) en formato <b>Excel (.xlsx)</b> o <b>CSV</b> y súbela aquí. VINKA reconoce las columnas automáticamente.</p>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" className="hidden" onChange={onFile} />
+          <input ref={fileRef} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="hidden" onChange={onFile} />
           <button className="btn" onClick={() => fileRef.current?.click()}><Svg name="plus" size={20} stroke="#fff" />Elegir archivo</button>
           <button className="btn-sm self-start border border-linea bg-white" onClick={() => downloadTemplate(templateName, template)}>Descargar planilla de ejemplo</button>
           <ErrorBox>{err}</ErrorBox>

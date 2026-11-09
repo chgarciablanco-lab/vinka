@@ -44,16 +44,16 @@ export default function Reports() {
   const dth = job ? sel[0]?.days_to_hire : r?.days_to_hire
 
   const exportXlsx = async () => {
-    const XLSX = await import('xlsx')
+    const { downloadXlsx } = await import('../../lib/excel')
     const rows = jobs.map((j) => ({
       Vacante: j.title, Estado: j.status, 'Vieron el aviso': j.views, 'Me interesa': j.applied, Matches: j.matches, 'De otros portales': j.externals,
       Contactados: j.contacted, Entrevistados: j.interviewed, 'Con oferta': j.offered, 'Ofertas aceptadas': j.offers_accepted, Contratados: j.hired, Descartados: j.rejected,
       'Días promedio a contratar': j.days_to_hire ?? '',
     }))
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Por vacante')
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((r.sources || []).map((s) => ({ Fuente: s.source, Postulantes: s.total, Contratados: s.hired }))), 'Por fuente')
-    XLSX.writeFile(wb, `VINKA_reporte_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    await downloadXlsx(`VINKA_reporte_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { name: 'Por vacante', rows },
+      { name: 'Por fuente', rows: (r.sources || []).map((s) => ({ Fuente: s.source, Postulantes: s.total, Contratados: s.hired })) },
+    ])
   }
 
   return (

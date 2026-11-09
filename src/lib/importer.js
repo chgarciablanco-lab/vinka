@@ -1,17 +1,13 @@
 // Lectura de planillas (Excel/CSV) exportadas desde otros portales y normalización de datos
-import * as XLSX from 'xlsx'
+import { downloadXlsx, readTable } from './excel'
 
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 export async function parseFile(file) {
   if (file.size > 5 * 1024 * 1024) throw new Error('El archivo pesa más de 5 MB. Divide la planilla en partes.')
-  const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true })
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false })
+  const { headers, rows } = await readTable(file)
   if (!rows.length) throw new Error('La planilla está vacía o la primera hoja no tiene datos.')
   if (rows.length > 500) throw new Error(`La planilla tiene ${rows.length} filas. El máximo por carga es 500.`)
-  const headers = Object.keys(rows[0])
   return { headers, rows }
 }
 
@@ -26,10 +22,7 @@ export function autoMap(headers, fields) {
 }
 
 export function downloadTemplate(filename, rows) {
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Datos')
-  XLSX.writeFile(wb, filename)
+  return downloadXlsx(filename, [{ name: 'Datos', rows }])
 }
 
 /* ---------- normalizadores ---------- */
