@@ -138,11 +138,15 @@ function Advisory() {
   const [only, setOnly] = useState(true)
   const [advisors, setAdvisors] = useState([])
   const [chat, setChat] = useState(null)
+  const [fq, setFq] = useState('')
+  const [fst, setFst] = useState('')
+  const [fadv, setFadv] = useState('')
+  const [limit, setLimit] = useState(30)
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([supabase.rpc('admin_service_requests'), supabase.from('career_services').select('*').order('sort'), supabase.rpc('admin_advisors')])
     if (a.error) setErr(errMsg(a.error))
-    setReqs(a.data || []); setServices(b.data || []); setAdvisors((c.data || []).filter((x) => x.active))
+    setReqs(a.data || []); setServices(b.data || []); setAdvisors(c.data || [])
   }, [])
   useEffect(() => { load() }, [load])
   const save = async (r) => {
@@ -169,7 +173,10 @@ function Advisory() {
   const openN = reqs.filter((r) => OPEN.includes(r.status)).length
   const toReview = reqs.filter((r) => r.status === 'entregada').length
   const income = reqs.filter((r) => ['en_curso', 'entregada', 'aprobada'].includes(r.status)).reduce((a, r) => a + r.price, 0)
-  const list = only ? reqs.filter((r) => OPEN.includes(r.status)) : reqs
+  const qn = fq.trim().toLowerCase()
+  const list = reqs.filter((r) => (fst ? r.status === fst : !only || OPEN.includes(r.status))
+    && (!fadv || (fadv === 'none' ? !r.advisor_id : r.advisor_id === fadv))
+    && (!qn || `${r.name} ${r.email} ${r.service} ${r.advisor || ''} ${r.goal}`.toLowerCase().includes(qn)))
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -180,9 +187,15 @@ function Advisory() {
       <ErrorBox>{err}</ErrorBox>
       <UpcomingSessions />
       <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} disabled={!!fst} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_190px_190px]">
+        <input className="input h-11" placeholder="Buscar persona, correo, servicio u objetivo" value={fq} onChange={(e) => { setFq(e.target.value); setLimit(30) }} />
+        <select className="input h-11" value={fst} onChange={(e) => { setFst(e.target.value); setLimit(30) }}><option value="">Todos los estados</option>{Object.entries(SRV_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        <select className="input h-11" value={fadv} onChange={(e) => { setFadv(e.target.value); setLimit(30) }}><option value="">Todos los asesores</option><option value="none">Sin asignar</option>{advisors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+      </div>
+      <span className="text-xs text-tinta-suave">{list.length} solicitudes</span>
       {list.length === 0 && <Empty title="Sin solicitudes">Cuando un postulante pida una asesoría, aparecerá aquí y te llegará un aviso.</Empty>}
-      {list.map((r) => {
+      {list.slice(0, limit).map((r) => {
         const e = edit[r.id] || {}
         return (
           <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
@@ -195,8 +208,8 @@ function Advisory() {
             <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
               <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>
                 <option value="">Sin asignar</option>
-                {advisors.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open} abiertas)</option>)}
-                {r.advisor_id && !advisors.some((a) => a.id === r.advisor_id) && <option value={r.advisor_id}>{r.advisor} (inactivo)</option>}
+                {advisors.filter((a) => a.active).map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open} abiertas)</option>)}
+                {r.advisor_id && !advisors.some((a) => a.active && a.id === r.advisor_id) && <option value={r.advisor_id}>{r.advisor} (inactivo)</option>}
               </select></label>
             <div className="flex flex-wrap gap-3">
               <button className="text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
@@ -222,6 +235,7 @@ function Advisory() {
           </div>
         )
       })}
+      {list.length > limit && <button className="btn-sec" onClick={() => setLimit(limit + 30)}>Ver más ({list.length - limit} restantes)</button>}
       <div className="card flex flex-col gap-2 p-4">
         <span className="text-[15px] font-semibold">Servicios y precios</span>
         {services.map((s) => svc?.id === s.id ? (
