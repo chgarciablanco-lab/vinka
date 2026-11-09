@@ -6,6 +6,8 @@ import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorF
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone, MyData } from '../Account'
 import { CalendarSync } from '../../components/CalendarSync'
+import { usePresence } from '../../lib/presence'
+import { OnlineToggle, PresenceLine } from '../../components/Presence'
 import { NotifyCard } from '../../components/NotifyCard'
 import { AiAssist } from '../../components/AiAssist'
 import { Bell } from '../../components/Bell'
@@ -279,6 +281,7 @@ export function JobCandidates() {
   useEffect(() => { load() }, [load])
 
   const c = list?.[i]
+  const pres = usePresence({ users: [c?.candidate_id] })
   const cardRef = useRef()
   const [match, setMatch] = useState(null)
   const { company } = useAuth()
@@ -339,7 +342,7 @@ export function JobCandidates() {
             {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya mostró interés en esta vacante · si te interesa, es match</div>}
             <div className="flex items-center gap-3">
               <Avatar text={c.initials} color="#302538" size={56} round />
-              <div className="flex flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span></div>
+              <div className="flex flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span><PresenceLine p={pres[c.candidate_id]} /></div>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {[c.comuna, c.availability && `Disponible: ${c.availability.toLowerCase()}`, c.modalities?.join(' o ')].filter(Boolean).map((t) => <span key={t} className="rounded-lg bg-[#F6F1F4] px-2.5 py-1.5 text-[13px] text-tinta-2">{t}</span>)}
@@ -422,6 +425,7 @@ export function CompanyAccount() {
             </Link>
           ))}
         </div>
+        <OnlineToggle />
         <CalendarSync />
         <NotifyCard />
         <EmailToggle />

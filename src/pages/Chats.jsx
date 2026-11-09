@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import { ETAPAS, colorFor, fillVars, initials } from '../lib/catalog'
 import { useTemplates } from './company/Pipeline'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
+import { usePresence } from '../lib/presence'
+import { PresenceLine, WithDot } from '../components/Presence'
 import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
 import { Sparkle, callAi } from '../components/AiAssist'
@@ -21,6 +23,7 @@ export function ChatList() {
     supabase.rpc('my_matches').then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data || []) })
   }, [])
   const isCompany = profile?.role === 'company'
+  const pres = usePresence(isCompany ? { users: (rows || []).filter((m) => !m.closed).map((m) => m.candidate_id) } : { companies: (rows || []).filter((m) => !m.closed).map((m) => m.company_id) })
   const [ivs, setIvs] = useState([])
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
@@ -53,10 +56,11 @@ export function ChatList() {
           const name = isCompany ? m.candidate_name : m.company_name
           return (
             <Link key={m.match_id} to={`/chats/${m.match_id}`} className="card flex items-center gap-3 p-3.5">
-              <Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={46} round={isCompany} />
+              <WithDot p={pres[isCompany ? m.candidate_id : m.company_id]} size={14}><Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={46} round={isCompany} /></WithDot>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex justify-between gap-2"><span className="truncate text-[15px] font-semibold">{name}</span>
                   <span className="shrink-0 text-[11px] text-tinta-suave">{fmt(m.last_at || m.created_at)}</span></span>
+                {!m.closed && <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />}
                 <span className="truncate text-xs font-medium text-rosa-texto">{m.job_title}</span>
                 <span className="truncate text-[13px] text-tinta-3">{m.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
               </div>
@@ -140,6 +144,7 @@ export function ChatRoom() {
     setReport(''); setReporting(false); setMenu(false); setToast('Denuncia enviada. La revisaremos pronto.')
   }
 
+  const pres = usePresence(m ? (isCompany ? { users: [m.candidate_id] } : { companies: [m.company_id] }) : {})
   if (m === null) return <Spinner />
   if (m === false) return <div className="p-6"><Empty title="Chat no disponible" action={<Link to="/chats" className="btn-sm text-rosa-texto">Volver</Link>}>Este chat no existe o no tienes acceso.</Empty></div>
 
@@ -150,10 +155,12 @@ export function ChatRoom() {
     <div className="mx-auto flex h-full w-full max-w-md flex-col bg-rosa-fondo">
       <div className="safe-t flex items-center gap-2 border-b border-[#EEE3EA] bg-white px-3 pb-2.5">
         <button aria-label="Volver" onClick={() => nav('/chats')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
-        <Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={40} round={isCompany} />
+        <WithDot p={pres[isCompany ? m.candidate_id : m.company_id]}><Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={40} round={isCompany} /></WithDot>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[15px] font-semibold">{name}</span>
-          <span className="truncate text-xs text-tinta-suave">{m.job_title}</span>
+          {!m.closed && pres[isCompany ? m.candidate_id : m.company_id]
+            ? <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />
+            : <span className="truncate text-xs text-tinta-suave">{m.job_title}</span>}
         </div>
         <button aria-label="Opciones: etapa, denunciar o bloquear" onClick={() => setMenu(true)} className="flex h-11 w-11 items-center justify-center"><Svg name="dots" /></button>
       </div>

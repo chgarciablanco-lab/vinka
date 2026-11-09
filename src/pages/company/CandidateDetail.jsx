@@ -7,6 +7,8 @@ import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { Avatar, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Sparkle, callAi } from '../../components/AiAssist'
 import { BulkSheet, StagePicker } from './Pipeline'
+import { usePresence } from '../../lib/presence'
+import { PresenceLine, WithDot } from '../../components/Presence'
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtDT = (d) => `${new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · ${fmtTime(d)}`
@@ -306,6 +308,7 @@ export default function CandidateDetail() {
   useEffect(() => { load() }, [load])
   useEffect(() => { supabase.from('jobs').select('*').eq('id', jobId).single().then(({ data }) => setJob(data)) }, [jobId])
 
+  const pres = usePresence({ users: ext ? [] : [cid] })
   const subject = useMemo(() => (ext ? { job_id: jobId, external_id: eid } : { job_id: jobId, candidate_id: cid }), [ext, jobId, eid, cid])
   const saved = (m) => { setToast(m); load() }
 
@@ -348,10 +351,11 @@ export default function CandidateDetail() {
           <span className="truncate text-[13px] text-tinta-suave">{d.job.title}</span>
         </div>
         <div className="flex items-center gap-3 px-2 pb-3 pt-1">
-          <Avatar text={name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color="#302538" size={52} round />
+          <WithDot p={pres[cid]} size={14}><Avatar text={name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color="#302538" size={52} round /></WithDot>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate font-display text-[19px] font-semibold">{name}</span>
             <span className="truncate text-sm text-tinta-2">{(ext ? e.headline : c.headline) || '—'}</span>
+            {!ext && <PresenceLine p={pres[cid]} />}
             <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: stageColor }}><span className="h-2 w-2 rounded-full" style={{ background: stageColor }} />{colLabel(stage)}{ext && ` · ${e.source || 'Otro portal'}`}</span>
           </div>
         </div>

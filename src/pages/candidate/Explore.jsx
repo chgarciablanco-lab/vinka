@@ -6,9 +6,11 @@ import { Avatar, Empty, ErrorBox, Sheet, Spinner, Toast, Verified } from '../../
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
+import { usePresence } from '../../lib/presence'
+import { PresenceLine } from '../../components/Presence'
 import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 
-function JobCard({ job, onDetail }) {
+function JobCard({ job, onDetail, p }) {
   return (
     <article className="flex min-h-[470px] flex-col gap-3.5 rounded-[24px] border border-[#EEE3EA] bg-white p-5 shadow-[0_12px_32px_rgba(48,37,56,0.12)]">
       {job.invited && (
@@ -21,6 +23,7 @@ function JobCard({ job, onDetail }) {
         <div className="flex flex-col">
           <span className="flex items-center gap-1.5 text-sm font-semibold">{job.company_name}<Verified /></span>
           <span className="text-xs text-tinta-suave">{[job.company_sector, job.company_size && `${job.company_size} personas`].filter(Boolean).join(' · ')}</span>
+          <PresenceLine p={p} company />
         </div>
       </div>
       <h2 className="text-[23px] font-semibold leading-tight">{job.title}</h2>
@@ -68,6 +71,7 @@ export default function Explore() {
 
   const job = jobs?.[i]
   const next = jobs?.[i + 1]
+  const pres = usePresence({ companies: [job?.company_id, next?.company_id] })
   // Vistas del aviso (para el embudo de la empresa)
   useEffect(() => { if (job?.id) supabase.rpc('log_views', { p_jobs: [job.id] }).then(() => {}) }, [job?.id])
   const ACTION = { right: 'interest', left: 'pass', up: 'save' }
@@ -120,8 +124,8 @@ export default function Explore() {
           </Empty>
         ) : (
           <>
-            <SwipeCard key={job.id} ref={card} onSwipe={onSwipe} behind={next ? <JobCard job={next} /> : null}>
-              <JobCard job={job} onDetail={() => setDetail(true)} />
+            <SwipeCard key={job.id} ref={card} onSwipe={onSwipe} behind={next ? <JobCard job={next} p={pres[next.company_id]} /> : null}>
+              <JobCard job={job} p={pres[job.company_id]} onDetail={() => setDetail(true)} />
             </SwipeCard>
             <SwipeButtons onPass={() => card.current?.swipe('left')} onSave={() => card.current?.swipe('up')} onLike={() => card.current?.swipe('right')} />
             <SwipeHint />

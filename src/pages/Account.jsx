@@ -9,6 +9,7 @@ import { Bell } from '../components/Bell'
 import { InstallBanner } from '../components/InstallBanner'
 import { EmailToggle } from './Notifications'
 import { CalendarSync } from '../components/CalendarSync'
+import { OnlineToggle } from '../components/Presence'
 
 function Row({ to, title, sub }) {
   return (
@@ -111,6 +112,7 @@ export function CandidateProfile() {
           <span className="hint">Si lo desactivas, solo verán tu perfil las empresas a las que tú muestres interés. Tu teléfono y correo nunca se muestran sin tu permiso.</span>
           <ErrorBox>{err}</ErrorBox>
         </div>
+        <OnlineToggle />
         <CalendarSync />
         <NotifyCard />
         <EmailToggle />

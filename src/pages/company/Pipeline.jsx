@@ -5,6 +5,8 @@ import { useAuth } from '../../lib/auth'
 import { COLUMNAS, PLANTILLAS_BASE, TIPOS_PLANTILLA, colLabel, daysAgo, fillVars } from '../../lib/catalog'
 import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { ErrorBox, Sheet, Spinner, Svg, Toast } from '../../components/ui'
+import { usePresence } from '../../lib/presence'
+import { PresenceLine } from '../../components/Presence'
 
 export function useTemplates() {
   const { company } = useAuth()
@@ -114,7 +116,7 @@ export function StagePicker({ current, onPick, kind }) {
   )
 }
 
-function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, canManage, showStage }) {
+function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, canManage, showStage, p }) {
   const next = NEXT[c.stage]
   return (
     <div draggable={canManage && !selecting} onDragStart={(e) => e.dataTransfer.setData('text/plain', JSON.stringify({ kind: c.kind, id: c.id }))}
@@ -124,6 +126,7 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-[15px] font-semibold">{c.name}</span>
           <span className="truncate text-[13px] text-tinta-3">{c.headline || '—'}{c.comuna ? ` · ${c.comuna}` : ''}</span>
+          <PresenceLine p={p} />
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
           <span className="text-[11px] text-tinta-suave">{daysAgo(c.since)}</span>
@@ -184,6 +187,7 @@ export default function Pipeline() {
   useEffect(() => {
     if (d && col == null) setCol((COLUMNAS.find(([k]) => k !== 'contratado' && k !== 'descartado' && byCol[k].length) || ['todas'])[0])
   }, [d, col, byCol])
+  const pres = usePresence({ users: (d?.cards || []).map((c) => c.candidate_id).filter(Boolean) })
   const key = (c) => `${c.kind}:${c.id}`
   const toggle = (c) => setSel((s) => (s.includes(key(c)) ? s.filter((x) => x !== key(c)) : [...s, key(c)]))
   const selected = (d?.cards || []).filter((c) => sel.includes(key(c)))
@@ -209,7 +213,7 @@ export default function Pipeline() {
   const canManage = d.can_manage
   const ko = d.cards.filter((c) => c.knocked_out).length
   const list = col === 'todas' ? cards : byCol[col]
-  const cardProps = (c) => ({ c, canManage, selecting, selected: sel.includes(key(c)), onToggle: () => toggle(c), onOpen: () => open(c), onMove: () => setMoving(c), onAdvance: () => move(c, NEXT[c.stage]) })
+  const cardProps = (c) => ({ c, p: pres[c.candidate_id], canManage, selecting, selected: sel.includes(key(c)), onToggle: () => toggle(c), onOpen: () => open(c), onMove: () => setMoving(c), onAdvance: () => move(c, NEXT[c.stage]) })
   const tiles = [['todas', 'Todas', '#302538'], ...COLUMNAS.map(([k, , color]) => [k, SHORT[k], color])]
 
   return (

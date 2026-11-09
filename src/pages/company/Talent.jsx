@@ -5,6 +5,8 @@ import { useAuth } from '../../lib/auth'
 import { AREAS, colLabel, daysAgo } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Bell } from '../../components/Bell'
+import { usePresence } from '../../lib/presence'
+import { PresenceLine, WithDot } from '../../components/Presence'
 
 const STAGE_TXT = (s) => ({ guardado: 'Guardado', invitado: 'Invitado', postulante: 'Postuló' }[s] || colLabel(s))
 
@@ -27,6 +29,7 @@ export default function Talent() {
     supabase.from('jobs').select('id, title, status').eq('company_id', company.id).in('status', ['published', 'paused', 'pending', 'draft']).order('created_at', { ascending: false }).then(({ data }) => setJobs(data || []))
   }, [company])
 
+  const pres = usePresence({ users: (list || []).map((x) => x.candidate_id).filter(Boolean) })
   const tags = useMemo(() => [...new Set((list || []).flatMap((x) => x.tags))].sort(), [list])
   const comunas = useMemo(() => [...new Set((list || []).map((x) => x.comuna).filter(Boolean))].sort(), [list])
   const shown = useMemo(() => (list || []).filter((x) => {
@@ -90,10 +93,11 @@ export default function Talent() {
             {shown.map((x) => (
               <div key={x.subject_id} className="card flex flex-col gap-2 p-3.5">
                 <button className="flex items-center gap-3 text-left" onClick={() => openPerson(x)}>
-                  <Avatar text={x.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={44} round />
+                  <WithDot p={pres[x.candidate_id]}><Avatar text={x.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={44} round /></WithDot>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={14} className="text-naranja" />}</span>
                     <span className="truncate text-[13px] text-tinta-3">{x.headline || '—'}{x.comuna ? ` · ${x.comuna}` : ''}</span>
+                    <PresenceLine p={pres[x.candidate_id]} />
                   </span>
                   <span className="text-[11px] text-tinta-suave">{daysAgo(x.last_at)}</span>
                 </button>

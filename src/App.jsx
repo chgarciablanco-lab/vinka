@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useAuth } from './lib/auth'
+import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner } from './components/ui'
 import Welcome from './pages/auth/Welcome'
 import { CheckEmail, Forgot, Login, NewPassword } from './pages/auth/AuthPages'
@@ -49,6 +50,7 @@ function EditStep({ Comp }) {
 
 export default function App() {
   const { session, profile, candidate, company, isAdmin, loading, recovery } = useAuth()
+  useHeartbeat(!!session && !!profile && profile.show_online !== false)
   const [unseen, setUnseen] = useState(0)
 
   if (loading || (session && !profile)) return <div className="flex h-full"><Spinner /></div>

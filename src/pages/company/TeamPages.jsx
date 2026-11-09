@@ -5,6 +5,8 @@ import { useAuth } from '../../lib/auth'
 import { PLANTILLAS_BASE, ROLES, TIPOS_PLANTILLA } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Field, Logo, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { AiAssist } from '../../components/AiAssist'
+import { usePresence } from '../../lib/presence'
+import { PresenceLine, WithDot } from '../../components/Presence'
 
 /* ===================== Plantillas de mensajes ===================== */
 export function Templates() {
@@ -74,6 +76,7 @@ export function Team() {
   const [err, setErr] = useState('')
   const [toast, setToast] = useState('')
   const isAdmin = ['owner', 'admin'].includes(company?.member_role)
+  const pres = usePresence({ users: (members || []).filter((m) => !m.is_me).map((m) => m.user_id) })
   const load = useCallback(async () => {
     const [{ data: m }, { data: i }] = await Promise.all([
       supabase.rpc('team_members', { p_company: company.id }),
@@ -111,8 +114,8 @@ export function Team() {
           <div className="card px-4">
             {members.map((m) => (
               <button key={m.user_id} disabled={!isAdmin || m.role === 'owner' || m.is_me} onClick={() => setRoleFor(m)} className="flex w-full items-center gap-3 border-b border-[#F1E7ED] py-3 text-left last:border-0">
-                <Avatar text={(m.name || m.email).split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color="#302538" size={40} round />
-                <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-[15px] font-semibold">{m.name || m.email}{m.is_me && ' (tú)'}</span><span className="truncate text-xs text-tinta-3">{m.email}</span></span>
+                <WithDot p={pres[m.user_id]}><Avatar text={(m.name || m.email).split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color="#302538" size={40} round /></WithDot>
+                <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-[15px] font-semibold">{m.name || m.email}{m.is_me && ' (tú)'}</span><span className="truncate text-xs text-tinta-3">{m.email}</span><PresenceLine p={pres[m.user_id]} /></span>
                 <span className="pill bg-[#F4EEF2] text-tinta-2">{ROLES[m.role]?.[0]}</span>
               </button>
             ))}
