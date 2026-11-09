@@ -29,3 +29,11 @@
   .desk .fixed.left-1\/2 { left: calc(50% + 8rem); max-width: min(42rem, calc(100% - 18rem)); }
   .desk .wide { max-width: 72rem; }
 }
+
+/* Impresión / PDF de documentos (carta oferta): sin menús de la app */
+@media print {
+  aside[aria-label="Navegación principal"], nav { display: none !important; }
+  .desk { padding-left: 0 !important; }
+  body { background: #fff !important; }
+  @page { margin: 16mm; }
+}

@@ -47,3 +47,16 @@ delete from companies where id in (select id from seed.companies);
 delete from auth.users where id in (select id from seed.users);
 drop schema seed cascade;
 ```
+
+
+## Destacados simulados (2 años)
+
+703 destacados de demostración (ofertas de las 60 empresas demo y perfiles de personas demo), con sus pagos y estadísticas diarias. Incluye 11 ofertas y 26 perfiles vigentes hoy y 5 solicitudes por activar. Sus ids están en `seed.promotions`.
+
+Para borrarlos (antes del resto de la limpieza):
+
+```sql
+delete from payments where promotion_id in (select id from seed.promotions);
+delete from promotions where id in (select id from seed.promotions);
+drop table seed.promotions;
+```

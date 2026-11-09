@@ -162,22 +162,47 @@ async function render(n: any, name: string, app: string): Promise<string> {
       `Recibes este correo porque tienes una cuenta en VINKA. <a href="${prefs}" style="color:#B0245F">Preferencias de avisos</a>`, 'VINKA Talent', n.body)
   }
 
-  if (n.kind === 'offer') {
+  if (n.kind === 'offer' || n.kind === 'offer_copy') {
+    const copy = n.kind === 'offer_copy'
     const id = (n.url.match(/\/ofertas\/([0-9a-f-]{36})/) || [])[1]
-    const { data: o } = id ? await sb.from('offers').select('*, companies(display_name)').eq('id', id).maybeSingle() : { data: null }
+    const { data: o } = id ? await sb.from('offers').select('*, companies(display_name, legal_name, rut, comuna, logo_path)').eq('id', id).maybeSingle() : { data: null }
     if (o) {
-      const co = (o as any).companies?.display_name || 'La empresa'
+      const cm = (o as any).companies || {}
+      const co = cm.display_name || 'La empresa'
+      const { data: cand } = await sb.from('profiles').select('first_name, last_name').eq('id', o.candidate_id).maybeSingle()
+      const candName = `${cand?.first_name || ''} ${cand?.last_name || ''}`.trim()
+      const L = o.letter || {}
+      const day = (d: string) => new Date(d.length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('es-CL', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' })
+      const logo = cm.logo_path ? `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/logos/${cm.logo_path}` : ''
       const r: [string, string][] = [['Cargo', o.position]]
-      if (o.salary) r.push(['Renta', `${clp(o.salary)} ${o.salary_type === 'bruto' ? 'bruto' : 'líquido'}`])
+      r.push(['Renta mensual', o.salary ? `${clp(o.salary)} ${o.salary_type === 'bruto' ? 'bruto' : 'líquido'}` : 'A conversar'])
       if (o.contract) r.push(['Contrato', o.contract])
       if (o.schedule) r.push(['Jornada', o.schedule])
-      if (o.start_date) r.push(['Inicio', new Date(o.start_date + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })])
-      if (o.location) r.push(['Lugar', o.location])
-      return shell(`<tr><td style="background:#FFF4E8;padding:28px;${B}">${stepper('Oferta')}<div style="${F};font-size:34px;font-weight:700;line-height:1.15;color:${DARK}">¡Recibiste una carta oferta!</div><div style="font-size:16px;color:#4A2A00;margin-top:6px">${esc(co)} quiere que te sumes a su equipo.</div></td></tr>` +
-        body(hello + p(`<b>${esc(co)}</b> te envió una oferta formal. Revisa las condiciones y responde desde VINKA${o.expires_on ? ` antes del <b>${esc(new Date(o.expires_on + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long' }))}</b>` : ''}.`) +
-          rows(r) + btn(link, 'Ver y responder la oferta') +
-          note('Una oferta real nunca te pide dinero. Si tienes dudas sobre las condiciones, pregúntale a la empresa por el chat antes de aceptar.', '#FFF4E8', '#4A2A00')),
-        FOOT(prefs), 'VINKA Talent', n.body)
+      if (o.start_date) r.push(['Fecha de inicio', day(o.start_date)])
+      if (o.location) r.push(['Lugar de trabajo', o.location])
+      const para = (t: string) => esc(t).split(/\n{2,}/).map((x) => p(x.replace(/\n/g, '<br>'))).join('')
+      const intro = L.intro || `Nos complace ofrecerte el cargo de ${o.position} en ${co}. Después de conocerte durante el proceso de selección, creemos que tu experiencia y tu forma de trabajar aportarán mucho a nuestro equipo. Estas son las condiciones de la oferta:`
+      const closing = L.closing || `Esta carta expresa nuestra intención de contratarte y no reemplaza al contrato de trabajo, que firmaremos una vez que aceptes. Si tienes cualquier duda sobre estas condiciones, conversémoslo.\n\nEsperamos contar contigo.`
+      const head = logo ? `<img src="${logo}" alt="${esc(co)}" height="56" style="display:block;height:56px;max-width:220px;border:0">` : `<div style="${F};font-size:22px;font-weight:700;color:${DARK}">${esc(co)}</div>`
+      const letter = `<tr><td style="padding:28px 28px 8px;${B};color:#17131A">
+        ${copy ? note(`Copia de la carta oferta enviada a <b>${esc(candName)}</b>.`, '#FFF4E8', '#4A2A00') : ''}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle">${head}</td>
+        <td align="right" style="vertical-align:middle;font-size:13px;line-height:1.5;color:#6B5F6E">${esc(cm.legal_name || co)}${cm.rut ? `<br>RUT ${esc(cm.rut)}` : ''}<br>${esc(L.city || cm.comuna || '')}${(L.city || cm.comuna) ? ', ' : ''}${esc(day(o.created_at))}</td></tr></table>
+        <div style="border-top:2px solid ${DARK};margin:18px 0 22px"></div>
+        <div style="font-size:12px;letter-spacing:3px;font-weight:700;color:#B85F00">CARTA OFERTA</div>
+        <div style="${F};font-size:26px;font-weight:700;line-height:1.2;margin:6px 0 18px;color:${DARK}">${esc(o.position)}</div>
+        ${p(`Estimado/a <b>${esc(candName)}</b>:`)}${para(intro)}${rows(r)}
+        ${o.benefits ? note(`<b>Beneficios</b><br>${esc(o.benefits).replace(/\n/g, '<br>')}`) : ''}
+        ${o.message ? para(o.message) : ''}${para(closing)}
+        ${o.expires_on && !copy ? p(`Te pedimos responder antes del <b>${esc(day(o.expires_on))}</b>.`) : ''}
+        ${p('Atentamente,', 'margin-bottom:6px')}
+        <div style="font-size:16px;font-weight:700;color:#17131A">${esc(L.signer_name || '')}</div>
+        <div style="font-size:14px;color:#4A3F4E">${esc(L.signer_title || '')}</div>
+        <div style="font-size:14px;color:#4A3F4E;margin-bottom:22px">${esc(cm.legal_name || co)}</div>
+      </td></tr>`
+      return shell(letter + body(btn(link, copy ? 'Ver la carta en VINKA' : 'Ver y responder la oferta') +
+          (copy ? '' : note('Responde desde VINKA con un toque. Una oferta real nunca te pide dinero; si tienes dudas, pregúntale a la empresa por el chat antes de aceptar.', '#FFF4E8', '#4A2A00'))),
+        copy ? `Recibes esta copia porque enviaste la carta desde VINKA. <a href="${prefs}" style="color:#B0245F">Preferencias de avisos</a>` : FOOT(prefs), copy ? 'VINKA Company' : 'VINKA Talent', n.body)
     }
   }
 

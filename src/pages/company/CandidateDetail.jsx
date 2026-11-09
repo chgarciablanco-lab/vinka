@@ -6,6 +6,7 @@ import { COLUMNAS, CONTRATOS, CRITERIOS, JORNADAS, RECOMENDACION, clp, colLabel,
 import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { Avatar, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Sparkle, callAi } from '../../components/AiAssist'
+import { DEFAULT_CLOSING, OfferLetter, defaultIntro } from '../../components/OfferLetter'
 import { BulkSheet, StagePicker } from './Pipeline'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
@@ -260,46 +261,80 @@ function Tags({ tags, companyId, subjectId, canManage, onChange }) {
 }
 
 /* ---------- Carta oferta (empresa) ---------- */
-export function OfferForm({ open, onClose, matchId, job, onSent }) {
-  const { company } = useAuth()
+export function OfferForm({ open, onClose, matchId, job, onSent, candidateName, prev }) {
+  const { company, profile } = useAuth()
   const [f, setF] = useState({})
+  const [L, setL] = useState({})
+  const [view, setView] = useState('editar')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    if (open) setF({ position: job?.title || '', salary: job?.salary_max || job?.salary_min || null, salary_type: job?.salary_type || 'liquido', contract: job?.contract || '', schedule: job?.schedule || '',
+    if (!open) return
+    setView('editar')
+    if (prev) {
+      setF({ position: prev.position || '', salary: prev.salary, salary_type: prev.salary_type || 'liquido', contract: prev.contract || '', schedule: prev.schedule || '', location: prev.location || '',
+        start_date: prev.start_date || '', expires_on: prev.expires_on || '', benefits: prev.benefits || '', message: prev.message || '' })
+      setL({ intro: '', closing: '', signer_name: '', signer_title: '', city: '', ...(prev.letter || {}) })
+      return
+    }
+    setF({ position: job?.title || '', salary: job?.salary_max || job?.salary_min || null, salary_type: job?.salary_type || 'liquido', contract: job?.contract || '', schedule: job?.schedule || '',
       location: job?.modality === 'Remota' ? 'Remoto' : [job?.comuna, job?.region].filter(Boolean).join(', '), start_date: '', expires_on: '', benefits: company?.benefits || '', message: '' })
-  }, [open, job, company])
+    setL({ intro: '', closing: '', signer_name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(), signer_title: '', city: company?.comuna || '' })
+  }, [open, job, company, prev, profile])
   const set = (k, v) => setF({ ...f, [k]: v })
+  const setLetter = (k, v) => setL({ ...L, [k]: v })
+  const letter = { ...L, intro: L.intro?.trim() ? L.intro : defaultIntro(f.position, company?.display_name), closing: L.closing?.trim() ? L.closing : DEFAULT_CLOSING }
   const send = async () => {
     setErr('')
-    if (!f.position?.trim()) return setErr('Indica el cargo.')
+    if (!f.position?.trim()) { setView('editar'); return setErr('Indica el cargo.') }
+    if (!L.signer_name?.trim()) { setView('editar'); return setErr('Indica quién firma la carta.') }
     setBusy(true)
-    const { error } = await supabase.rpc('send_offer', { p_match: matchId, p: { ...f, salary: f.salary ? String(f.salary) : '' } })
+    const { error } = await supabase.rpc('send_offer', { p_match: matchId, p: { ...f, salary: f.salary ? String(f.salary) : '', letter } })
     setBusy(false)
     if (error) return setErr(errMsg(error))
     onSent()
   }
   return (
-    <Sheet open={open} onClose={onClose} title="Carta oferta">
+    <Sheet open={open} onClose={onClose} title={prev ? 'Editar y reenviar carta oferta' : 'Carta oferta'} wide>
       <div className="flex flex-col gap-3.5">
-        <Field label="Cargo"><input className="input" value={f.position || ''} onChange={(e) => set('position', e.target.value)} /></Field>
-        <div className="flex flex-col gap-1.5"><span className="label">Renta mensual</span>
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <input className="input" inputMode="numeric" aria-label="Renta" placeholder="$" value={clp(f.salary)} onChange={(e) => set('salary', parseCLP(e.target.value))} />
-            <select className="input w-28" aria-label="Tipo de renta" value={f.salary_type} onChange={(e) => set('salary_type', e.target.value)}><option value="liquido">Líquida</option><option value="bruto">Bruta</option></select>
-          </div></div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <Field label="Contrato"><select className="input" value={f.contract || ''} onChange={(e) => set('contract', e.target.value)}><option value="">—</option>{CONTRATOS.map((c) => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="Jornada"><select className="input" value={f.schedule || ''} onChange={(e) => set('schedule', e.target.value)}><option value="">—</option>{JORNADAS.map((c) => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="Fecha de inicio"><input type="date" className="input" value={f.start_date || ''} onChange={(e) => set('start_date', e.target.value)} /></Field>
-          <Field label="Responder antes del"><input type="date" className="input" value={f.expires_on || ''} onChange={(e) => set('expires_on', e.target.value)} /></Field>
+        <div className="flex gap-1 rounded-xl bg-[#F4EEF2] p-1 lg:hidden">
+          {[['editar', 'Editar'], ['ver', 'Vista previa']].map(([k, l]) => <button key={k} onClick={() => setView(k)} className={`h-10 flex-1 rounded-lg text-sm font-semibold ${view === k ? 'bg-white shadow-sm' : 'text-tinta-3'}`}>{l}</button>)}
         </div>
-        <Field label="Lugar de trabajo"><input className="input" value={f.location || ''} onChange={(e) => set('location', e.target.value)} /></Field>
-        <Field label="Beneficios"><textarea className="textarea h-20" maxLength={1500} value={f.benefits || ''} onChange={(e) => set('benefits', e.target.value)} /></Field>
-        <Field label="Mensaje personal (opcional)"><textarea className="textarea h-24" maxLength={2000} value={f.message || ''} onChange={(e) => set('message', e.target.value)} placeholder="Nos encantaría que te sumes al equipo…" /></Field>
-        <p className="hint">La persona recibe un aviso y un correo, y puede aceptar o rechazar desde VINKA. La carta oferta no reemplaza al contrato de trabajo.</p>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-5">
+          <div className={`flex flex-col gap-3.5 ${view === 'editar' ? '' : 'hidden lg:flex'}`}>
+            <span className="text-xs font-bold uppercase tracking-wider text-tinta-suave">Condiciones</span>
+            <Field label="Cargo"><input className="input" value={f.position || ''} onChange={(e) => set('position', e.target.value)} /></Field>
+            <div className="flex flex-col gap-1.5"><span className="label">Renta mensual</span>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <input className="input" inputMode="numeric" aria-label="Renta" placeholder="$" value={clp(f.salary)} onChange={(e) => set('salary', parseCLP(e.target.value))} />
+                <select className="input w-28" aria-label="Tipo de renta" value={f.salary_type} onChange={(e) => set('salary_type', e.target.value)}><option value="liquido">Líquida</option><option value="bruto">Bruta</option></select>
+              </div></div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Field label="Contrato"><select className="input" value={f.contract || ''} onChange={(e) => set('contract', e.target.value)}><option value="">—</option>{CONTRATOS.map((c) => <option key={c}>{c}</option>)}</select></Field>
+              <Field label="Jornada"><select className="input" value={f.schedule || ''} onChange={(e) => set('schedule', e.target.value)}><option value="">—</option>{JORNADAS.map((c) => <option key={c}>{c}</option>)}</select></Field>
+              <Field label="Fecha de inicio"><input type="date" className="input" value={f.start_date || ''} onChange={(e) => set('start_date', e.target.value)} /></Field>
+              <Field label="Responder antes del"><input type="date" className="input" value={f.expires_on || ''} onChange={(e) => set('expires_on', e.target.value)} /></Field>
+            </div>
+            <Field label="Lugar de trabajo"><input className="input" value={f.location || ''} onChange={(e) => set('location', e.target.value)} /></Field>
+            <Field label="Beneficios"><textarea className="textarea h-20" maxLength={1500} value={f.benefits || ''} onChange={(e) => set('benefits', e.target.value)} /></Field>
+            <span className="mt-2 text-xs font-bold uppercase tracking-wider text-tinta-suave">Texto de la carta</span>
+            <Field label="Introducción" hint="Si lo dejas vacío usamos un texto formal estándar."><textarea className="textarea h-28" maxLength={2500} value={L.intro || ''} onChange={(e) => setLetter('intro', e.target.value)} placeholder={defaultIntro(f.position, company?.display_name)} /></Field>
+            <Field label="Mensaje personal (opcional)"><textarea className="textarea h-20" maxLength={2000} value={f.message || ''} onChange={(e) => set('message', e.target.value)} placeholder="Nos encantaría que te sumes al equipo…" /></Field>
+            <Field label="Cierre"><textarea className="textarea h-24" maxLength={1500} value={L.closing || ''} onChange={(e) => setLetter('closing', e.target.value)} placeholder={DEFAULT_CLOSING} /></Field>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Field label="Firma: nombre"><input className="input" maxLength={120} value={L.signer_name || ''} onChange={(e) => setLetter('signer_name', e.target.value)} /></Field>
+              <Field label="Firma: cargo"><input className="input" maxLength={120} value={L.signer_title || ''} onChange={(e) => setLetter('signer_title', e.target.value)} placeholder="Gerente de Personas" /></Field>
+            </div>
+            <Field label="Ciudad de emisión"><input className="input" maxLength={80} value={L.city || ''} onChange={(e) => setLetter('city', e.target.value)} /></Field>
+            {!company?.logo_path && <p className="hint">Sube el logo de tu empresa en Empresa → Logo para que aparezca en la carta y en el correo.</p>}
+          </div>
+          <div className={`${view === 'ver' ? '' : 'hidden lg:block'} lg:max-h-[70vh] lg:overflow-y-auto lg:rounded-2xl lg:bg-[#F6F1F4] lg:p-3`}>
+            <OfferLetter offer={{ ...f, letter, created_at: new Date().toISOString() }} company={company || {}} candidate={{ name: candidateName }} />
+          </div>
+        </div>
+        <p className="hint">La persona recibe la carta en VINKA y por correo, y puede aceptar o rechazar con un toque. Después podrás descargarla en PDF o enviarla desde tu correo.{prev ? ' La carta anterior queda reemplazada.' : ''}</p>
         <ErrorBox>{err}</ErrorBox>
-        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Enviando…' : 'Enviar carta oferta'}</button>
+        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Enviando…' : prev ? 'Reenviar carta oferta' : 'Enviar carta oferta'}</button>
       </div>
     </Sheet>
   )
@@ -313,7 +348,10 @@ export function OfferSummary({ o, onWithdraw, onApprove }) {
       <span className="text-sm">{o.position}{o.salary ? ` · ${clp(o.salary)} ${o.salary_type === 'bruto' ? 'bruto' : 'líquido'}` : ''}</span>
       <span className="text-xs text-tinta-suave">Enviada el {fmtDate(o.created_at)}{o.responded_at ? ` · respondida el ${fmtDate(o.responded_at)}` : ''}</span>
       {o.response_note && <span className="text-sm italic text-tinta-2">“{o.response_note}”</span>}
-      {o.status === 'enviada' && onWithdraw && <button className="self-start text-sm font-semibold text-[#B42318]" onClick={onWithdraw}>Retirar oferta</button>}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Link to={`/ofertas/${o.id}`} className="text-sm font-semibold text-rosa-texto">Ver carta · PDF · enviar por correo ›</Link>
+        {o.status === 'enviada' && onWithdraw && <button className="text-sm font-semibold text-[#B42318]" onClick={onWithdraw}>Retirar oferta</button>}
+      </div>
       {o.status === 'por_aprobar' && (onApprove
         ? <div className="mt-1 grid grid-cols-2 gap-2"><button className="btn-sm border border-linea bg-white" onClick={() => onApprove(false)}>No aprobar</button><button className="btn-sm bg-rosa-accion text-white" onClick={() => onApprove(true)}>Aprobar y enviar</button></div>
         : <span className="text-xs text-tinta-3">Un administrador debe aprobarla antes de que llegue al candidato.</span>)}
@@ -339,6 +377,7 @@ export default function CandidateDetail({ panel }) {
   const [moveOpen, setMoveOpen] = useState(false)
   const [msgOpen, setMsgOpen] = useState(false)
   const [offerOpen, setOfferOpen] = useState(false)
+  const [editOffer, setEditOffer] = useState(false)
   const [video, setVideo] = useState('')
   const [copyOpen, setCopyOpen] = useState(false)
   const [jobs, setJobs] = useState([])
@@ -350,6 +389,7 @@ export default function CandidateDetail({ panel }) {
   }, [ext, eid, jobId, cid])
   useEffect(() => { load() }, [load])
   useEffect(() => { supabase.from('jobs').select('*').eq('id', jobId).single().then(({ data }) => setJob(data)) }, [jobId])
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('oferta') === 'editar' && d?.offer && d?.match) { setEditOffer(true); setOfferOpen(true); window.history.replaceState(null, '', window.location.pathname) } }, [d])
 
   const pres = usePresence({ users: ext ? [] : [cid] })
   const subject = useMemo(() => (ext ? { job_id: jobId, external_id: eid } : { job_id: jobId, candidate_id: cid }), [ext, jobId, eid, cid])
@@ -426,7 +466,7 @@ export default function CandidateDetail({ panel }) {
               : ext ? <button className="btn-sm h-11 border border-linea bg-white" onClick={openCopy}>Copiar a otra vacante</button>
                 : <span className="btn-sm h-11 bg-[#F4EEF2] text-xs text-tinta-3">Chat al hacer match</span>}
             {d.match && !d.match.closed && <button className="btn-sm h-11 border border-linea bg-white" onClick={() => setMsgOpen(true)}>Usar plantilla</button>}
-            {d.match && !d.match.closed && <button className="btn-sm h-11 border border-naranja bg-naranja-palido text-naranja-texto" onClick={() => setOfferOpen(true)}>{d.offer?.status === 'enviada' ? 'Nueva oferta' : 'Carta oferta'}</button>}
+            {d.match && !d.match.closed && <button className="btn-sm h-11 border border-naranja bg-naranja-palido text-naranja-texto" onClick={() => { setEditOffer(!!d.offer && d.offer.status !== 'aceptada'); setOfferOpen(true) }}>{d.offer && d.offer.status !== 'aceptada' ? 'Editar carta oferta' : 'Carta oferta'}</button>}
           </div>
         )}
         {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} onApprove={isAdmin ? approveOffer : null} />}
@@ -501,7 +541,7 @@ export default function CandidateDetail({ panel }) {
         <StagePicker current={stage} kind={d.kind} onPick={move} />
       </Sheet>
       {d.match && <BulkSheet open={msgOpen} onClose={() => setMsgOpen(false)} items={[{ kind: 'match', id: cid, name }]} job={d.job} onDone={() => { setMsgOpen(false); saved('Mensaje enviado') }} />}
-      {d.match && <OfferForm open={offerOpen} onClose={() => setOfferOpen(false)} matchId={d.match.id} job={job} onSent={() => { setOfferOpen(false); saved('Carta oferta enviada') }} />}
+      {d.match && <OfferForm open={offerOpen} onClose={() => setOfferOpen(false)} matchId={d.match.id} job={job} candidateName={name} prev={editOffer ? d.offer : null} onSent={() => { setOfferOpen(false); saved(editOffer ? 'Carta oferta reenviada' : 'Carta oferta enviada') }} />}
       <Sheet open={copyOpen} onClose={() => setCopyOpen(false)} title="Copiar a otra vacante">
         <div className="flex flex-col gap-2">
           {jobs.length === 0 && <p className="text-sm text-tinta-3">No tienes otras vacantes.</p>}

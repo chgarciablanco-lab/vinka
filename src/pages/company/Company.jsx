@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
+import { logoUrl } from '../../components/OfferLetter'
 import { useAuth } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
@@ -16,7 +17,6 @@ import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
-import { useRef } from 'react'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -355,6 +355,7 @@ export function JobCandidates() {
   const [busy, setBusy] = useState(false)
 
   const [broad, setBroad] = useState(false)
+  const [full, setFull] = useState(false)
   const load = useCallback(async (wide = false) => {
     setList(null); setI(0); setBroad(wide)
     const [{ data: jd }, { data, error }] = await Promise.all([
@@ -405,6 +406,10 @@ export function JobCandidates() {
     }
     return months >= 12 ? `${Math.round(months / 12)} año(s)` : months > 0 ? `${Math.round(months)} mes(es)` : 'Sin datos'
   }
+  const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  const ym = (v) => { if (!v) return '?'; const [y, m] = v.split('-'); return m ? `${MES[Number(m) - 1]} ${y}` : y }
+  const period = (x) => `${ym(x.from)} – ${x.current || !x.to ? 'actual' : ym(x.to)}`
+  const swipeFromSheet = (dir) => { setFull(false); setTimeout(() => cardRef.current?.swipe(dir), 120) }
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] pb-10 lg:max-w-3xl">
@@ -431,23 +436,30 @@ export function JobCandidates() {
             {c.featured && <FeaturedBadge kind="profile" />}
             <div className="flex items-center gap-3">
               <Avatar text={c.initials} color="#302538" size={56} round />
-              <div className="flex flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span><PresenceLine p={pres[c.candidate_id]} /></div>
+              <div className="flex min-w-0 flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span>
+                {c.role_label && c.role_label !== c.headline && <span className="text-xs text-tinta-suave">{c.role_label}</span>}<PresenceLine p={pres[c.candidate_id]} /></div>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {[c.comuna, c.availability && `Disponible: ${c.availability.toLowerCase()}`, c.modalities?.join(' o ')].filter(Boolean).map((t) => <span key={t} className="rounded-lg bg-[#F6F1F4] px-2.5 py-1.5 text-[13px] text-tinta-2">{t}</span>)}
+              {[[c.comuna, c.region].filter(Boolean).join(', '), c.availability && `Disponible: ${c.availability.toLowerCase()}`, c.modalities?.join(' o '), c.schedules?.length && `Jornada ${c.schedules.join(' o ').toLowerCase()}`].filter(Boolean).map((t) => <span key={t} className="rounded-lg bg-[#F6F1F4] px-2.5 py-1.5 text-[13px] text-tinta-2">{t}</span>)}
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 rounded-xl bg-[#FBF7FA] p-3 text-sm">
               <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Experiencia</span><span className="font-medium">{c.has_experience ? yrs(c.experiences) : 'Busca primer empleo'}</span></div>
-              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Estudios</span><span className="font-medium">{c.education?.[0] ? (c.education[0].title || c.education[0].level) : '—'}</span></div>
+              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Estudios</span><span className="font-medium">{c.education?.[0] ? [c.education[0].title || c.education[0].level, c.education[0].status].filter(Boolean).join(' · ') : '—'}</span></div>
+              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Áreas</span><span className="font-medium">{c.areas?.length ? c.areas.slice(0, 3).join(', ') : '—'}</span></div>
+              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Pretensión de renta</span><span className="font-medium">{c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : 'No indicada'}</span>
+                {c.salary_expectation && job?.salary_max && job?.salary_type === 'liquido' && <span className={`text-[11px] font-semibold ${c.salary_expectation <= job.salary_max ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>{c.salary_expectation <= job.salary_max ? 'Dentro de tu rango' : 'Sobre tu rango'}</span>}</div>
             </div>
             {c.experiences?.length > 0 && (
-              <div className="flex flex-col gap-1 text-sm">{c.experiences.slice(0, 3).map((x, k) => <span key={k}><b>{x.role}</b> · {x.company}</span>)}</div>
+              <div className="flex flex-col gap-1.5 text-sm"><span className="text-xs font-semibold text-tinta-3">Experiencia reciente</span>
+                {c.experiences.slice(0, 3).map((x, k) => <span key={k} className="flex justify-between gap-2"><span className="min-w-0"><b>{x.role}</b> · {x.company}</span><span className="shrink-0 text-xs text-tinta-suave">{period(x)}</span></span>)}
+                {c.experiences.length > 3 && <span className="text-xs text-tinta-suave">+{c.experiences.length - 3} más</span>}
+              </div>
             )}
-            {c.skills?.length > 0 && <div className="flex flex-wrap gap-1.5">{c.skills.map((s) => <span key={s} className="rounded-full border border-linea px-2.5 py-1 text-xs">{s}</span>)}</div>}
+            {c.skills?.length > 0 && <div className="flex flex-wrap gap-1.5">{c.skills.slice(0, 8).map((s) => <span key={s} className="rounded-full border border-linea px-2.5 py-1 text-xs">{s}</span>)}{c.skills.length > 8 && <span className="px-1 py-1 text-xs text-tinta-suave">+{c.skills.length - 8}</span>}</div>}
             {(c.bio || c.has_video) && (
               <div className="flex flex-col gap-2 rounded-xl bg-rosa-fondo p-3">
                 <span className="text-xs font-semibold text-tinta-3">Presentación</span>
-                {c.bio && <p className="text-sm leading-relaxed">{c.bio}</p>}
+                {c.bio && <p className="line-clamp-3 text-sm leading-relaxed">{c.bio}</p>}
                 {c.has_video && (video ? <video src={video} controls autoPlay playsInline className="w-full rounded-xl bg-morado" /> : <button onClick={playVideo} className="btn-sm self-start bg-morado text-white"><Svg name="video" size={18} className="mr-1.5" />Ver video (15 s)</button>)}
               </div>
             )}
@@ -458,6 +470,8 @@ export function JobCandidates() {
                 <div className="flex flex-wrap gap-1.5">{c.reasons.map((r) => <span key={r} className="rounded-full bg-[#EAF6EF] px-2.5 py-1 text-xs font-semibold text-[#1E6B3F]">✓ {r}</span>)}</div>
               </div>
             )}
+            <div className="flex-1" />
+            <button onClick={() => { if (c.promotion_id) trackPromo([c.promotion_id], 'click'); setFull(true) }} className="self-start py-1 text-sm font-semibold text-rosa-texto">Ver perfil completo</button>
             <span className="text-xs leading-snug text-tinta-suave">Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>
           </article>
           </SwipeCard>
@@ -468,6 +482,49 @@ export function JobCandidates() {
           </>
         )}
       </div>
+      <Sheet open={full && !!c} onClose={() => setFull(false)} title={c ? `${c.display_name} · ${c.headline || 'Perfil'}` : ''} wide>
+        {c && (
+          <div className="flex flex-col gap-4 text-[15px]">
+            {c.featured && <FeaturedBadge kind="profile" />}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex flex-col gap-4">
+                <div className="card grid grid-cols-2 gap-3 p-4 text-sm">
+                  {[['Ubicación', [c.comuna, c.region].filter(Boolean).join(', ')], ['Disponibilidad', c.availability], ['Modalidad', (c.modalities || []).join(', ')], ['Jornada', (c.schedules || []).join(', ')],
+                    ['También trabajaría en', (c.locations || []).join(', ')], ['Cambio de ciudad', c.relocate], ['Áreas de interés', (c.areas || []).join(', ')], ['Pretensión de renta', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : '']].map(([k, v]) => (
+                    <div key={k} className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">{k}</span><span className="font-medium">{v || '—'}</span></div>
+                  ))}
+                </div>
+                {(c.bio || c.has_video) && (
+                  <div className="card flex flex-col gap-2 p-4"><span className="font-semibold">Presentación</span>
+                    {c.bio && <p className="whitespace-pre-line text-sm leading-relaxed">{c.bio}</p>}
+                    {c.has_video && (video ? <video src={video} controls autoPlay playsInline className="w-full rounded-xl bg-morado" /> : <button onClick={playVideo} className="btn-sm self-start bg-morado text-white"><Svg name="video" size={18} className="mr-1.5" />Ver video</button>)}
+                  </div>
+                )}
+                {c.reasons?.length > 0 && <div className="flex flex-wrap gap-1.5">{c.reasons.map((r) => <span key={r} className="rounded-full bg-[#EAF6EF] px-2.5 py-1 text-xs font-semibold text-[#1E6B3F]">✓ {r}</span>)}</div>}
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="card flex flex-col gap-3 p-4"><span className="font-semibold">Experiencia {c.has_experience && <span className="text-sm font-normal text-tinta-3">· {yrs(c.experiences)}</span>}</span>
+                  {!c.has_experience ? <span className="text-sm text-tinta-3">Busca su primer empleo.</span> : (c.experiences || []).map((x, k) => (
+                    <div key={k} className="flex flex-col gap-0.5 border-l-2 border-rosa-palido pl-3 text-sm"><b>{x.role}</b><span className="text-tinta-2">{x.company}</span><span className="text-xs text-tinta-suave">{period(x)}</span>{x.description && <span className="text-tinta-2">{x.description}</span>}</div>
+                  ))}
+                </div>
+                {(c.education || []).length > 0 && (
+                  <div className="card flex flex-col gap-2 p-4"><span className="font-semibold">Estudios</span>
+                    {c.education.map((x, k) => <div key={k} className="flex flex-col text-sm"><b>{x.title || x.level}</b><span className="text-tinta-2">{[x.institution, x.level !== x.title && x.title ? x.level : null, x.status].filter(Boolean).join(' · ')}</span></div>)}
+                  </div>
+                )}
+                {(c.skills || []).length > 0 && <div className="card flex flex-col gap-2 p-4"><span className="font-semibold">Habilidades</span><div className="flex flex-wrap gap-1.5">{c.skills.map((s) => <span key={s} className="rounded-full border border-linea px-2.5 py-1 text-xs">{s}</span>)}</div></div>}
+              </div>
+            </div>
+            {c.updated_at && <span className="text-xs text-tinta-suave">Perfil actualizado el {new Date(c.updated_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}. Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>}
+            <div className="sticky bottom-0 grid grid-cols-3 gap-2 bg-white pt-2">
+              <button className="btn-sm h-12 border border-linea bg-white" onClick={() => swipeFromSheet('left')}>Descartar</button>
+              <button className="btn-sm h-12 border border-linea bg-white" onClick={() => swipeFromSheet('up')}>Guardar</button>
+              <button className="btn-sm h-12 bg-rosa-accion text-white" onClick={() => swipeFromSheet('right')}>Me interesa</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
       <Toast msg={toast.msg} tone={toast.tone} onDone={() => setToast({ msg: '', tone: 'dark' })} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
@@ -480,6 +537,23 @@ export function CompanyAccount() {
   const [f, setF] = useState(() => ({ description: company?.description || '', benefits: company?.benefits || '', website: company?.website || '', display_name: company?.display_name || '' }))
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const logoInput = useRef()
+  const [logoBusy, setLogoBusy] = useState(false)
+  const uploadLogo = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) return setErr('El logo pesa más de 2 MB.')
+    setErr(''); setLogoBusy(true)
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
+    const path = `${company.id}/logo-${Date.now()}.${ext}`
+    const up = await supabase.storage.from('logos').upload(path, file, { contentType: file.type })
+    if (up.error) { setLogoBusy(false); return setErr('No pudimos subir el logo. Usa PNG, JPG o WEBP de hasta 2 MB.') }
+    const { error } = await supabase.rpc('set_company_logo', { p_company: company.id, p_path: path })
+    if (!error && company.logo_path) supabase.storage.from('logos').remove([company.logo_path]).then(() => {})
+    setLogoBusy(false)
+    if (error) return setErr(errMsg(error))
+    setMsg('Logo actualizado.'); refresh()
+  }
   const save = async () => {
     setErr('')
     const { error } = await supabase.from('companies').update(f).eq('id', company.id)
@@ -491,10 +565,15 @@ export function CompanyAccount() {
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
-          <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />
-          <div className="flex flex-col"><span className="flex items-center gap-1.5 font-semibold">{company?.display_name}{company?.verification_status === 'verified' && <Verified />}</span>
+          {company?.logo_path ? <img src={logoUrl(company.logo_path)} alt="Logo" className="h-[52px] w-[52px] shrink-0 rounded-xl border border-linea bg-white object-contain p-1" /> : <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />}
+          <div className="flex min-w-0 flex-1 flex-col"><span className="flex items-center gap-1.5 font-semibold">{company?.display_name}{company?.verification_status === 'verified' && <Verified />}</span>
             <span className="text-xs text-tinta-3">{company?.legal_name} · {company?.rut}</span></div>
+          {isAdmin && <>
+            <button className="btn-sm h-10 shrink-0 border border-linea bg-white px-3" disabled={logoBusy} onClick={() => logoInput.current?.click()}>{logoBusy ? 'Subiendo…' : company?.logo_path ? 'Cambiar logo' : 'Subir logo'}</button>
+            <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={uploadLogo} />
+          </>}
         </div>
+        {isAdmin && <p className="hint -mt-2">El logo aparece en tus cartas oferta y en los correos. PNG, JPG o WEBP de hasta 2 MB; ideal fondo transparente.</p>}
         <Field label="Nombre visible"><input className="input" value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
         <Field label="Quiénes somos" hint="Propósito, cultura y qué hace tu equipo."><textarea className="textarea h-32" maxLength={1500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <AiAssist task="company_description" title="Quiénes somos" current={f.description}
@@ -506,7 +585,6 @@ export function CompanyAccount() {
         <ErrorBox>{err}</ErrorBox>
         <button className="btn" onClick={save} disabled={!isAdmin}>Guardar vitrina</button>
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
-        <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
         <div className="card px-4">
           {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan']].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
