@@ -65,6 +65,17 @@ function PendingInvite() {
   return null
 }
 
+/** Después de registrarse o ingresar, lleva a lo que la persona eligió contratar en la página de inicio */
+function GoNext({ allowed }) {
+  const nav = useNavigate()
+  useEffect(() => {
+    let t = ''
+    try { t = localStorage.getItem('vinka-next') || ''; localStorage.removeItem('vinka-next') } catch { /* sin almacenamiento */ }
+    if (t && allowed.includes(t)) nav(t)
+  }, []) // eslint-disable-line
+  return null
+}
+
 function WithNav({ items, children }) {
   return <>{children}<BottomNav items={items} /></>
 }
@@ -208,6 +219,7 @@ export default function App() {
       <>
       <MatchWatcher onCount={setUnseen} />
       <PendingInvite />
+      <GoNext allowed={['/asesoria']} />
       {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
@@ -246,6 +258,7 @@ export default function App() {
   return (
     <>
     <MatchWatcher onCount={setUnseen} />
+    <GoNext allowed={['/plan']} />
     <DesktopNav items={deskNav} />
     <div className="desk h-full lg:pl-64">
     {wrap(
