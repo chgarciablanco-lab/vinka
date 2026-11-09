@@ -48,7 +48,7 @@ begin
   on conflict (company_id) do nothing;
   return new;
 end $$;
-drop trigger if exists company_add_subscription on public.companies;
+drop trigger if exists company_add_subscription on public.companies; -- (no existía al aplicarse)
 create trigger company_add_subscription after insert on public.companies for each row execute function company_add_subscription();
 
 insert into public.subscriptions (company_id, plan_id, status, trial_ends_at, note)
