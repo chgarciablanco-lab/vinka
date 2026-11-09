@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { callAi } from './AiAssist'
+import { useAuth } from '../lib/auth'
+import { uploadCv } from '../lib/files'
 import { ErrorBox, Sheet, Svg } from './ui'
 
 const MAX = 5 * 1024 * 1024
@@ -53,12 +55,15 @@ export function CvImport({ current, onApply }) {
   const [err, setErr] = useState('')
   const [cv, setCv] = useState(null)
   const [pick, setPick] = useState(null)
+  const [file, setFile] = useState(null)
+  const [keep, setKeep] = useState(true)
+  const { user } = useAuth()
 
   const onFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setErr(''); setBusy(true)
+    setErr(''); setBusy(true); setFile(file)
     try {
       const payload = await readCv(file)
       const { data } = await callAi('cv_parse', 'write', payload)
@@ -86,6 +91,7 @@ export function CvImport({ current, onApply }) {
     if (pick.bio && cv.bio) patch.bio = cv.bio
     if (pick.areas.length) patch.areas = pick.areas
     onApply(patch)
+    if (keep && file && user) uploadCv(user.id, file).catch(() => { /* el perfil se guarda igual; el CV se puede subir después en Mi CV */ })
     setCv(null)
   }
   const toggleIn = (k, i) => setPick((p) => ({ ...p, [k]: p[k].map((v, j) => (j === i ? !v : v)) }))
@@ -142,6 +148,10 @@ export function CvImport({ current, onApply }) {
             {cv.bio && <div className="flex flex-col gap-2"><span className="label">Presentación sugerida</span>
               <Row on={pick.bio} onClick={() => setPick({ ...pick, bio: !pick.bio })} title={cv.bio} sub={current.bio ? 'Reemplaza tu presentación actual' : null} /></div>}
             <p className="text-xs leading-snug text-tinta-suave">Leído con IA: revisa cargos, fechas y nombres antes de guardar. Puede equivocarse.</p>
+            <label className="flex items-start gap-2.5 text-[13px] leading-snug text-tinta-2">
+              <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
+              Guardar también el archivo en Mi CV (solo lo ven tú, tu asesor/a de VINKA si pides una asesoría y la administración de VINKA)
+            </label>
             <button className="btn" disabled={!count} onClick={apply}>Agregar a mi perfil ({count})</button>
           </div>
         )}

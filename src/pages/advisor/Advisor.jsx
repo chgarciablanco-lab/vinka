@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
-import { ServiceChat } from '../../components/ServiceChat'
+import { Dossier, TeamNotes } from '../../components/Dossier'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
 const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'correo', videollamada: 'videollamada' }
@@ -88,6 +88,16 @@ function Profile({ r }) {
 }
 
 /** Panel del asesor/a: solo ve las asesorías que VINKA le asignó, sin datos de contacto */
+/** Conversación general con el equipo de VINKA (dudas, disponibilidad, temas que no son de una asesoría) */
+export function AdvisorTeam() {
+  return (
+    <Screen className="bg-[#FAF7F9]" wide>
+      <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">Equipo VINKA</h1><p className="text-[13px] text-tinta-3">Tus notas y conversaciones con la administración. Incluye las notas de cada asesoría.</p></div>
+      <div className="px-5 pb-28 lg:px-8 lg:pb-10"><TeamNotes as="advisor" /></div>
+    </Screen>
+  )
+}
+
 export default function AdvisorHome() {
   const { profile } = useAuth()
   const [list, setList] = useState(null)
@@ -123,11 +133,11 @@ export default function AdvisorHome() {
             <span className="text-xs text-tinta-3">Prefiere {CONTACT_TXT[r.contact_pref] || r.contact_pref}. Para videollamadas, comparte el enlace de la reunión en el chat.</span>
             {r.status !== 'en_curso' && r.status !== 'entregada' && <div className="rounded-xl bg-naranja-palido px-3 py-2.5 text-xs text-naranja-texto">VINKA está coordinando el pago. Puedes presentarte por el chat, pero la asesoría comienza cuando la solicitud pase a «En curso».</div>}
             <Profile r={r} />
-            <span className="text-[13px] font-semibold">Conversación y archivos</span>
-            <ServiceChat requestId={r.id} as="advisor" disabled={r.status === 'cancelada'} />
+            <Dossier r={r} as="advisor" counts={{ messages: r.messages }} />
             {r.status === 'en_curso' && (
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
                 <span className="text-[13px] font-semibold">¿Terminaste la asesoría?</span>
+                <span className="text-xs text-tinta-3">Antes de entregar, deja en el expediente el CV mejorado, las sesiones realizadas, las ofertas sugeridas y tu registro de trabajo: VINKA lo revisa para dar el visto bueno.</span>
                 <textarea className="textarea h-20" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Mensaje final para la persona: qué le entregaste y próximos pasos" />
                 <button className="btn" onClick={() => deliver(r)}>Marcar como entregada</button>
               </div>

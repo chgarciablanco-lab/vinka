@@ -3,7 +3,8 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
-import { ServiceChat } from '../../components/ServiceChat'
+import { Dossier, TeamNotes } from '../../components/Dossier'
+import { fmtDateTime } from '../../lib/files'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
@@ -81,7 +82,50 @@ function Business() {
   )
 }
 
-const SRV_STATUS = [['solicitada', 'Solicitada'], ['pago_pendiente', 'Pago pendiente'], ['en_curso', 'En curso'], ['entregada', 'Entregada'], ['cancelada', 'Cancelada']]
+const SRV_STATUS = [['solicitada', 'Solicitada'], ['pago_pendiente', 'Pago pendiente'], ['en_curso', 'En curso'], ['entregada', 'Entregada (por revisar)'], ['cancelada', 'Cancelada']]
+const SRV_LABEL = { ...Object.fromEntries(SRV_STATUS), aprobada: 'Aprobada ✓' }
+
+/** Revisión final: VINKA da el visto bueno o devuelve al asesor/a con observaciones */
+function Review({ r, onDone }) {
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const go = async (ok) => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_review_request', { p_id: r.id, p_approve: ok, p_note: note })
+    if (error) return setErr(errMsg(error))
+    setNote(''); onDone()
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border-2 border-[#2F7A4F] bg-[#F3FAF6] p-3">
+      <span className="text-[15px] font-semibold text-[#134A2B]">Revisión de VINKA</span>
+      <span className="text-xs text-[#134A2B]">Revisa en el expediente el CV mejorado, las sesiones, las búsquedas, las ofertas y el historial ({r.logs} registros, {Math.floor((r.minutes || 0) / 60)} h {(r.minutes || 0) % 60} min). Luego aprueba o devuelve con observaciones.</span>
+      <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Observaciones (obligatorio si la devuelves; al aprobar es opcional)" />
+      <ErrorBox>{err}</ErrorBox>
+      <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => go(false)}>Devolver al asesor/a</button><button className="btn h-11 bg-[#2F7A4F]" onClick={() => go(true)}>Aprobar asesoría ✓</button></div>
+    </div>
+  )
+}
+
+/** Próximas sesiones de todos los asesores */
+function UpcomingSessions() {
+  const [list, setList] = useState(null)
+  useEffect(() => {
+    const from = new Date(); from.setHours(0, 0, 0, 0)
+    supabase.rpc('admin_sessions', { p_from: from.toISOString(), p_to: new Date(Date.now() + 30 * 864e5).toISOString() }).then(({ data }) => setList(data || []))
+  }, [])
+  if (!list) return null
+  return (
+    <div className="card flex flex-col gap-2 p-4">
+      <span className="text-[15px] font-semibold">Calendario: próximos 30 días ({list.length})</span>
+      {list.length === 0 ? <span className="text-sm text-tinta-3">No hay sesiones agendadas.</span> : list.map((s) => (
+        <div key={s.id} className="flex items-center gap-3 border-b border-[#F1E7ED] pb-2 text-sm last:border-0 last:pb-0">
+          <span className="w-36 shrink-0 text-xs font-semibold text-[#1F6F78]">{fmtDateTime(s.starts_at)}</span>
+          <span className="flex min-w-0 flex-1 flex-col"><span className="truncate">{s.candidate} · {s.service}</span><span className="text-xs text-tinta-3">{s.advisor || 'Sin asesor/a'} · {s.minutes} min · {s.mode}{s.status !== 'agendada' ? ` · ${s.status.replace('_', ' ')}` : ''}</span></span>
+        </div>
+      ))}
+    </div>
+  )
+}
 const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'Correo', videollamada: 'Videollamada' }
 
 /** Asesorías con reclutador: solicitudes de postulantes y precios del catálogo */
@@ -121,17 +165,20 @@ function Advisory() {
     setSvc(null); load()
   }
   if (!reqs) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
-  const openN = reqs.filter((r) => ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status)).length
-  const income = reqs.filter((r) => r.status === 'entregada' || r.status === 'en_curso').reduce((a, r) => a + r.price, 0)
-  const list = only ? reqs.filter((r) => ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status)) : reqs
+  const OPEN = ['solicitada', 'pago_pendiente', 'en_curso', 'entregada']
+  const openN = reqs.filter((r) => OPEN.includes(r.status)).length
+  const toReview = reqs.filter((r) => r.status === 'entregada').length
+  const income = reqs.filter((r) => ['en_curso', 'entregada', 'aprobada'].includes(r.status)).reduce((a, r) => a + r.price, 0)
+  const list = only ? reqs.filter((r) => OPEN.includes(r.status)) : reqs
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-2">
-        {[['Abiertas', n(openN)], ['Total', n(reqs.length)], ['Vendido (en curso y entregadas)', `$${n(income)}`]].map(([l, v]) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[['Por revisar', n(toReview)], ['Abiertas', n(openN)], ['Total', n(reqs.length)], ['Vendido (pagadas)', `$${n(income)}`]].map(([l, v]) => (
           <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
         ))}
       </div>
       <ErrorBox>{err}</ErrorBox>
+      <UpcomingSessions />
       <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
       {list.length === 0 && <Empty title="Sin solicitudes">Cuando un postulante pida una asesoría, aparecerá aquí y te llegará un aviso.</Empty>}
@@ -141,7 +188,7 @@ function Advisory() {
           <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <span className="flex flex-col"><b>{r.name || 'Sin nombre'}</b><span className="text-xs text-tinta-3">{r.service} · ${n(r.price)} · {new Date(r.created_at).toLocaleDateString('es-CL')}</span></span>
-              <span className="rounded-full bg-[#F4EEF2] px-2.5 py-0.5 text-xs font-semibold">{SRV_STATUS.find(([k]) => k === r.status)?.[1]}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${r.status === 'entregada' ? 'bg-naranja-palido text-naranja-texto' : r.status === 'aprobada' ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2]'}`}>{SRV_LABEL[r.status]}</span>
             </div>
             <span>Prefiere: <b>{CONTACT_TXT[r.contact_pref]}</b> · {r.phone ? <a className="text-rosa-texto underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">{r.phone}</a> : 'sin teléfono'} · <a className="text-rosa-texto underline" href={`mailto:${r.email}`}>{r.email}</a></span>
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
@@ -153,9 +200,11 @@ function Advisory() {
               </select></label>
             <div className="flex flex-wrap gap-3">
               <button className="text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
-              <button className="text-xs font-semibold text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>{chat === r.id ? 'Ocultar conversación' : `Ver conversación (${r.messages || 0})`}</button>
+              <button className="text-xs font-semibold text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>{chat === r.id ? 'Cerrar expediente' : 'Abrir expediente'}</button>
             </div>
-            {chat === r.id && <ServiceChat requestId={r.id} as="admin" />}
+            <span className="text-[11px] text-tinta-suave">{r.messages} mensajes · {r.cvs} CV · {r.sessions} sesiones · {r.picks} ofertas · {r.logs} registros · {r.notes} notas internas</span>
+            {r.status === 'entregada' && <Review r={r} onDone={load} />}
+            {chat === r.id && <Dossier r={r} as="admin" counts={r} />}
             {open === r.id && (
               <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] p-3 text-xs text-tinta-2">
                 <span><b>{r.headline || 'Sin cargo'}</b> · {[r.comuna, r.region].filter(Boolean).join(', ')}</span>
@@ -166,7 +215,7 @@ function Advisory() {
               </div>
             )}
             <div className="grid gap-2 sm:grid-cols-[180px_1fr_auto]">
-              <select className="input h-11" value={e.status ?? r.status} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, status: ev.target.value } })}>{SRV_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+              <select className="input h-11" value={e.status ?? r.status} disabled={r.status === 'aprobada'} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, status: ev.target.value } })}>{r.status === 'aprobada' && <option value="aprobada">Aprobada ✓</option>}{SRV_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
               <input className="input h-11" maxLength={1000} placeholder="Mensaje para la persona (lo verá en su app)" value={e.note ?? r.note} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, note: ev.target.value } })} />
               <button className="btn h-11 px-4" onClick={() => save(r)}>Guardar y avisar</button>
             </div>
@@ -309,6 +358,7 @@ function Advisors() {
   const [form, setForm] = useState(null)
   const [cred, setCred] = useState(null)
   const [toast, setToast] = useState('')
+  const [talk, setTalk] = useState(null)
   const load = useCallback(() => { supabase.rpc('admin_advisors').then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
   useEffect(() => { load() }, [load])
   const create = async () => {
@@ -354,7 +404,9 @@ function Advisors() {
           <div className="flex flex-wrap gap-2">
             <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>
             <button className={`btn-sm border ${a.active ? 'border-[#C0362C] text-[#912018]' : 'border-linea'} bg-white`} onClick={() => toggle(a)}>{a.active ? 'Suspender' : 'Reactivar'}</button>
+            <button className="btn-sm bg-morado text-white" onClick={() => setTalk(talk === a.id ? null : a.id)}>{talk === a.id ? 'Cerrar notas' : 'Notas y conversación'}</button>
           </div>
+          {talk === a.id && <TeamNotes advisorId={a.id} as="admin" />}
         </div>
       ))}
       <Sheet open={!!form} onClose={() => setForm(null)} title="Nuevo asesor/a">

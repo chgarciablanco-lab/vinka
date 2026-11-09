@@ -10,6 +10,7 @@ import { InstallBanner } from '../components/InstallBanner'
 import { EmailToggle } from './Notifications'
 import { CalendarSync } from '../components/CalendarSync'
 import { OnlineToggle, StatusPill } from '../components/Presence'
+import { MyCv } from '../components/MyCv'
 
 function Row({ to, title, sub }) {
   return (
@@ -107,6 +108,7 @@ export function CandidateProfile() {
           <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold text-[#4A2163]">Asesoría con reclutador</span><span className="text-[13px] leading-snug text-[#4A2163]/80">Mejora tu CV y tu búsqueda de empleo con ayuda profesional</span></span>
           <Svg name="chevron" size={18} className="text-[#6B2E8F]" />
         </Link>
+        <MyCv />
         <div className="card px-4">
           <Row to="/perfil/laboral" title="Perfil laboral" sub={[c.has_experience ? `${c.experiences?.length || 0} experiencia(s)` : 'Primer empleo', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : null].filter(Boolean).join(' · ')} />
           <Row to="/perfil/preferencias" title="Preferencias" sub={[...(c.modalities || []), ...(c.schedules || [])].join(' · ') || 'Sin definir'} />

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
-import { ServiceChat } from '../../components/ServiceChat'
+import { CandidateDossier } from '../../components/Dossier'
 
 export const SERVICE_STATUS = {
   solicitada: ['Solicitada', 'bg-[#F4EEF2] text-tinta-2', 'Te contactaremos pronto para coordinar.'],
   pago_pendiente: ['Pago pendiente', 'bg-naranja-palido text-naranja-texto', 'Te enviamos los datos para pagar. Al confirmar el pago comenzamos.'],
   en_curso: ['En curso', 'bg-[#F7F0FB] text-[#6B2E8F]', 'Un reclutador está trabajando contigo.'],
   entregada: ['Entregada', 'bg-[#EAF6EF] text-[#134A2B]', '¡Listo! Revisa la nota del reclutador.'],
+  aprobada: ['Finalizada', 'bg-[#EAF6EF] text-[#134A2B]', 'Asesoría finalizada. Tus archivos y ofertas quedan guardados aquí.'],
   cancelada: ['Cancelada', 'bg-[#F1EDF0] text-tinta-3', ''],
 }
 export const CONTACTO = [['whatsapp', 'WhatsApp'], ['correo', 'Correo'], ['videollamada', 'Videollamada']]
@@ -78,10 +79,10 @@ export default function Advisory() {
                   {r.admin_note && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-sm leading-relaxed text-[#4A2163]"><b>Mensaje del reclutador:</b> {r.admin_note}</div>}
                   {r.status !== 'cancelada' && (
                     <button className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>
-                      <Svg name="chat" size={16} className="mr-1.5" />{chat === r.id ? 'Ocultar conversación' : 'Conversación y archivos'}
+                      <Svg name="chat" size={16} className="mr-1.5" />{chat === r.id ? 'Ocultar detalle' : 'Conversación, sesiones, CV y ofertas'}
                     </button>
                   )}
-                  {chat === r.id && <ServiceChat requestId={r.id} as="candidate" />}
+                  {chat === r.id && <CandidateDossier r={r} />}
                   {['solicitada', 'pago_pendiente'].includes(r.status) && <button className="self-start text-sm font-semibold text-tinta-3 underline" onClick={() => cancel(r)}>Cancelar solicitud</button>}
                 </div>
               )

@@ -31,6 +31,7 @@ const Admin = lz(() => import('./pages/admin/Admin'))
 const AdminAccount = lz(() => import('./pages/admin/Admin'), 'AdminAccount')
 const AdvisorHome = lz(() => import('./pages/advisor/Advisor'))
 const AdvisorTerms = lz(() => import('./pages/advisor/Advisor'), 'AdvisorTerms')
+const AdvisorTeam = lz(() => import('./pages/advisor/Advisor'), 'AdvisorTeam')
 const ForcePassword = lz(() => import('./pages/advisor/Advisor'), 'ForcePassword')
 const Legal = lz(() => import('./pages/Legal'))
 const Agenda = lz(() => import('./pages/company/Agenda'))
@@ -138,7 +139,7 @@ export default function App() {
   if (profile.role === 'advisor') {
     if (!advisor?.active) return wrap(<Routes><Route path="*" element={<AdminAccount subtitle="Tu cuenta de asesor/a no está activa. Escribe a VINKA si crees que es un error." hint="" />} /></Routes>)
     if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
-    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
+    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, { to: '/equipo', label: 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
     return (
       <>
       <DesktopNav items={nav} />
@@ -146,6 +147,7 @@ export default function App() {
       {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
+        <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam /></WithNav>} />
         <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
         <Route path="/avisos" element={<Notifications />} />
         {common}
