@@ -43,6 +43,10 @@ const Templates = lz(() => import('./pages/company/TeamPages'), 'Templates')
 const Team = lz(() => import('./pages/company/TeamPages'), 'Team')
 const JoinTeam = lz(() => import('./pages/company/TeamPages'), 'JoinTeam')
 const Offer = lz(() => import('./pages/candidate/Offer'))
+const PublicCompany = lz(() => import('./pages/PublicJobs'), 'PublicCompany')
+const PublicJob = lz(() => import('./pages/PublicJobs'), 'PublicJob')
+const Compare = lz(() => import('./pages/company/Compare'))
+const Automations = lz(() => import('./pages/company/Automations'))
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -98,6 +102,8 @@ export default function App() {
     <Route key="legal" path="/legal/:doc" element={<Legal />} />,
     <Route key="inv" path="/invitacion/:token" element={<Invitation />} />,
     <Route key="team" path="/equipo/unirse/:token" element={<JoinTeam />} />,
+    <Route key="pubco" path="/empleos/:slug" element={<PublicCompany />} />,
+    <Route key="pubjob" path="/empleo/:id" element={<PublicJob />} />,
   ]
 
   if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
@@ -159,7 +165,7 @@ export default function App() {
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
     { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
     { section: 'Gestión' },
-    { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
+    { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
     { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
   ]
   return (
@@ -175,6 +181,8 @@ export default function App() {
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />
       <Route path="/vacantes/:id/externos" element={<ExternalApplicants />} />
       <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
+      <Route path="/vacantes/:id/comparar" element={<Compare />} />
+      <Route path="/automatizaciones" element={<Automations />} />
       <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
       <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />

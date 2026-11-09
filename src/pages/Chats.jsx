@@ -200,7 +200,7 @@ export function ChatRoom() {
         <Link to={`/ofertas/${offer.id}`} className="flex items-center gap-3 border-b border-[#F5C892] bg-naranja-palido px-4 py-2.5">
           <Svg name="doc" size={22} className="text-naranja-texto" />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm font-semibold text-[#6B3800]">{offer.status === 'enviada' ? (isCompany ? 'Carta oferta enviada · esperando respuesta' : 'Tienes una carta oferta') : offer.status === 'aceptada' ? 'Oferta aceptada' : 'Oferta no aceptada'}</span>
+            <span className="text-sm font-semibold text-[#6B3800]">{offer.status === 'por_aprobar' ? 'Carta oferta esperando aprobación interna' : offer.status === 'enviada' ? (isCompany ? 'Carta oferta enviada · esperando respuesta' : 'Tienes una carta oferta') : offer.status === 'aceptada' ? 'Oferta aceptada' : 'Oferta no aceptada'}</span>
             <span className="truncate text-xs text-[#4A2A00]">{offer.position}</span>
           </span>
           <span className="text-sm font-semibold text-naranja-texto">{!isCompany && offer.status === 'enviada' ? 'Responder' : 'Ver'}</span>

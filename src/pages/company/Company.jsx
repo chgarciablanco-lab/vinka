@@ -19,7 +19,7 @@ import { useRef } from 'react'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
-  published: ['PUBLICADA', 'bg-[#EAF6EF] text-[#134A2B]'], paused: ['PAUSADA', 'bg-[#F1F1F1] text-[#3A3A3A]'], closed: ['CERRADA', 'bg-[#F1F1F1] text-[#3A3A3A]'],
+  review: ['POR APROBAR', 'bg-[#F7F0FB] text-[#6B2E8F]'], published: ['PUBLICADA', 'bg-[#EAF6EF] text-[#134A2B]'], paused: ['PAUSADA', 'bg-[#F1F1F1] text-[#3A3A3A]'], closed: ['CERRADA', 'bg-[#F1F1F1] text-[#3A3A3A]'],
 }
 
 export function VerificationBanner({ company }) {
@@ -43,9 +43,16 @@ export function VerificationBanner({ company }) {
   )
 }
 
+export const copyText = async (t) => { try { await navigator.clipboard.writeText(t); return true } catch { return false } }
+
 export function CompanyPanel() {
   const { company } = useAuth()
   const [jobs, setJobs] = useState(null)
+  const [toast, setToast] = useState('')
+  const [reload, setReload] = useState(0)
+  const isAdmin = ['owner', 'admin'].includes(company?.member_role)
+  const share = async (url) => setToast((await copyText(url)) ? 'Enlace copiado' : url)
+  const approve = async (j) => { const { error } = await supabase.rpc('approve_job', { p_job: j.id }); setToast(error ? errMsg(error) : `«${j.title}» publicada`); setReload((n) => n + 1) }
   const [stats, setStats] = useState({})
   const [ext, setExt] = useState({})
   useEffect(() => {
@@ -53,7 +60,7 @@ export function CompanyPanel() {
     supabase.from('jobs').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).then(({ data }) => setJobs(data || []))
     supabase.from('external_applicants').select('job_id').eq('company_id', company.id).then(({ data }) => { const c = {}; (data || []).forEach((r) => { c[r.job_id] = (c[r.job_id] || 0) + 1 }); setExt(c) })
     supabase.rpc('company_stats', { p_company: company.id }).then(({ data }) => setStats(Object.fromEntries((data || []).map((s) => [s.job_id, s]))))
-  }, [company])
+  }, [company, reload])
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
   const verified = company?.verification_status === 'verified'
   const canManage = company?.member_role !== 'viewer'
@@ -77,6 +84,14 @@ export function CompanyPanel() {
           <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Reportes</span><span className="text-[13px] text-tinta-3">Embudo, tiempo de contratación y fuentes</span></span>
           <Svg name="chevron" size={18} className="text-tinta-suave" />
         </Link>
+        {verified && company.slug && (
+          <div className="card flex items-center gap-3 p-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FA] text-[#2C4A8A]"><Svg name="link" /></span>
+            <span className="flex min-w-0 flex-1 flex-col"><span className="text-[15px] font-semibold">Tu página de empleos</span><span className="truncate text-[13px] text-tinta-3">Compártela en redes o WhatsApp: se postula sin crear cuenta</span></span>
+            <a href={`/empleos/${company.slug}`} target="_blank" rel="noreferrer" className="btn-sm h-10 shrink-0 border border-linea bg-white px-3">Ver</a>
+            <button onClick={() => share(`${window.location.origin}/empleos/${company.slug}`)} className="btn-sm h-10 shrink-0 bg-morado px-3 text-white">Copiar</button>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <h2 className="text-[17px] font-semibold">Vacantes</h2>
           {canManage && <span className="flex gap-3"><Link to="/importar/vacantes" className="flex h-11 items-center text-sm font-semibold text-tinta-3">Importar</Link><Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link></span>}
@@ -101,10 +116,17 @@ export function CompanyPanel() {
                 ? <Link to={`/vacantes/${j.id}/candidatos`} className={`btn-sm border border-linea bg-white ${canManage ? '' : 'col-span-2'}`}>Buscar candidatos</Link>
                 : <span className={`btn-sm bg-[#F4EEF2] text-tinta-3 ${canManage ? '' : 'col-span-2'}`}>{j.status === 'pending' ? 'Se publica al verificar' : 'No visible'}</span>}
             </div>
-            <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
+            {j.status === 'review' && (isAdmin
+              ? <button className="btn-sm bg-[#6B2E8F] text-white" onClick={() => approve(j)}>Aprobar y publicar</button>
+              : <span className="text-xs text-[#6B2E8F]">Un administrador debe aprobarla para publicarla.</span>)}
+            <div className="flex items-center justify-between gap-2">
+              <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
+              {j.status === 'published' && verified && <button onClick={() => share(`${window.location.origin}/empleo/${j.id}`)} className="flex items-center gap-1 text-xs font-semibold text-[#2C4A8A]"><Svg name="link" size={14} />Copiar enlace</button>}
+            </div>
           </div>
         ))}</div>}
       </div>
+      <Toast msg={toast} onDone={() => setToast('')} />
     </div>
   )
 }
@@ -419,7 +441,7 @@ export function CompanyAccount() {
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
         <div className="card px-4">
-          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes']].map(([to, icon, t, sub]) => (
+          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes']].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
               <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />
             </Link>

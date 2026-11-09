@@ -5,6 +5,7 @@ import { ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
 
 const PERIODOS = [[30, '30 días'], [90, '90 días'], [365, '12 meses'], [0, 'Todo']]
 const STEPS = [['views', 'Vieron el aviso'], ['applied', 'Dijeron "Me interesa"'], ['matches', 'Match'], ['contacted', 'Contactados'], ['interviewed', 'Entrevistados'], ['offered', 'Con oferta'], ['hired', 'Contratados']]
+const STAGE_ORDER = [['match', 'Nuevo match'], ['contacto', 'Contacto'], ['entrevista', 'Entrevista'], ['oferta', 'Oferta']]
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
 
 /** Embudo: una sola serie, un solo tono; el número va en texto, no en color. */
@@ -33,9 +34,11 @@ export default function Reports() {
   const [r, setR] = useState(null)
   const [err, setErr] = useState('')
   const [job, setJob] = useState('')
+  const [times, setTimes] = useState([])
   useEffect(() => {
     setR(null)
     supabase.rpc('company_report', { p_company: company.id, p_days: days || null }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setR(data) })
+    supabase.rpc('stage_times', { p_company: company.id, p_days: days || 3650 }).then(({ data }) => setTimes(data || []))
   }, [company, days])
 
   const jobs = r?.jobs || []
@@ -53,6 +56,7 @@ export default function Reports() {
     await downloadXlsx(`VINKA_reporte_${new Date().toISOString().slice(0, 10)}.xlsx`, [
       { name: 'Por vacante', rows },
       { name: 'Por fuente', rows: (r.sources || []).map((s) => ({ Fuente: s.source, Postulantes: s.total, Contratados: s.hired })) },
+      { name: 'Tiempo por etapa', rows: STAGE_ORDER.map(([k, l]) => times.find((t) => t.stage === k)).filter(Boolean).map((t) => ({ Etapa: STAGE_ORDER.find(([k]) => k === t.stage)[1], 'Días promedio': Number(t.avg_days), Personas: Number(t.n) })) },
     ])
   }
 
@@ -84,6 +88,23 @@ export default function Reports() {
               {tot.externals > 0 && <span className="hint">Incluye {tot.externals} postulante(s) importado(s) de otros portales desde "Contactados" en adelante.</span>}
               {tot.views === 0 && <span className="hint">Las vistas se cuentan desde hoy: es un dato nuevo.</span>}
             </div>
+            {!job && times.length > 0 && (() => {
+              const max = Math.max(1, ...times.map((t) => Number(t.avg_days)))
+              const slow = times.reduce((a, t) => (Number(t.avg_days) > Number(a.avg_days) ? t : a), times[0])
+              return (
+                <div className="card flex flex-col gap-3 p-4">
+                  <span className="text-[15px] font-semibold">Tiempo promedio en cada etapa</span>
+                  <ol className="flex flex-col gap-2.5" aria-label="Días promedio por etapa">
+                    {STAGE_ORDER.map(([k, l]) => { const t = times.find((x) => x.stage === k); if (!t) return null; const v = Number(t.avg_days); return (
+                      <li key={k} className="flex flex-col gap-1" title={`${l}: ${v} días en promedio (${t.n} personas)`}>
+                        <div className="flex items-baseline justify-between gap-2 text-[13px]"><span className="text-tinta-2">{l}</span><span><b className="text-tinta">{v} días</b><span className="ml-1.5 text-tinta-suave">{t.n} personas</span></span></div>
+                        <div className="h-2.5 rounded-full bg-[#F4EEF2]"><div className={`h-2.5 rounded-full ${t === slow ? 'bg-naranja' : 'bg-morado'}`} style={{ width: `${Math.max(2, (v / max) * 100)}%` }} /></div>
+                      </li>) })}
+                  </ol>
+                  <span className="hint">Desde que la persona entra a la etapa hasta que pasa a la siguiente. En naranja, la etapa más lenta: ahí conviene revisar.</span>
+                </div>
+              )
+            })()}
             {!job && (r.sources || []).length > 0 && (
               <div className="card flex flex-col gap-2 p-4">
                 <span className="text-[15px] font-semibold">Por fuente</span>

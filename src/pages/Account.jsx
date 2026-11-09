@@ -85,6 +85,10 @@ export function CandidateProfile() {
     const { error } = await supabase.from('candidate_profiles').update({ is_public: !candidate.is_public }).eq('user_id', user.id)
     if (error) setErr(errMsg(error)); else refresh()
   }
+  const toggleAlerts = async () => {
+    const { error } = await supabase.from('candidate_profiles').update({ job_alerts: !candidate.job_alerts }).eq('user_id', user.id)
+    if (error) setErr(errMsg(error)); else refresh()
+  }
   const c = candidate || {}
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28">
@@ -116,6 +120,13 @@ export function CandidateProfile() {
         <OnlineToggle />
         <CalendarSync />
         <NotifyCard />
+        <div className="card flex flex-col gap-2 p-4">
+          <label className="flex items-center justify-between gap-3">
+            <span className="flex flex-col"><span className="label">Alertas de vacantes nuevas</span>
+              <span className="text-xs leading-snug text-tinta-3">Un aviso al día si se publican vacantes compatibles con tu cargo y zona.</span></span>
+            <input type="checkbox" role="switch" className="h-6 w-6 shrink-0 accent-[#D02E72]" checked={c.job_alerts !== false} onChange={toggleAlerts} />
+          </label>
+        </div>
         <EmailToggle />
         <InstallBanner always />
         <MyData />

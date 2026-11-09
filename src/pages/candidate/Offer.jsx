@@ -64,6 +64,7 @@ export default function Offer() {
         )}
         {o.status === 'aceptada' && <div className="rounded-2xl border border-[#A9D9BC] bg-[#EAF6EF] p-4 text-sm text-[#134A2B]">{isCand ? <><b>¡Aceptaste esta oferta!</b> {co} te contactará para coordinar el contrato y tu primer día.</> : <><b>La persona aceptó la oferta.</b> Márcala como contratada cuando confirmen el ingreso.</>}</div>}
         {o.status === 'rechazada' && <div className="rounded-2xl bg-[#F4EEF2] p-4 text-sm text-tinta-2">{isCand ? 'No aceptaste esta oferta.' : 'La persona no aceptó la oferta.'}{o.response_note && <> Comentario: “{o.response_note}”</>}</div>}
+        {o.status === 'por_aprobar' && <div className="rounded-2xl bg-[#F7F0FB] p-4 text-sm text-[#4B2466]">Esta oferta espera la aprobación de un administrador de la empresa. El candidato aún no la ve.</div>}
         {o.status === 'retirada' && <div className="rounded-2xl bg-[#F4EEF2] p-4 text-sm text-tinta-2">La empresa retiró o reemplazó esta oferta. Revisa el chat.</div>}
         <p className="text-xs leading-relaxed text-tinta-suave">La carta oferta expresa la intención de contratarte y no reemplaza al contrato de trabajo. VINKA nunca te pedirá dinero; una oferta real tampoco.</p>
       </div>

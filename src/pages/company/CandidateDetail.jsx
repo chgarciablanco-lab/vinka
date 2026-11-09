@@ -46,7 +46,12 @@ function Evaluations({ d, subject, onSaved }) {
   }
   return (
     <div className="flex flex-col gap-4">
-      {avg && (
+      {!mine && d.evaluations.length > 0 && (
+        <div className="rounded-2xl border border-[#D9CCE6] bg-[#F7F0FB] p-3.5 text-sm leading-relaxed text-[#4B2466]">
+          <b>{d.evaluations.length} {d.evaluations.length === 1 ? 'persona del equipo ya evaluó' : 'personas del equipo ya evaluaron'}.</b> Verás sus notas cuando envíes la tuya, para que ninguna opinión influya en la otra.
+        </div>
+      )}
+      {avg && mine && (
         <div className="card flex items-center gap-4 p-4">
           <div className="flex flex-col items-center"><span className="font-display text-[32px] font-bold leading-none">{avg}</span><Stars value={Math.round(avg)} size={14} /></div>
           <div className="flex flex-1 flex-col gap-1 text-sm">
@@ -73,7 +78,7 @@ function Evaluations({ d, subject, onSaved }) {
           <div className="grid grid-cols-2 gap-2">{mine && <button className="btn-sec h-12" onClick={() => setEdit(false)}>Cancelar</button>}<button className={`btn h-12 ${mine ? '' : 'col-span-2'}`} disabled={busy} onClick={save}>Guardar evaluación</button></div>
         </div>
       ) : <button className="btn-sec" onClick={() => setEdit(true)}>Editar mi evaluación</button>}
-      {d.evaluations.map((e) => (
+      {(mine ? d.evaluations : []).map((e) => (
         <div key={e.id} className="card flex flex-col gap-2 p-4">
           <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{e.author_id === d.my_id ? 'Tú' : e.author}</span><span className={`pill ${RECOMENDACION[e.recommendation][1]}`}>{RECOMENDACION[e.recommendation][0]}</span></div>
           <div className="flex items-center gap-2"><Stars value={e.overall} size={16} /><span className="text-xs text-tinta-suave">{fmtDate(e.updated_at)}</span></div>
@@ -267,8 +272,8 @@ export function OfferForm({ open, onClose, matchId, job, onSent }) {
   )
 }
 
-const OFFER_ST = { enviada: ['Esperando respuesta', 'bg-naranja-palido text-naranja-texto'], aceptada: ['Aceptada', 'bg-[#EAF6EF] text-[#134A2B]'], rechazada: ['Rechazada', 'bg-[#FEF3F2] text-[#912018]'], retirada: ['Retirada', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
-export function OfferSummary({ o, onWithdraw }) {
+const OFFER_ST = { por_aprobar: ['Por aprobar', 'bg-[#F7F0FB] text-[#6B2E8F]'], enviada: ['Esperando respuesta', 'bg-naranja-palido text-naranja-texto'], aceptada: ['Aceptada', 'bg-[#EAF6EF] text-[#134A2B]'], rechazada: ['Rechazada', 'bg-[#FEF3F2] text-[#912018]'], retirada: ['Retirada', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
+export function OfferSummary({ o, onWithdraw, onApprove }) {
   return (
     <div className="card flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 text-[15px] font-semibold"><Svg name="doc" size={20} />Carta oferta</span><span className={`pill ${OFFER_ST[o.status][1]}`}>{OFFER_ST[o.status][0]}</span></div>
@@ -276,6 +281,9 @@ export function OfferSummary({ o, onWithdraw }) {
       <span className="text-xs text-tinta-suave">Enviada el {fmtDate(o.created_at)}{o.responded_at ? ` · respondida el ${fmtDate(o.responded_at)}` : ''}</span>
       {o.response_note && <span className="text-sm italic text-tinta-2">“{o.response_note}”</span>}
       {o.status === 'enviada' && onWithdraw && <button className="self-start text-sm font-semibold text-[#B42318]" onClick={onWithdraw}>Retirar oferta</button>}
+      {o.status === 'por_aprobar' && (onApprove
+        ? <div className="mt-1 grid grid-cols-2 gap-2"><button className="btn-sm border border-linea bg-white" onClick={() => onApprove(false)}>No aprobar</button><button className="btn-sm bg-rosa-accion text-white" onClick={() => onApprove(true)}>Aprobar y enviar</button></div>
+        : <span className="text-xs text-tinta-3">Un administrador debe aprobarla antes de que llegue al candidato.</span>)}
     </div>
   )
 }
@@ -318,6 +326,7 @@ export default function CandidateDetail({ panel }) {
   if (!d) return <Spinner />
 
   const canManage = d.can_manage
+  const isAdmin = ['owner', 'admin'].includes(company?.member_role)
   const c = ext ? null : d.candidate
   const e = ext ? d.external : null
   const name = ext ? e.full_name : c.name
@@ -337,6 +346,7 @@ export default function CandidateDetail({ panel }) {
     const { data } = await supabase.storage.from('videos').createSignedUrl(path, 600)
     setVideo(data?.signedUrl || '')
   }
+  const approveOffer = async (ok) => { const { error } = await supabase.rpc('approve_offer', { p_id: d.offer.id, p_approve: ok }); if (error) setErr(errMsg(error)); else saved(ok ? 'Oferta aprobada y enviada' : 'Oferta no aprobada') }
   const withdraw = async () => { const { error } = await supabase.rpc('withdraw_offer', { p_id: d.offer.id }); if (error) setErr(errMsg(error)); else saved('Oferta retirada') }
   const invite = async () => { const { data: n, error } = await supabase.rpc('invite_external', { p_ids: [eid] }); if (error) setErr(errMsg(error)); else saved(n ? 'Invitación enviada por correo' : 'No se pudo invitar (revisa el correo)') }
   const openCopy = async () => {
@@ -386,7 +396,7 @@ export default function CandidateDetail({ panel }) {
             {d.match && !d.match.closed && <button className="btn-sm h-11 border border-naranja bg-naranja-palido text-naranja-texto" onClick={() => setOfferOpen(true)}>{d.offer?.status === 'enviada' ? 'Nueva oferta' : 'Carta oferta'}</button>}
           </div>
         )}
-        {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} />}
+        {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} onApprove={isAdmin ? approveOffer : null} />}
 
         {tab === 'perfil' && !ext && (
           <div className="flex flex-col gap-4">
