@@ -33,6 +33,7 @@ function JobCard({ job, onDetail }) {
         <span className="font-display text-xl font-bold">{salaryText(job)}</span>
       </div>
       {job.description && <p className="line-clamp-3 text-sm leading-relaxed text-tinta-2">{job.description}</p>}
+      {job.out_of_profile && <span className="self-start rounded-full bg-[#F4EEF2] px-2.5 py-1 text-xs font-semibold text-tinta-3">Fuera de tu perfil habitual</span>}
       {job.reasons?.length > 0 && (
         <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
           <span className="text-xs font-semibold text-tinta-3">Por qué te la mostramos</span>
@@ -56,9 +57,10 @@ export default function Explore() {
   const card = useRef()
   const [ask, setAsk] = useState(null)
 
-  const load = useCallback(async () => {
-    setJobs(null); setI(0)
-    const { data, error } = await supabase.rpc('job_feed')
+  const [broad, setBroad] = useState(false)
+  const load = useCallback(async (wide = false) => {
+    setJobs(null); setI(0); setBroad(wide)
+    const { data, error } = await supabase.rpc('job_feed', { p_broad: wide })
     if (error) setErr(errMsg(error))
     setJobs(data || [])
   }, [])
@@ -104,14 +106,17 @@ export default function Explore() {
           <h1 className="text-[22px] font-bold">Explorar</h1>
           <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : job ? `${i + 1} de ${jobs.length} vacantes para ti` : 'Sin vacantes nuevas'}</span>
         </div>
-        <div className="flex items-center gap-2"><button onClick={load} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
+        <div className="flex items-center gap-2"><button onClick={() => load(broad)} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
       </div>
       <div className="flex flex-1 flex-col gap-4 px-5">
         <ErrorBox>{err}</ErrorBox>
         {jobs == null ? <Spinner /> : !job ? (
-          <Empty title={jobs.length ? 'Viste todas las vacantes por ahora' : 'Aún no hay vacantes para tu perfil'}
-            action={<button onClick={load} className="btn-sm mt-1.5 border border-rosa-accion bg-white text-rosa-texto">Buscar de nuevo</button>}>
-            Te avisaremos en Intereses si una empresa se interesa en ti. También puedes ampliar tus preferencias en Perfil.
+          <Empty title={broad ? 'Viste todas las vacantes' : jobs.length ? 'Viste todas las vacantes para tu perfil' : 'Aún no hay vacantes para tu perfil'}
+            action={<div className="mt-1.5 flex flex-col items-center gap-2">
+              {!broad && <button onClick={() => load(true)} className="btn-sm bg-rosa-accion text-white">Ver otras vacantes</button>}
+              <button onClick={() => load(false)} className="btn-sm border border-rosa-accion bg-white text-rosa-texto">Buscar de nuevo</button>
+            </div>}>
+            {broad ? 'Te avisaremos en Intereses si una empresa se interesa en ti.' : 'Te mostramos solo vacantes acordes a tu tipo de cargo y nivel. "Ver otras vacantes" muestra el resto, aunque no calcen tanto con tu perfil.'}
           </Empty>
         ) : (
           <>

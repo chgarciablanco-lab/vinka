@@ -266,11 +266,12 @@ export function JobCandidates() {
   const [video, setVideo] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
-    setList(null); setI(0)
+  const [broad, setBroad] = useState(false)
+  const load = useCallback(async (wide = false) => {
+    setList(null); setI(0); setBroad(wide)
     const [{ data: jd }, { data, error }] = await Promise.all([
       supabase.from('jobs').select('*').eq('id', id).single(),
-      supabase.rpc('candidates_for_job', { p_job: id }),
+      supabase.rpc('candidates_for_job', { p_job: id, p_broad: wide }),
     ])
     if (error) setErr(errMsg(error))
     setJob(jd); setList(data || [])
@@ -323,8 +324,12 @@ export function JobCandidates() {
       <div className="flex flex-1 flex-col px-4">
         <ErrorBox>{err}</ErrorBox>
         {list == null ? <Spinner /> : !c ? (
-          <Empty title="No hay más perfiles por ahora" action={<button onClick={load} className="btn-sm mt-1 border border-rosa-accion bg-white text-rosa-texto">Buscar de nuevo</button>}>
-            Vuelve más tarde: aparecerán nuevos candidatos a medida que se registren.
+          <Empty title={broad ? 'No hay más perfiles por ahora' : 'Viste todos los perfiles acordes a esta vacante'}
+            action={<div className="mt-1 flex flex-col items-center gap-2">
+              {!broad && <button onClick={() => load(true)} className="btn-sm bg-rosa-accion text-white">Ver otros perfiles</button>}
+              <button onClick={() => load(false)} className="btn-sm border border-rosa-accion bg-white text-rosa-texto">Buscar de nuevo</button>
+            </div>}>
+            {broad ? 'Vuelve más tarde: cada día se suman personas nuevas.' : 'Te mostramos solo personas con un tipo de cargo y nivel congruentes con la vacante. "Ver otros perfiles" muestra el resto.'}
           </Empty>
         ) : (
           <>
@@ -354,6 +359,7 @@ export function JobCandidates() {
                 {c.has_video && (video ? <video src={video} controls autoPlay playsInline className="w-full rounded-xl bg-morado" /> : <button onClick={playVideo} className="btn-sm self-start bg-morado text-white"><Svg name="video" size={18} className="mr-1.5" />Ver video (15 s)</button>)}
               </div>
             )}
+            {c.out_of_profile && <span className="self-start rounded-full bg-[#F4EEF2] px-2.5 py-1 text-xs font-semibold text-tinta-3">Perfil distinto al cargo</span>}
             {c.reasons?.length > 0 && (
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
                 <span className="text-xs font-semibold text-tinta-3">Coincide con tu vacante en</span>
