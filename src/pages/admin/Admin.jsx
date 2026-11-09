@@ -9,6 +9,100 @@ import { fmtDateTime } from '../../lib/files'
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
 
+const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const PLAN_NAME = { gratis: 'Gratis', pyme: 'Pyme', equipo: 'Equipo', empresa: 'Empresa' }
+const money = (v) => `$${Number(v || 0).toLocaleString('es-CL')}`
+const short = (v) => (v >= 1e6 ? `$${(v / 1e6).toLocaleString('es-CL', { maximumFractionDigits: 1 })} M` : v >= 1e3 ? `$${Math.round(v / 1e3)} mil` : money(v))
+const monthLabel = (ym) => { const [y, m] = ym.split('-'); return `${MES[Number(m) - 1]} ${y.slice(2)}` }
+
+/** Ingresos mensuales: barras apiladas de planes (morado) y asesorías (rosa) */
+function RevenueChart({ series }) {
+  const [sel, setSel] = useState(series.length - 2)
+  const W = 720, H = 220, L = 52, B = 26, T = 10
+  const max = Math.max(1, ...series.map((x) => x.plans + x.advisory))
+  const step = max > 4e6 ? 1e6 : max > 2e6 ? 5e5 : max > 5e5 ? 2.5e5 : 1e5
+  const top = Math.ceil(max / step) * step
+  const y = (v) => T + (H - T - B) * (1 - v / top)
+  const bw = (W - L - 8) / series.length
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step)
+  const cur = series[sel]
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-tinta-2">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#4A2163]" />Planes de empresas</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#D02E72]" />Asesorías</span>
+        {cur && <span className="ml-auto font-semibold text-tinta">{monthLabel(cur.month)}: {money(cur.plans + cur.advisory)} <span className="font-normal text-tinta-3">({money(cur.plans)} planes · {money(cur.advisory)} asesorías)</span></span>}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Ingresos por mes de los últimos 24 meses">
+        {ticks.map((t) => <g key={t}><line x1={L} x2={W} y1={y(t)} y2={y(t)} stroke="#EEE3EA" /><text x={L - 6} y={y(t) + 4} textAnchor="end" fontSize="10" fill="#8A8090">{short(t)}</text></g>)}
+        {series.map((x, i) => {
+          const cx = L + 4 + i * bw, w = Math.max(4, bw - 4)
+          const yp = y(x.plans), ya = y(x.plans + x.advisory)
+          return (
+            <g key={x.month} onMouseEnter={() => setSel(i)} onClick={() => setSel(i)} className="cursor-pointer">
+              <rect x={cx} y={T} width={bw} height={H - T - B} fill={i === sel ? '#FAF4F8' : 'transparent'} />
+              {x.plans > 0 && <rect x={cx + 2} y={yp} width={w} height={y(0) - yp} fill="#4A2163" rx="2"><title>{`${monthLabel(x.month)} · planes ${money(x.plans)}`}</title></rect>}
+              {x.advisory > 0 && <rect x={cx + 2} y={ya} width={w} height={Math.max(0, yp - ya - (x.plans > 0 ? 2 : 0))} fill="#D02E72" rx="2"><title>{`${monthLabel(x.month)} · asesorías ${money(x.advisory)}`}</title></rect>}
+              {(i % 3 === series.length % 3 || i === series.length - 1) && <text x={cx + bw / 2} y={H - 8} textAnchor="middle" fontSize="10" fill="#8A8090">{monthLabel(x.month)}</text>}
+            </g>
+          )
+        })}
+      </svg>
+      <span className="text-[11px] text-tinta-suave">Toca una barra para ver el detalle. El mes en curso va hasta hoy.</span>
+    </div>
+  )
+}
+
+/** Ingresos de VINKA según los pagos registrados (planes y asesorías) */
+function Revenue() {
+  const [demo, setDemo] = useState(true)
+  const [r, setR] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => { setR(null); supabase.rpc('admin_revenue', { p_include_demo: demo }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setR(data) }) }, [demo])
+  const delta = r && r.prev_month_to_date > 0 ? Math.round(((r.month - r.prev_month_to_date) / r.prev_month_to_date) * 100) : null
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[17px] font-bold">Ingresos</span>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración</label>
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      {!r ? <Spinner /> : (
+        <>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Este mes (hasta hoy)</span><span className="font-display text-[22px] font-bold">{money(r.month)}</span>
+              {delta != null && <span className={`text-xs font-semibold ${delta >= 0 ? 'text-[#2F7A4F]' : 'text-[#912018]'}`}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs. mismo día del mes anterior</span>}</div>
+            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Mes anterior</span><span className="font-display text-[22px] font-bold">{money(r.prev_month)}</span></div>
+            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Últimos 12 meses</span><span className="font-display text-[22px] font-bold">{money(r.last12)}</span></div>
+            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Ingreso recurrente mensual (planes)</span><span className="font-display text-[22px] font-bold">{money(r.mrr)}</span><span className="text-xs text-tinta-3">{r.paying} empresas pagando</span></div>
+          </div>
+          {r.total === 0 ? <div className="card p-4 text-sm text-tinta-3">Aún no hay pagos registrados. Se registran al confirmar el pago de una asesoría (pasa a «En curso») o con «Registrar pago» en cada empresa.</div> : (
+            <div className="card p-4"><RevenueChart series={r.series} /></div>
+          )}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="card flex flex-col gap-2 p-4">
+              <span className="text-[15px] font-semibold">Este mes</span>
+              <span className="flex justify-between text-sm"><span>Planes de empresas</span><b>{money(r.month_plans)}</b></span>
+              <span className="flex justify-between text-sm"><span>Asesorías ({r.advisory_month_count})</span><b>{money(r.month_advisory)}</b></span>
+              <span className="mt-1 text-[13px] font-semibold">Ingreso recurrente por plan</span>
+              {r.by_plan.map((p) => <span key={p.plan} className="flex justify-between text-sm"><span>{PLAN_NAME[p.plan] || p.plan} · {p.n} empresas</span><b>{money(p.mrr)}</b></span>)}
+            </div>
+            <div className="card flex flex-col gap-1.5 p-4">
+              <span className="text-[15px] font-semibold">Últimos pagos</span>
+              {r.recent.map((p, i) => (
+                <span key={i} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] pb-1.5 text-xs last:border-0">
+                  <span className="min-w-0"><span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${p.kind === 'plan' ? 'bg-[#4A2163]' : 'bg-[#D02E72]'}`} /><b className="text-tinta">{p.who}</b> · {p.what}{p.demo ? ' · demo' : ''}<br /><span className="text-tinta-suave">{new Date(p.paid_at).toLocaleDateString('es-CL')} · {p.method}</span></span>
+                  <b className="shrink-0 text-sm">{money(p.amount)}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Resumen del negocio y gestión de planes (los cambios quedan registrados en la auditoría). */
 function Business() {
   const [d, setD] = useState(null)
@@ -16,6 +110,7 @@ function Business() {
   const [edit, setEdit] = useState(null)
   const [q, setQ] = useState('')
   const [demo, setDemo] = useState(false)
+  const [pay, setPay] = useState(null)
   const load = useCallback(() => { supabase.rpc('admin_overview').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [])
   useEffect(() => { load() }, [load])
   const save = async () => {
@@ -24,18 +119,26 @@ function Business() {
     if (error) return setErr(errMsg(error))
     setEdit(null); load()
   }
+  const recordPay = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_record_payment', { p_company: pay.id, p_plan: pay.plan, p_amount: Number(String(pay.amount).replace(/\D/g, '')), p_months: Number(pay.months), p_method: pay.method, p_note: pay.note })
+    if (error) return setErr(errMsg(error))
+    setPay(null); load()
+  }
+  const PRICES = { pyme: 29990, equipo: 69990, empresa: 149990, gratis: 0 }
   if (!d) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
   const m = d.metrics
   const names = Object.fromEntries((d.companies || []).map((c) => [c.id, c.name]))
   const list = (d.companies || []).filter((c) => (demo || !c.demo) && (!q.trim() || `${c.name} ${c.legal_name} ${c.rut}`.toLowerCase().includes(q.trim().toLowerCase())))
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[['Ingreso mensual', `$${n(m.mrr)}`], ['Empresas pagando', n(m.paying)], ['Empresas verificadas', n(m.companies)], ['Por verificar', n(m.pending)], ['Candidatos activos', n(m.candidates)], ['Vacantes abiertas', n(m.jobs_open)], ['Contrataciones 30 días', n(m.hires_30d)], ['Usos de IA 30 días', n(m.ai_30d)]].map(([l, v]) => (
+      <Revenue />
+      <span className="mt-2 text-[17px] font-bold">Actividad</span>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {[['Empresas verificadas', n(m.companies)], ['Por verificar', n(m.pending)], ['Candidatos activos', n(m.candidates)], ['Vacantes abiertas', n(m.jobs_open)], ['Contrataciones 30 días', n(m.hires_30d)], ['Usos de IA 30 días', n(m.ai_30d)]].map(([l, v]) => (
           <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
         ))}
       </div>
-      <p className="hint -mt-2">El ingreso y las empresas pagando excluyen las empresas de demostración.</p>
       <ErrorBox>{err}</ErrorBox>
       {d.requests?.length > 0 && (
         <div className="card flex flex-col gap-2 p-4">
@@ -68,7 +171,21 @@ function Business() {
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Nota (factura, medio de pago)</span><input className="input h-11" value={edit.note || ''} onChange={(e) => setEdit({ ...edit, note: e.target.value })} /></label>
                 <button className="btn-sec h-11" onClick={() => setEdit(null)}>Cancelar</button><button className="btn h-11" onClick={save}>Guardar plan</button>
               </div>
-            ) : <button className="btn-sm self-start border border-linea bg-white" onClick={() => setEdit({ id: c.id, plan: c.plan || 'gratis', status: c.status || 'active', period_end: c.period_end ? c.period_end.slice(0, 10) : '', note: c.note || '' })}>Cambiar plan</button>}
+            ) : pay?.id === c.id ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select className="input h-11" value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value, amount: PRICES[e.target.value] * Number(pay.months) })}>{['pyme', 'equipo', 'empresa'].map((x) => <option key={x} value={x}>{PLAN_NAME[x]}</option>)}</select>
+                <select className="input h-11" value={pay.months} onChange={(e) => setPay({ ...pay, months: e.target.value, amount: PRICES[pay.plan] * Number(e.target.value) })}>{[1, 3, 6, 12].map((x) => <option key={x} value={x}>{x} {x === 1 ? 'mes' : 'meses'}</option>)}</select>
+                <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Monto recibido (CLP)</span><input className="input h-11" inputMode="numeric" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></label>
+                <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Medio de pago</span><select className="input h-11" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((x) => <option key={x}>{x}</option>)}</select></label>
+                <input className="input h-11 sm:col-span-2" placeholder="Nota (n° de factura, comprobante)" value={pay.note} onChange={(e) => setPay({ ...pay, note: e.target.value })} />
+                <button className="btn-sec h-11" onClick={() => setPay(null)}>Cancelar</button><button className="btn h-11" onClick={recordPay}>Registrar pago y activar</button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-sm border border-linea bg-white" onClick={() => setEdit({ id: c.id, plan: c.plan || 'gratis', status: c.status || 'active', period_end: c.period_end ? c.period_end.slice(0, 10) : '', note: c.note || '' })}>Cambiar plan</button>
+                <button className="btn-sm bg-morado text-white" onClick={() => { const pl = ['pyme', 'equipo', 'empresa'].includes(c.plan) ? c.plan : 'pyme'; setPay({ id: c.id, plan: pl, months: 1, amount: PRICES[pl], method: 'transferencia', note: '' }) }}>Registrar pago</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
