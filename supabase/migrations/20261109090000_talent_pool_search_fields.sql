@@ -1,0 +1,3 @@
+-- Banco de talento: agrega familia y nivel del cargo, experiencia y estudios para el buscador (solo suma campos)
+-- Definición completa aplicada en Supabase como "talent_pool_search_fields"; agrega a cada persona:
+-- role_label, role_level, has_experience, exp_text (cargos y empresas) y edu_text (títulos e instituciones).
