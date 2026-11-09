@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { OfferLetter, letterText } from '../../components/OfferLetter'
+import { downloadOfferPdf } from '../../lib/offerPdf'
 
 const fmt = (d) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '')
 
@@ -21,6 +22,7 @@ export default function Offer() {
   const [mail, setMail] = useState(false)
   const [copyMe, setCopyMe] = useState(true)
   const [toast, setToast] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
   const load = () => supabase.rpc('offer_letter', { p_id: id }).then(({ data, error }) => setD(error || !data ? false : data))
   useEffect(() => { load() }, [id]) // eslint-disable-line
   if (d === null) return <Spinner />
@@ -43,6 +45,12 @@ export default function Offer() {
     setToast(copyMe ? 'Carta enviada por correo. También te enviamos una copia.' : 'Carta enviada por correo.')
     load()
   }
+  const pdf = async () => {
+    setErr(''); setPdfBusy(true)
+    try { const r = await downloadOfferPdf(d); if (r === 'downloaded') setToast('PDF descargado.') }
+    catch { setErr('No pudimos generar el PDF. Inténtalo de nuevo.') }
+    setPdfBusy(false)
+  }
   const link = `${window.location.origin}/ofertas/${id}`
   const mailto = `mailto:${encodeURIComponent(d.candidate?.email || '')}?subject=${encodeURIComponent(`Carta oferta: ${o.position} · ${co}`)}&body=${encodeURIComponent(`${letterText(d)}\n\nPuedes ver la carta y responder aquí: ${link}`)}`
   const expired = o.expires_on && new Date(o.expires_on + 'T23:59:59') < new Date()
@@ -51,7 +59,7 @@ export default function Offer() {
   return (
     <Screen className="bg-[#F6F1F4] print:bg-white" wide>
       <div className="print:hidden"><TopBar back={() => nav(isCand ? `/chats/${o.match_id}` : `/vacantes/${o.job_id}/candidato/${o.candidate_id}`)} title="Carta oferta"
-        right={<button aria-label="Descargar PDF" onClick={() => window.print()} className="flex h-11 w-11 items-center justify-center"><Svg name="download" /></button>} /></div>
+        right={<button aria-label="Descargar PDF" disabled={pdfBusy} onClick={pdf} className="flex h-11 w-11 items-center justify-center disabled:opacity-40"><Svg name="download" /></button>} /></div>
       <div className="flex flex-col gap-4 px-4 pb-10 pt-2 lg:flex-row lg:items-start lg:px-8 print:block print:p-0">
         <div className="min-w-0 flex-1 print:w-full"><OfferLetter offer={o} company={d.company} candidate={d.candidate} /></div>
 
@@ -78,11 +86,12 @@ export default function Offer() {
               <span className="text-[15px] font-semibold">Compartir la carta</span>
               <button className="btn-sm h-11 bg-morado text-white disabled:opacity-50" disabled={!live} onClick={() => setMail(true)}><Svg name="send" size={18} className="mr-1.5" />Enviar por correo desde VINKA</button>
               <a href={mailto} className="btn-sm h-11 border border-linea bg-white"><Svg name="chat" size={18} className="mr-1.5" />Abrir en mi correo</a>
-              <button className="btn-sm h-11 border border-linea bg-white" onClick={() => window.print()}><Svg name="download" size={18} className="mr-1.5" />Descargar PDF</button>
+              <button className="btn-sm h-11 border border-linea bg-white disabled:opacity-50" disabled={pdfBusy} onClick={pdf}><Svg name="download" size={18} className="mr-1.5" />{pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
               {['enviada', 'por_aprobar', 'rechazada', 'retirada', 'vencida'].includes(o.status) && <Link to={`/vacantes/${o.job_id}/candidato/${o.candidate_id}?oferta=editar`} className="btn-sm h-11 border border-linea bg-white"><Svg name="edit" size={18} className="mr-1.5" />Editar y reenviar</Link>}
-              <span className="text-xs leading-snug text-tinta-3">{o.emailed_at ? `Último envío por correo: ${new Date(o.emailed_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ` : ''}«Abrir en mi correo» prepara un correo con el texto de la carta{d.candidate?.email ? '' : ' (la persona aún no comparte su correo: agrégalo tú)'}; adjunta el PDF si quieres.</span>
+              <span className="text-xs leading-snug text-tinta-3">{o.emailed_at ? `Último envío por correo: ${new Date(o.emailed_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ` : ''}«Abrir en mi correo» prepara un correo con el texto de la carta{d.candidate?.email ? '' : ' (la persona aún no comparte su correo: agrégalo tú)'}; adjunta el PDF si quieres. En el celular, «Descargar PDF» te deja guardarlo o enviarlo directo por correo o WhatsApp.</span>
             </div>
           )}
+          {isCand && <button className="btn-sm h-11 border border-linea bg-white disabled:opacity-50" disabled={pdfBusy} onClick={pdf}><Svg name="download" size={18} className="mr-1.5" />{pdfBusy ? 'Generando PDF…' : 'Descargar carta en PDF'}</button>}
           <p className="text-xs leading-relaxed text-tinta-suave">La carta oferta expresa la intención de contratar y no reemplaza al contrato de trabajo. VINKA nunca pide dinero; una oferta real tampoco.</p>
         </aside>
       </div>
