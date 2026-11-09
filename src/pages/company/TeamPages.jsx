@@ -190,10 +190,10 @@ export function JoinTeam() {
 
   const accept = async () => {
     setErr(''); setBusy(true)
-    const { error } = await supabase.rpc('accept_member_invite', { p_token: token })
+    const { data: cid, error } = await supabase.rpc('accept_member_invite', { p_token: token })
     setBusy(false)
     if (error) return setErr(errMsg(error))
-    try { localStorage.removeItem('vinka-team-invite') } catch { /* nada */ }
+    try { localStorage.removeItem('vinka-team-invite'); if (cid) localStorage.setItem('vinka-company', cid) } catch { /* nada */ }
     await refresh(); nav('/')
   }
   const signup = async () => {
@@ -222,10 +222,9 @@ export function JoinTeam() {
         ) : sent ? (
           <div className="card flex flex-col gap-2 p-4 text-sm leading-relaxed"><b>Revisa tu correo</b>Te enviamos un enlace a {inv.email} para confirmar tu cuenta. Al confirmarlo entrarás directo al equipo.</div>
         ) : session ? (
-          company && company.id ? (
-            <p className="text-sm text-tinta-3">Tu cuenta ya pertenece a {company.display_name}. Para unirte a otra empresa, usa otro correo.</p>
-          ) : profile?.role === 'company' ? (
-            <button className="btn" disabled={busy} onClick={accept}>{busy ? 'Uniéndote…' : 'Aceptar invitación'}</button>
+          profile?.role === 'company' ? (
+            <>{company?.id && <p className="text-sm text-tinta-3">Ya eres parte de {company.display_name}. Al aceptar podrás cambiar entre ambas empresas desde Empresa o la barra lateral.</p>}
+            <button className="btn" disabled={busy} onClick={accept}>{busy ? 'Uniéndote…' : 'Aceptar invitación'}</button></>
           ) : (
             <><p className="text-sm text-tinta-3">Estás con una cuenta de candidato/a. Cierra sesión para crear tu cuenta de empresa con {inv.email}.</p><button className="btn-sec" onClick={signOut}>Cerrar sesión</button></>
           )

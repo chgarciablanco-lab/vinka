@@ -27,8 +27,37 @@ function Stars({ value = 0, onChange, size = 26, label }) {
 }
 
 /* ---------- Evaluaciones ---------- */
+/** Pega tus apuntes y la IA propone notas por criterio y un comentario. La persona revisa, corrige y decide. */
+function NotesAssist({ subject, onDraft }) {
+  const [open, setOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const run = async () => {
+    setErr(''); setBusy(true)
+    try {
+      const { data } = await callAi('interview_notes', 'write', { ...subject, notes })
+      const lines = [data.summary, data.strengths?.length ? 'Fortalezas: ' + data.strengths.join('; ') + '.' : '', data.doubts?.length ? 'Por verificar: ' + data.doubts.join('; ') + '.' : ''].filter(Boolean)
+      onDraft({ scores: data.scores || {}, note: lines.join('\n') }); setOpen(false); setNotes('')
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+  if (!open) return (
+    <button type="button" onClick={() => setOpen(true)} className="inline-flex h-9 items-center gap-1.5 self-start rounded-full border border-[#E9D3F0] bg-[#F7F0FB] px-3 text-[13px] font-semibold text-[#6B2E8F]"><Sparkle />Ordenar mis apuntes con IA</button>
+  )
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-[#E9D3F0] bg-[#FBF7FD] p-3">
+      <span className="text-[13px] font-semibold text-[#4A2163]">Pega o escribe tus apuntes de la entrevista</span>
+      <textarea className="textarea h-32 bg-white" maxLength={6000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej.: 3 años en bodega, maneja inventario en Excel, explicó bien cómo resolvió un quiebre de stock; dudas sobre turnos de noche…" />
+      <span className="text-xs leading-snug text-[#4A2163]">Los apuntes no se guardan. La IA propone notas por criterio y un comentario; tú los revisas. La nota general y la recomendación las decides tú.</span>
+      <ErrorBox>{err}</ErrorBox>
+      <div className="grid grid-cols-2 gap-2"><button type="button" className="btn-sec h-11" onClick={() => setOpen(false)}>Cancelar</button><button type="button" className="btn h-11" disabled={busy || notes.trim().length < 30} onClick={run}>{busy ? 'Ordenando…' : 'Proponer evaluación'}</button></div>
+    </div>
+  )
+}
+
 function Evaluations({ d, subject, onSaved }) {
   const mine = d.evaluations.find((e) => e.author_id === d.my_id)
+  const [draft, setDraft] = useState(false)
   const [f, setF] = useState(() => ({ scores: mine?.scores || {}, overall: mine?.overall || 0, recommendation: mine?.recommendation || '', note: mine?.note || '' }))
   const [edit, setEdit] = useState(!mine)
   const [err, setErr] = useState('')
@@ -42,7 +71,7 @@ function Evaluations({ d, subject, onSaved }) {
     const { error } = mine ? await supabase.from('evaluations').update(row).eq('id', mine.id) : await supabase.from('evaluations').insert(row)
     setBusy(false)
     if (error) return setErr(errMsg(error))
-    setEdit(false); onSaved('Evaluación guardada')
+    setEdit(false); setDraft(false); onSaved('Evaluación guardada')
   }
   return (
     <div className="flex flex-col gap-4">
@@ -63,6 +92,8 @@ function Evaluations({ d, subject, onSaved }) {
       {edit ? (
         <div className="card flex flex-col gap-3 p-4">
           <span className="text-[15px] font-semibold">{mine ? 'Editar mi evaluación' : 'Mi evaluación'}</span>
+          <NotesAssist subject={subject} onDraft={(x) => { setF({ ...f, scores: { ...f.scores, ...x.scores }, note: x.note.slice(0, 2000) }); setDraft(true) }} />
+          {draft && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-xs leading-snug text-[#4A2163]"><b>Borrador sugerido por IA.</b> Revisa cada nota y el comentario antes de guardar.</div>}
           {CRITERIOS.map(([k, l]) => (
             <div key={k} className="flex items-center justify-between gap-2"><span className="text-sm">{l}</span>
               <Stars size={22} label={l} value={f.scores[k] || 0} onChange={(n) => setF({ ...f, scores: { ...f.scores, [k]: n } })} /></div>
@@ -139,7 +170,9 @@ const EV = {
   stage: (x) => `Etapa: ${colLabel(x.from === 'nuevo' ? 'match' : x.from === 'contactado' ? 'contacto' : x.from)} → ${colLabel(x.to === 'nuevo' ? 'match' : x.to === 'contactado' ? 'contacto' : x.to)}`,
   note: () => 'Agregó una nota', evaluation: (x) => `${x.updated ? 'Actualizó' : 'Agregó'} una evaluación (${x.overall}/5)`,
   offer_sent: () => 'Envió la carta oferta', offer_accepted: () => 'Aceptó la oferta', offer_rejected: () => 'Rechazó la oferta',
+  ai: (x) => `Usó la IA: ${AI_TASK[x.task] || 'asistente'}`,
 }
+const AI_TASK = { candidate_fit: 'calce con la vacante', interview_questions: 'preguntas de entrevista', interview_notes: 'ordenar apuntes de entrevista' }
 function History({ events }) {
   if (!events.length) return <p className="py-4 text-center text-sm text-tinta-suave">Sin movimientos registrados.</p>
   return (

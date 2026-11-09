@@ -47,6 +47,7 @@ const PublicCompany = lz(() => import('./pages/PublicJobs'), 'PublicCompany')
 const PublicJob = lz(() => import('./pages/PublicJobs'), 'PublicJob')
 const Compare = lz(() => import('./pages/company/Compare'))
 const Automations = lz(() => import('./pages/company/Automations'))
+const Plan = lz(() => import('./pages/company/Plan'))
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -166,6 +167,7 @@ export default function App() {
     { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
     { section: 'Gestión' },
     { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
+    { to: '/plan', label: 'Plan y uso', icon: 'chart' },
     { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
   ]
   return (
@@ -183,6 +185,7 @@ export default function App() {
       <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
       <Route path="/vacantes/:id/comparar" element={<Compare />} />
       <Route path="/automatizaciones" element={<Automations />} />
+      <Route path="/plan" element={<Plan />} />
       <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
       <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />

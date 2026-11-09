@@ -9,7 +9,7 @@ import { CalendarSync } from '../../components/CalendarSync'
 import { usePresence } from '../../lib/presence'
 import { OnlineToggle, PresenceLine, StatusPill } from '../../components/Presence'
 import { NotifyCard } from '../../components/NotifyCard'
-import { AiAssist } from '../../components/AiAssist'
+import { AiAssist, Sparkle, callAi } from '../../components/AiAssist'
 import { Bell } from '../../components/Bell'
 import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
@@ -172,6 +172,55 @@ function QuestionsEditor({ value, onChange }) {
 
 const EMPTY_JOB = { title: '', area: '', level: '', description: '', requirements: [], modality: '', schedule: '', contract: '', region: '', comuna: '', salary_min: null, salary_max: null, salary_type: 'liquido', status: 'draft', questions: [] }
 
+/** Revisa el aviso antes de publicar: detecta frases que pueden discriminar y propone alternativas neutrales. */
+function BiasReview({ job, onFix }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [items, setItems] = useState(null)
+  const [err, setErr] = useState('')
+  const run = async () => {
+    setOpen(true); setErr(''); setItems(null); setBusy(true)
+    try {
+      const r = await callAi('job_bias_review', 'write', { title: job.title, description: job.description, requirements: job.requirements })
+      setItems((r.items || []).filter((x) => x && x.text).slice(0, 8))
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+  const apply = (x, k) => {
+    const sug = String(x.suggestion || '')
+    let next = { ...job }
+    if (job.description.includes(x.text)) next.description = job.description.split(x.text).join(sug)
+    else if (job.title.includes(x.text)) next.title = job.title.split(x.text).join(sug)
+    else next.requirements = job.requirements.map((r) => (r.text.includes(x.text) ? { ...r, text: r.text.split(x.text).join(sug) } : r)).filter((r) => r.text.trim())
+    onFix(next); setItems(items.filter((_, n) => n !== k))
+  }
+  const found = (x) => job.description.includes(x.text) || job.title.includes(x.text) || job.requirements.some((r) => r.text.includes(x.text))
+  return (
+    <>
+      <button type="button" onClick={run} disabled={!job.title.trim() || (!job.description.trim() && !job.requirements.length)}
+        className="inline-flex h-9 items-center gap-1.5 self-start rounded-full border border-[#E9D3F0] bg-[#F7F0FB] px-3 text-[13px] font-semibold text-[#6B2E8F] disabled:opacity-50">
+        <Sparkle />Revisar sesgos del aviso
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Revisión de sesgos">
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] leading-snug text-tinta-3">La IA busca frases que puedan excluir por edad, sexo, apariencia, nacionalidad u otros motivos que prohíbe el Código del Trabajo (art. 2), y requisitos excesivos para el cargo. Tú decides qué cambiar.</p>
+          {busy && <div className="flex items-center gap-2 rounded-xl bg-[#F7F0FB] px-3.5 py-4 text-sm text-[#6B2E8F]" role="status"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#6B2E8F] border-t-transparent" />Revisando…</div>}
+          <ErrorBox>{err}</ErrorBox>
+          {items && items.length === 0 && <div className="rounded-xl bg-[#EAF6EF] p-3.5 text-sm text-[#134A2B]">No encontramos frases problemáticas. Igual revisa que los requisitos sean necesarios para el cargo.</div>}
+          {items?.map((x, k) => (
+            <div key={k} className="card flex flex-col gap-1.5 p-3.5 text-sm">
+              <span className="font-semibold">«{x.text}»</span>
+              <span className="text-tinta-3">{x.why}</span>
+              {x.suggestion && <span>Alternativa: <b>{x.suggestion}</b></span>}
+              {found(x) && <button type="button" className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => apply(x, k)}>{x.suggestion ? 'Usar alternativa' : 'Quitar frase'}</button>}
+            </div>
+          ))}
+          {items && <button type="button" className="btn-sec" onClick={() => setOpen(false)}>Listo</button>}
+        </div>
+      </Sheet>
+    </>
+  )
+}
+
 export function JobForm() {
   const { id } = useParams()
   const nav = useNavigate()
@@ -255,6 +304,7 @@ export function JobForm() {
           </div>
         </div>
         <QuestionsEditor value={j.questions || []} onChange={(v) => set('questions', v)} />
+        <BiasReview job={j} onFix={(next) => setJ(next)} />
         <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
           <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
           Confirmo que esta oferta es real, no cobra a postulantes y no excluye por motivos ilegales.
@@ -441,12 +491,13 @@ export function CompanyAccount() {
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <p className="hint">Fotos, logo y video de empresa llegarán en la próxima versión.</p>
         <div className="card px-4">
-          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes']].map(([to, icon, t, sub]) => (
+          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan']].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
               <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />
             </Link>
           ))}
         </div>
+        <CompanySwitcher />
         <OnlineToggle />
         <CalendarSync />
         <NotifyCard />
@@ -456,6 +507,24 @@ export function CompanyAccount() {
         <div className="mt-2"><DangerZone /></div>
       </div>
       <Toast msg={msg} onDone={() => setMsg('')} />
+    </div>
+  )
+}
+
+/** Si la persona es parte de varias empresas, elige con cuál trabajar. */
+function CompanySwitcher() {
+  const { company, companies, switchCompany } = useAuth()
+  if (!companies || companies.length < 2) return null
+  return (
+    <div className="card flex flex-col gap-2 p-4">
+      <span className="text-[15px] font-semibold">Tus empresas</span>
+      <span className="text-[13px] text-tinta-3">Eres parte de {companies.length} empresas. Elige con cuál trabajar.</span>
+      {companies.map((c) => (
+        <button key={c.id} type="button" disabled={c.id === company.id} onClick={() => { switchCompany(c.id); window.location.assign('/') }}
+          className={`flex h-12 items-center justify-between rounded-xl border px-4 text-left text-sm font-semibold ${c.id === company.id ? 'border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'border-linea bg-white'}`}>
+          <span className="truncate">{c.display_name}</span><span className="text-xs font-normal text-tinta-3">{c.id === company.id ? 'Actual' : 'Cambiar'}</span>
+        </button>
+      ))}
     </div>
   )
 }

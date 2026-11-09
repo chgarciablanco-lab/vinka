@@ -76,6 +76,13 @@ Mejora este mensaje de chat entre una empresa y una persona candidata (quien esc
     case 'message_template':
       return { max: 400, text: `${m}
 Redacta una plantilla de mensaje de una empresa a candidatos en un proceso de selección. Tipo: ${clip(c.kind, 30)}. Máximo 600 caracteres, cordial y claro. Puedes usar las variables {nombre}, {cargo} y {empresa} tal cual, entre llaves.${cur}` }
+    case 'job_bias_review':
+      return { list: true, max: 700, text: `Revisa este aviso de empleo en Chile y detecta frases que puedan discriminar o excluir sin relación con el trabajo, según el artículo 2 del Código del Trabajo: edad, sexo o género, estado civil, maternidad o embarazo, apariencia ("buena presencia"), nacionalidad, origen, religión, discapacidad, situación socioeconómica, sindicalización, orientación sexual u otros. También señala requisitos excesivos para el cargo (por ejemplo, título universitario para un cargo operativo) y lenguaje que excluya a un género cuando no corresponde.
+No marques requisitos legítimos y medibles (licencias, certificaciones exigidas por ley, disponibilidad horaria real).
+Cargo: ${clip(c.title, 120)}
+Descripción: ${clip(c.description, 3000)}
+Requisitos: ${clip(JSON.stringify(c.requirements || []), 1500)}
+Responde solo con un arreglo JSON (vacío si no hay problemas) de objetos: [{"text":"frase exacta del aviso","why":"motivo breve","suggestion":"alternativa neutral"}], máximo 8.` }
     default:
       return { max: 300, text: '' }
   }
@@ -196,6 +203,42 @@ async function parseCv(key: string, cfg: any, c: any) {
   return data
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Cupo diario por persona + cupo mensual del plan de la empresa; deja registro de cada uso (null = puede usar)
+async function quota(userId: string, cfg: any, task: string, job?: string, cand?: string): Promise<string | null> {
+  const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
+  const { data, error } = await sb.rpc('ai_quota', {
+    p_user: userId, p_daily: limit, p_task: task,
+    p_job: job && UUID.test(job) ? job : null, p_candidate: cand && UUID.test(cand) ? cand : null,
+  })
+  if (error) { console.error('quota', error); return 'No pudimos verificar tu cupo de IA. Inténtalo de nuevo.' }
+  return data || null
+}
+
+/* ---------- Apuntes de entrevista → borrador de evaluación (la persona revisa y decide) ---------- */
+const CRIT = ['experiencia', 'habilidades', 'comunicacion', 'motivacion', 'ajuste']
+async function notesPrompt(userId: string, c: any) {
+  if (!UUID.test(String(c.job_id || ''))) throw new Error('Vacante no encontrada.')
+  const { data: job } = await sb.from('jobs').select('id, company_id, title, area, level, description, requirements').eq('id', c.job_id).maybeSingle()
+  if (!job) throw new Error('Vacante no encontrada.')
+  const { data: mem } = await sb.from('company_members').select('role').eq('company_id', job.company_id).eq('user_id', userId).maybeSingle()
+  if (!mem || mem.role === 'viewer') throw new Error('No tienes acceso para evaluar en esta vacante.')
+  const notes = clip(c.notes, 6000)
+  if (notes.trim().length < 30) throw new Error('Escribe o pega tus apuntes de la entrevista (al menos un par de frases).')
+  return { job, text: `Ayudas a una persona de un equipo de selección a ordenar sus apuntes de una entrevista. Usa SOLO lo que dicen los apuntes; no inventes nada. Ignora y no repitas datos personales o protegidos (edad, sexo, estado civil, salud, embarazo, nacionalidad, religión, apariencia, familia) aunque aparezcan en los apuntes. No recomiendes contratar o descartar: la decisión es de la persona.
+Cargo: ${job.title} · Área: ${job.area} · Nivel: ${job.level || '—'}
+Requisitos: ${(job.requirements || []).map((r: any) => `${r.text} (${r.essential ? 'esencial' : 'deseable'})`).join('; ') || '—'}
+Apuntes:
+<<<
+${notes}
+>>>
+Responde SOLO con un objeto JSON:
+{"scores": {"experiencia": 1-5 o null, "habilidades": 1-5 o null, "comunicacion": 1-5 o null, "motivacion": 1-5 o null, "ajuste": 1-5 o null} (null si los apuntes no permiten evaluarlo),
+ "summary": "resumen objetivo de la entrevista en máximo 4 frases",
+ "strengths": ["fortaleza observada", ...] (máximo 4),
+ "doubts": ["duda o punto a verificar", ...] (máximo 4)}` }
+}
+
 async function callModel(key: string, cfg: any, text: string, max: number) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -221,18 +264,16 @@ Deno.serve(async (req) => {
     const { task, mode = 'write', context = {} } = await req.json()
 
     if (task === 'cv_parse') {
-      const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
-      const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
-      if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
+      const q = await quota(u.user.id, cfg, task)
+      if (q) return json({ error: q }, 429)
       try { return json({ data: await parseCv(key, cfg, context) }) } catch (e) { return json({ error: (e as Error).message }, 422) }
     }
 
     if (FIT.has(task)) {
       let sp
       try { sp = await selectionPrompt(task, u.user.id, context) } catch (e) { return json({ error: (e as Error).message }, 403) }
-      const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
-      const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
-      if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
+      const q = await quota(u.user.id, cfg, task, sp.job.id, context.candidate_id)
+      if (q) return json({ error: q }, 429)
       const text = await callModel(key, cfg, sp.text, sp.max)
       if (text == null) return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502)
       let data: any = null
@@ -251,13 +292,28 @@ Deno.serve(async (req) => {
       return json({ data })
     }
 
+    if (task === 'interview_notes') {
+      let np
+      try { np = await notesPrompt(u.user.id, context) } catch (e) { return json({ error: (e as Error).message }, 403) }
+      const q = await quota(u.user.id, cfg, task, np.job.id, context.candidate_id)
+      if (q) return json({ error: q }, 429)
+      const text = await callModel(key, cfg, np.text, 900)
+      if (text == null) return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502)
+      try {
+        const o = JSON.parse((text.match(/\{[\s\S]*\}/) || ['null'])[0])
+        const scores: Record<string, number> = {}
+        for (const k of CRIT) { const n = Math.round(Number(o?.scores?.[k])); if (n >= 1 && n <= 5) scores[k] = n }
+        const arr = (v: any) => (Array.isArray(v) ? v.map((x) => String(x).slice(0, 200)).slice(0, 4) : [])
+        return json({ data: { scores, summary: String(o?.summary || '').slice(0, 800), strengths: arr(o?.strengths), doubts: arr(o?.doubts) } })
+      } catch { return json({ error: 'No pude ordenar los apuntes. Inténtalo de nuevo.' }, 502) }
+    }
+
     const p = prompt(task, mode, context)
     if (!p.text) return json({ error: 'Tarea no reconocida.' }, 400)
     if (mode !== 'write' && !String(context.current || '').trim() && !p.list) return json({ error: 'Escribe algo primero para poder mejorarlo.' }, 400)
 
-    const limit = parseInt(cfg?.ai_daily_limit || '40', 10)
-    const { data: used } = await sb.rpc('ai_take', { p_user: u.user.id, p_limit: limit })
-    if ((used || 0) > limit) return json({ error: `Llegaste al límite de ${limit} usos de IA por hoy. Vuelve mañana.` }, 429)
+    const q = await quota(u.user.id, cfg, task, context.job_id)
+    if (q) return json({ error: q }, 429)
 
     const text = await callModel(key, cfg, p.text, p.max)
     if (text == null) return json({ error: 'El asistente no respondió. Inténtalo de nuevo en un momento.' }, 502)

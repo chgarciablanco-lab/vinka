@@ -2,19 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { supabase } from './supabase'
 
 const Ctx = createContext(null)
+const KEY = 'vinka-company'
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [candidate, setCandidate] = useState(null)
   const [company, setCompany] = useState(null)
+  const [companies, setCompanies] = useState([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [recovery, setRecovery] = useState(false)
 
   const load = useCallback(async (sess) => {
     if (!sess?.user) {
-      setProfile(null); setCandidate(null); setCompany(null); setIsAdmin(false)
+      setProfile(null); setCandidate(null); setCompany(null); setCompanies([]); setIsAdmin(false)
       return
     }
     const uid = sess.user.id
@@ -27,17 +29,23 @@ export function AuthProvider({ children }) {
       const { data: c } = await supabase.from('candidate_profiles').select('*').eq('user_id', uid).maybeSingle()
       setCandidate(c); setCompany(null)
     } else if (p?.role === 'company') {
-      let { data: m } = await supabase.from('company_members').select('company_id, role, companies(*)').eq('user_id', uid).limit(1).maybeSingle()
+      // Una persona puede ser parte de varias empresas (consultoras, holdings): se recuerda la última elegida
+      const fetchAll = () => supabase.from('company_members').select('company_id, role, created_at, companies(*)').eq('user_id', uid).order('created_at', { ascending: true })
+      let { data: ms } = await fetchAll()
       // Primer ingreso tras confirmar correo: crear la empresa con los datos del registro
       const pending = sess.user.user_metadata?.company
-      if (!m && pending?.legal_name) {
+      if (!ms?.length && pending?.legal_name) {
         const { error } = await supabase.from('companies').insert({ ...pending, owner_id: uid })
         if (!error) {
           await supabase.auth.updateUser({ data: { company: null } })
-          ;({ data: m } = await supabase.from('company_members').select('company_id, role, companies(*)').eq('user_id', uid).limit(1).maybeSingle())
+          ;({ data: ms } = await fetchAll())
         }
       }
-      setCompany(m ? { ...m.companies, member_role: m.role } : null); setCandidate(null)
+      const list = (ms || []).filter((m) => m.companies).map((m) => ({ ...m.companies, member_role: m.role }))
+      let saved = ''
+      try { saved = localStorage.getItem(KEY) || '' } catch { /* sin almacenamiento */ }
+      setCompanies(list)
+      setCompany(list.find((c) => c.id === saved) || list[0] || null); setCandidate(null)
     }
   }, [])
 
@@ -56,10 +64,16 @@ export function AuthProvider({ children }) {
   }, [load])
 
   const refresh = useCallback(() => load(session), [load, session])
+  const switchCompany = useCallback((id) => {
+    const c = companies.find((x) => x.id === id)
+    if (!c) return
+    try { localStorage.setItem(KEY, id) } catch { /* sin almacenamiento */ }
+    setCompany(c)
+  }, [companies])
   const signOut = async () => { await supabase.auth.signOut(); setRecovery(false) }
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, isAdmin, loading, refresh, signOut, recovery, setRecovery }}>
+    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, loading, refresh, signOut, recovery, setRecovery }}>
       {children}
     </Ctx.Provider>
   )
