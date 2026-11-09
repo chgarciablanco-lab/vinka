@@ -78,6 +78,106 @@ function Business() {
   )
 }
 
+const SRV_STATUS = [['solicitada', 'Solicitada'], ['pago_pendiente', 'Pago pendiente'], ['en_curso', 'En curso'], ['entregada', 'Entregada'], ['cancelada', 'Cancelada']]
+const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'Correo', videollamada: 'Videollamada' }
+
+/** Asesorías con reclutador: solicitudes de postulantes y precios del catálogo */
+function Advisory() {
+  const [reqs, setReqs] = useState(null)
+  const [services, setServices] = useState([])
+  const [open, setOpen] = useState(null)
+  const [edit, setEdit] = useState({})
+  const [svc, setSvc] = useState(null)
+  const [only, setOnly] = useState(true)
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const [a, b] = await Promise.all([supabase.rpc('admin_service_requests'), supabase.from('career_services').select('*').order('sort')])
+    if (a.error) setErr(errMsg(a.error))
+    setReqs(a.data || []); setServices(b.data || [])
+  }, [])
+  useEffect(() => { load() }, [load])
+  const save = async (r) => {
+    setErr('')
+    const e = edit[r.id] || {}
+    const { error } = await supabase.rpc('admin_update_service_request', { p_id: r.id, p_status: e.status ?? r.status, p_note: e.note ?? r.note })
+    if (error) return setErr(errMsg(error))
+    setEdit({ ...edit, [r.id]: undefined }); load()
+  }
+  const saveSvc = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_upsert_service', { p_id: svc.id, p_name: svc.name, p_summary: svc.summary, p_includes: svc.includesText.split('\n').map((x) => x.trim()).filter(Boolean), p_price: Number(String(svc.price_clp).replace(/\D/g, '')), p_delivery: svc.delivery, p_active: svc.active, p_sort: svc.sort })
+    if (error) return setErr(errMsg(error))
+    setSvc(null); load()
+  }
+  if (!reqs) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
+  const openN = reqs.filter((r) => ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status)).length
+  const income = reqs.filter((r) => r.status === 'entregada' || r.status === 'en_curso').reduce((a, r) => a + r.price, 0)
+  const list = only ? reqs.filter((r) => ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status)) : reqs
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-2">
+        {[['Abiertas', n(openN)], ['Total', n(reqs.length)], ['Vendido (en curso y entregadas)', `$${n(income)}`]].map(([l, v]) => (
+          <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
+        ))}
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
+      {list.length === 0 && <Empty title="Sin solicitudes">Cuando un postulante pida una asesoría, aparecerá aquí y te llegará un aviso.</Empty>}
+      {list.map((r) => {
+        const e = edit[r.id] || {}
+        return (
+          <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="flex flex-col"><b>{r.name || 'Sin nombre'}</b><span className="text-xs text-tinta-3">{r.service} · ${n(r.price)} · {new Date(r.created_at).toLocaleDateString('es-CL')}</span></span>
+              <span className="rounded-full bg-[#F4EEF2] px-2.5 py-0.5 text-xs font-semibold">{SRV_STATUS.find(([k]) => k === r.status)?.[1]}</span>
+            </div>
+            <span>Prefiere: <b>{CONTACT_TXT[r.contact_pref]}</b> · {r.phone ? <a className="text-rosa-texto underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">{r.phone}</a> : 'sin teléfono'} · <a className="text-rosa-texto underline" href={`mailto:${r.email}`}>{r.email}</a></span>
+            {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
+            <button className="self-start text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
+            {open === r.id && (
+              <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] p-3 text-xs text-tinta-2">
+                <span><b>{r.headline || 'Sin cargo'}</b> · {[r.comuna, r.region].filter(Boolean).join(', ')}</span>
+                {(r.experiences || []).map((x, i) => <span key={i}>• {x.role} en {x.company} ({x.from || '?'} a {x.current ? 'hoy' : x.to || '?'})</span>)}
+                {(r.education || []).map((x, i) => <span key={'e' + i}>🎓 {x.title} {x.institution ? `— ${x.institution}` : ''} {x.status ? `(${x.status})` : ''}</span>)}
+                {r.skills?.length > 0 && <span>Habilidades: {r.skills.join(', ')}</span>}
+                {r.bio && <span className="italic">{r.bio}</span>}
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-[180px_1fr_auto]">
+              <select className="input h-11" value={e.status ?? r.status} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, status: ev.target.value } })}>{SRV_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+              <input className="input h-11" maxLength={1000} placeholder="Mensaje para la persona (lo verá en su app)" value={e.note ?? r.note} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, note: ev.target.value } })} />
+              <button className="btn h-11 px-4" onClick={() => save(r)}>Guardar y avisar</button>
+            </div>
+          </div>
+        )
+      })}
+      <div className="card flex flex-col gap-2 p-4">
+        <span className="text-[15px] font-semibold">Servicios y precios</span>
+        {services.map((s) => svc?.id === s.id ? (
+          <div key={s.id} className="flex flex-col gap-2 rounded-xl border border-linea p-3">
+            <input className="input h-11" value={svc.name} onChange={(e) => setSvc({ ...svc, name: e.target.value })} aria-label="Nombre" />
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Precio (CLP, IVA incluido)</span><input className="input h-11" inputMode="numeric" value={svc.price_clp} onChange={(e) => setSvc({ ...svc, price_clp: e.target.value })} /></label>
+              <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Plazo de entrega</span><input className="input h-11" value={svc.delivery} onChange={(e) => setSvc({ ...svc, delivery: e.target.value })} /></label>
+            </div>
+            <textarea className="textarea h-16" value={svc.summary} onChange={(e) => setSvc({ ...svc, summary: e.target.value })} aria-label="Descripción" />
+            <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Qué incluye (una línea por punto)</span><textarea className="textarea h-24" value={svc.includesText} onChange={(e) => setSvc({ ...svc, includesText: e.target.value })} /></label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={svc.active} onChange={(e) => setSvc({ ...svc, active: e.target.checked })} className="h-4 w-4 accent-[#D02E72]" />Visible para postulantes</label>
+            <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => setSvc(null)}>Cancelar</button><button className="btn h-11" onClick={saveSvc}>Guardar</button></div>
+          </div>
+        ) : (
+          <div key={s.id} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] py-2 text-sm last:border-0">
+            <span className="flex flex-col"><b>{s.name}{!s.active && <span className="ml-2 text-xs font-normal text-tinta-suave">(oculto)</span>}</b><span className="text-xs text-tinta-3">${n(s.price_clp)} · {s.delivery}</span></span>
+            <button className="btn-sm border border-linea bg-white" onClick={() => setSvc({ ...s, includesText: (s.includes || []).join('\n') })}>Editar</button>
+          </div>
+        ))}
+        <p className="hint">Cambiar un precio no afecta a las solicitudes ya hechas: cada una guarda el precio del momento.</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [tab, setTab] = useState('business')
   const [companies, setCompanies] = useState(null)
@@ -108,12 +208,12 @@ export default function Admin() {
       <TopBar back="/" title="Administración" />
       <div className="flex flex-col gap-3 px-5 pb-10">
         <div className="flex flex-wrap gap-1.5">
-          {[['business', 'Negocio y planes'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
+          {[['business', 'Negocio y planes'], ['advisory', 'Asesorías'], ['pending', 'Por verificar'], ['all', 'Todas'], ['reports', 'Denuncias']].map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-10 rounded-full border px-3 text-[13px] font-semibold ${tab === k ? 'border-morado bg-morado text-white' : 'border-linea bg-white'}`}>{l}</button>
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'advisory' ? <Advisory /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>

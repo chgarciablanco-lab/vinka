@@ -48,6 +48,7 @@ const PublicJob = lz(() => import('./pages/PublicJobs'), 'PublicJob')
 const Compare = lz(() => import('./pages/company/Compare'))
 const Automations = lz(() => import('./pages/company/Automations'))
 const Plan = lz(() => import('./pages/company/Plan'))
+const Advisory = lz(() => import('./pages/candidate/Advisory'))
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -149,6 +150,7 @@ export default function App() {
         <Route path="/perfil/laboral" element={<EditStep Comp={StepWork} />} />
         <Route path="/perfil/preferencias" element={<EditStep Comp={StepPrefs} />} />
         <Route path="/perfil/presentacion" element={<EditStep Comp={StepIntro} />} />
+        <Route path="/asesoria" element={<Advisory />} />
         {isAdmin && <Route path="/admin" element={<Admin />} />}
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />

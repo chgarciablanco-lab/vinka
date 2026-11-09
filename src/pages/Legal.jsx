@@ -12,6 +12,7 @@ const DOCS = {
       'El match indica interés mutuo en una vacante; no es una oferta de trabajo ni una decisión de contratación.',
       'Usar la plataforma para acosar, suplantar identidad o enviar spam puede terminar en la suspensión de la cuenta.',
       'VINKA no garantiza contratación ni resultados.',
+      'Asesoría con reclutador: VINKA ofrece a quienes buscan empleo servicios opcionales y pagados de revisión de CV y asesoría de búsqueda, a los precios publicados en la app. Postular y usar VINKA es siempre gratis; contratar una asesoría no influye en las postulaciones, los matches ni en cómo te ven las empresas, y no garantiza un empleo. El pago se coordina después de que un reclutador confirma el servicio contigo, y puedes cancelar la solicitud antes de pagar.',
     ],
   },
   privacidad: {
@@ -28,6 +29,7 @@ const DOCS = {
       'Si postulas sin cuenta desde la página de empleos de una empresa, guardamos solo los datos que escribes (nombre, correo, teléfono, cargo y mensaje) para ese proceso. Los ve únicamente esa empresa y se eliminan a los 12 meses si no sigues en el proceso ni creas una cuenta.',
       'Conservación: las notas, evaluaciones y resultados de IA de procesos cerrados se eliminan automáticamente 12 meses después del cierre. Los postulantes importados desde otros portales que no aceptaron la invitación se eliminan a los 12 meses.',
       'Puedes editar tus datos, descargar una copia de ellos, ocultar tu perfil o eliminar tu cuenta en cualquier momento desde Perfil. Al eliminarla, borramos tu perfil, intereses, matches, mensajes y video.',
+      'Si pides una asesoría con reclutador, autorizas que un reclutador de VINKA vea tu perfil laboral y te contacte por teléfono o correo solo para coordinar y entregar ese servicio. Las empresas no ven si contrataste una asesoría.',
       'Contacto para solicitudes de datos: [CORREO DE CONTACTO].',
     ],
   },

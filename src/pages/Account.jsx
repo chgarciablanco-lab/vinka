@@ -102,6 +102,11 @@ export function CandidateProfile() {
             <span className="text-xs text-tinta-suave">{[c.comuna, c.region].filter(Boolean).join(', ')}</span>
           </div>
         </div>
+        <Link to="/asesoria" className="flex items-center gap-3 rounded-2xl border border-[#E9D3F0] bg-[#F7F0FB] p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#6B2E8F]"><Svg name="user" /></span>
+          <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold text-[#4A2163]">Asesoría con reclutador</span><span className="text-[13px] leading-snug text-[#4A2163]/80">Mejora tu CV y tu búsqueda de empleo con ayuda profesional</span></span>
+          <Svg name="chevron" size={18} className="text-[#6B2E8F]" />
+        </Link>
         <div className="card px-4">
           <Row to="/perfil/laboral" title="Perfil laboral" sub={[c.has_experience ? `${c.experiences?.length || 0} experiencia(s)` : 'Primer empleo', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : null].filter(Boolean).join(' · ')} />
           <Row to="/perfil/preferencias" title="Preferencias" sub={[...(c.modalities || []), ...(c.schedules || [])].join(' · ') || 'Sin definir'} />
