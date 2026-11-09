@@ -67,7 +67,7 @@ export default function Offer() {
             </div>
           )}
           {isCand && o.status === 'enviada' && expired && <div className="rounded-2xl bg-[#FEF3F2] p-4 text-sm text-[#912018]">Esta oferta venció el {fmt(o.expires_on)}. Escríbele a la empresa por el chat.</div>}
-          {o.status === 'aceptada' && <div className="rounded-2xl border border-[#A9D9BC] bg-[#EAF6EF] p-4 text-sm text-[#134A2B]">{isCand ? <><b>¡Aceptaste esta oferta!</b> {co} te contactará para coordinar el contrato y tu primer día.</> : <><b>La persona aceptó la oferta.</b> Márcala como contratada cuando confirmen el ingreso.</>}</div>}
+          {o.status === 'aceptada' && <div className="rounded-2xl border border-[#A9D9BC] bg-[#EAF6EF] p-4 text-sm text-[#134A2B]">{isCand ? <><b>¡Aceptaste esta oferta!</b> {co} te contactará para coordinar el contrato y tu primer día.</> : <><b>La persona aceptó la oferta.</b> Quedó como contratada; si el ingreso no se concreta, cambia la etapa en su ficha.</>}</div>}
           {o.status === 'rechazada' && <div className="rounded-2xl bg-white p-4 text-sm text-tinta-2">{isCand ? 'No aceptaste esta oferta.' : 'La persona no aceptó la oferta.'}{o.response_note && <> Comentario: “{o.response_note}”</>}</div>}
           {o.status === 'por_aprobar' && <div className="rounded-2xl bg-[#F7F0FB] p-4 text-sm text-[#4B2466]">Esta oferta espera la aprobación de un administrador de la empresa. La persona aún no la ve.</div>}
           {o.status === 'vencida' && <div className="rounded-2xl bg-[#FEF3F2] p-4 text-sm text-[#912018]">{isCand ? 'Esta oferta venció sin respuesta. Escríbele a la empresa por el chat si sigues interesado/a.' : 'Venció sin respuesta. Puedes editarla y reenviarla con una nueva fecha.'}</div>}
