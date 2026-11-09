@@ -27,7 +27,7 @@ export function ChatList() {
   const [ivs, setIvs] = useState([])
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24 lg:max-w-none lg:pb-4">
       <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />
@@ -152,7 +152,7 @@ export function ChatRoom() {
   const stageIdx = ETAPAS.findIndex((s) => s[0] === m.stage)
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col bg-rosa-fondo">
+    <div className="mx-auto flex h-full w-full max-w-md flex-col bg-rosa-fondo lg:max-w-none">
       <div className="safe-t flex items-center gap-2 border-b border-[#EEE3EA] bg-white px-3 pb-2.5">
         <button aria-label="Volver" onClick={() => nav('/chats')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
         <WithDot p={pres[isCompany ? m.candidate_id : m.company_id]}><Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={40} round={isCompany} /></WithDot>

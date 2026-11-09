@@ -283,8 +283,10 @@ export function OfferSummary({ o, onWithdraw }) {
 /* ---------- Página ---------- */
 const TABS = [['perfil', 'Perfil'], ['ia', 'IA'], ['evaluacion', 'Evaluación'], ['notas', 'Notas'], ['historial', 'Historial']]
 
-export default function CandidateDetail() {
-  const { job: jobId, cid, eid } = useParams()
+/** panel: { jobId, cid, eid, onClose, onChange } cuando se abre como panel lateral del proceso (computador) */
+export default function CandidateDetail({ panel }) {
+  const params = useParams()
+  const { jobId, cid, eid } = panel || { jobId: params.job, cid: params.cid, eid: params.eid }
   const nav = useNavigate()
   const { company } = useAuth()
   const ext = !!eid
@@ -310,7 +312,7 @@ export default function CandidateDetail() {
 
   const pres = usePresence({ users: ext ? [] : [cid] })
   const subject = useMemo(() => (ext ? { job_id: jobId, external_id: eid } : { job_id: jobId, candidate_id: cid }), [ext, jobId, eid, cid])
-  const saved = (m) => { setToast(m); load() }
+  const saved = (m) => { setToast(m); load(); panel?.onChange?.() }
 
   if (err && !d) return <div className="p-6"><ErrorBox>{err}</ErrorBox><Link to={`/vacantes/${jobId}/proceso`} className="btn-sec mt-3">Volver al proceso</Link></div>
   if (!d) return <Spinner />
@@ -344,11 +346,14 @@ export default function CandidateDetail() {
   const copyTo = async (j) => { setCopyOpen(false); const { error } = await supabase.rpc('copy_external_to_job', { p_external: eid, p_job: j.id }); if (error) setErr(errMsg(error)); else setToast(`${name} agregado/a a ${j.title}`) }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-10">
+    <div className={`mx-auto flex min-h-full w-full flex-col bg-[#FAF7F9] pb-10 ${panel ? '' : 'max-w-md lg:max-w-4xl'}`}>
       <div className="safe-t sticky top-0 z-10 border-b border-[#EEE3EA] bg-white px-3 pb-0">
         <div className="flex items-center gap-1">
-          <button aria-label="Volver al proceso" onClick={() => nav(`/vacantes/${jobId}/proceso`)} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
-          <span className="truncate text-[13px] text-tinta-suave">{d.job.title}</span>
+          {panel
+            ? <button aria-label="Cerrar ficha" onClick={panel.onClose} className="flex h-11 w-11 items-center justify-center"><Svg name="x" /></button>
+            : <button aria-label="Volver al proceso" onClick={() => nav(`/vacantes/${jobId}/proceso`)} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>}
+          <span className="flex-1 truncate text-[13px] text-tinta-suave">{d.job.title}</span>
+          {panel && <Link to={ext ? `/vacantes/${jobId}/externo/${eid}` : `/vacantes/${jobId}/candidato/${cid}`} className="px-2 text-xs font-semibold text-rosa-texto">Abrir completa ›</Link>}
         </div>
         <div className="flex items-center gap-3 px-2 pb-3 pt-1">
           <WithDot p={pres[cid]} size={14}><Avatar text={name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color="#302538" size={52} round /></WithDot>

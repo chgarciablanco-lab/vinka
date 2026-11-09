@@ -58,7 +58,7 @@ export function CompanyPanel() {
   const verified = company?.verification_status === 'verified'
   const canManage = company?.member_role !== 'viewer'
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-6xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
         <div className="flex min-w-0 flex-col"><span className="text-[13px] text-tinta-suave">VINKA Company</span>
         <h1 className="truncate text-[22px] font-bold">{company?.display_name}</h1></div>
@@ -85,7 +85,7 @@ export function CompanyPanel() {
           <Empty title="Crea tu primera vacante" action={<Link to="/vacantes/nueva" className="btn-sm mt-1 bg-rosa-accion text-white">Crear vacante</Link>}>
             {verified ? 'Publícala y empieza a recibir intereses.' : 'Puedes dejarla lista mientras verificamos tu empresa.'}
           </Empty>
-        ) : jobs.map((j) => (
+        ) : <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:items-start">{jobs.map((j) => (
           <div key={j.id} className="card flex flex-col gap-2.5 p-3.5">
             <div className="flex items-start justify-between gap-2.5">
               <div className="flex flex-col gap-0.5">
@@ -103,7 +103,7 @@ export function CompanyPanel() {
             </div>
             <Link to={`/vacantes/${j.id}/externos`} className="text-xs font-semibold text-rosa-texto">Postulantes de otros portales{ext[j.id] ? ` · ${ext[j.id]}` : ''} ›</Link>
           </div>
-        ))}
+        ))}</div>}
       </div>
     </div>
   )
@@ -319,7 +319,7 @@ export function JobCandidates() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] pb-10">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] pb-10 lg:max-w-3xl">
       <div className="safe-t flex items-center gap-1.5 px-4 pb-3">
         <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
         <div className="flex flex-col"><span className="text-[11px] text-tinta-suave">Candidatos para</span><span className="text-[15px] font-semibold">{job?.title || '…'}</span></div>
@@ -398,7 +398,7 @@ export function CompanyAccount() {
     setMsg('Vitrina actualizada.'); refresh()
   }
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">

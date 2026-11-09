@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
@@ -7,6 +7,8 @@ import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { ErrorBox, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine } from '../../components/Presence'
+
+const CandidateDetail = lazy(() => import('./CandidateDetail'))
 
 export function useTemplates() {
   const { company } = useAuth()
@@ -172,6 +174,7 @@ export default function Pipeline() {
   const [moving, setMoving] = useState(null)
   const [toast, setToast] = useState('')
   const [col, setCol] = useState(null)
+  const [peek, setPeek] = useState(null)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('job_pipeline', { p_job: id })
@@ -206,7 +209,12 @@ export default function Pipeline() {
     e.preventDefault()
     try { const { kind, id: cid } = JSON.parse(e.dataTransfer.getData('text/plain')); const c = d.cards.find((x) => x.kind === kind && x.id === cid); if (c) move(c, stage) } catch { /* nada */ }
   }
-  const open = (c) => nav(c.kind === 'externo' ? `/vacantes/${id}/externo/${c.id}` : `/vacantes/${id}/candidato/${c.candidate_id || c.id}`)
+  useEffect(() => { if (!peek) return; const k = (e) => e.key === 'Escape' && setPeek(null); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [peek])
+  // En computador la ficha se abre al costado del tablero; en celular, como pantalla aparte
+  const open = (c) => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return setPeek(c.kind === 'externo' ? { jobId: id, eid: c.id } : { jobId: id, cid: c.candidate_id || c.id })
+    nav(c.kind === 'externo' ? `/vacantes/${id}/externo/${c.id}` : `/vacantes/${id}/candidato/${c.candidate_id || c.id}`)
+  }
 
   if (err && !d) return <div className="p-6"><ErrorBox>{err}</ErrorBox></div>
   if (!d || col == null) return <Spinner />
@@ -294,6 +302,17 @@ export default function Pipeline() {
           </div>
         )}
       </Sheet>
+      {peek && (
+        <div className="fixed inset-0 z-40 hidden lg:block" onClick={() => setPeek(null)}>
+          <div className="absolute inset-0 bg-black/20" />
+          <aside role="dialog" aria-modal="true" aria-label="Ficha del candidato" onClick={(e) => e.stopPropagation()}
+            className="absolute inset-y-0 right-0 w-[min(600px,calc(100vw-18rem))] overflow-y-auto border-l border-[#EEE3EA] bg-[#FAF7F9] shadow-2xl">
+            <Suspense fallback={<Spinner />}>
+              <CandidateDetail key={peek.cid || peek.eid} panel={{ ...peek, onClose: () => setPeek(null), onChange: load }} />
+            </Suspense>
+          </aside>
+        </div>
+      )}
       <Toast msg={toast} onDone={() => setToast('')} />
     </div>
   )

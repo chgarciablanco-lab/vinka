@@ -23,3 +23,9 @@
   .safe-b { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
   .safe-t { padding-top: max(env(safe-area-inset-top), 16px); }
 }
+
+/* Escritorio (desde 1024 px): las barras fijas inferiores se centran en el área de contenido, no sobre la barra lateral */
+@media (min-width: 1024px) {
+  .desk .fixed.left-1\/2 { left: calc(50% + 8rem); max-width: min(42rem, calc(100% - 18rem)); }
+  .desk .wide { max-width: 72rem; }
+}

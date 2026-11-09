@@ -53,7 +53,7 @@ export default function Agenda() {
 
   const verified = company?.verification_status === 'verified'
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-end justify-between px-5 pb-3">
         <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno.</p></div>
         <Bell />

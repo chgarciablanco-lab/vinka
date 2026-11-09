@@ -1,0 +1,36 @@
+import { NavLink } from 'react-router-dom'
+import { useAuth } from '../lib/auth'
+import { Svg } from './ui'
+import { StatusPill } from './Presence'
+
+/** Barra lateral fija para computadores (desde 1024 px). En móvil no se muestra y se usa la barra inferior. */
+export function DesktopNav({ items }) {
+  const { company, profile, signOut } = useAuth()
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#EEE3EA] bg-white lg:flex" aria-label="Navegación principal">
+      <div className="flex flex-col gap-1 px-5 pb-4 pt-6">
+        <span className="font-display text-[19px] font-bold tracking-wide text-tinta">VINKA</span>
+        {company && <span className="truncate text-[13px] text-tinta-3" title={company.display_name}>{company.display_name}</span>}
+      </div>
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
+        {items.map((it) => it.section ? (
+          <span key={it.section} className="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wider text-tinta-suave">{it.section}</span>
+        ) : (
+          <NavLink key={it.to} to={it.to} end={it.to === '/'}
+            className={({ isActive }) => `relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${isActive ? 'bg-rosa-palido text-rosa-oscuro' : 'text-tinta-2 hover:bg-[#F7F1F5]'}`}>
+            <Svg name={it.icon} size={19} />
+            {it.label}
+            {it.badge ? <span className="ml-auto h-2.5 w-2.5 rounded-full bg-naranja" aria-label="Novedades" /> : null}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="flex flex-col gap-2 border-t border-[#EEE3EA] p-4">
+        <StatusPill />
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-xs text-tinta-3">{`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()}</span>
+          <button onClick={signOut} className="text-xs font-semibold text-tinta-3 hover:text-tinta">Cerrar sesión</button>
+        </div>
+      </div>
+    </aside>
+  )
+}

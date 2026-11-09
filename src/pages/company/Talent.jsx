@@ -22,6 +22,7 @@ export default function Talent() {
   const [pick, setPick] = useState(null)
   const [jobs, setJobs] = useState([])
   const [toast, setToast] = useState('')
+  const [limit, setLimit] = useState(60)
   const canManage = company?.member_role !== 'viewer'
 
   useEffect(() => {
@@ -46,6 +47,8 @@ export default function Talent() {
     return true
   }), [list, q, f])
   const active = Object.values(f).filter(Boolean).length
+  useEffect(() => { setLimit(60) }, [q, f])
+  const page = shown.slice(0, limit)
 
   const invite = async (j) => {
     const p = pick; setPick(null)
@@ -66,7 +69,7 @@ export default function Talent() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-6xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3">
         <div><h1 className="text-[22px] font-bold">Banco de talento</h1><p className="text-[13px] text-tinta-3">Personas que ya pasaron por tus procesos.</p></div><Bell />
       </div>
@@ -90,8 +93,35 @@ export default function Talent() {
         ) : (
           <>
             <span className="text-xs text-tinta-suave">{shown.length} de {list.length} personas</span>
-            {shown.map((x) => (
-              <div key={x.subject_id} className="card flex flex-col gap-2 p-3.5">
+            <div className="card hidden overflow-x-auto lg:block">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-[#EEE3EA] text-xs uppercase tracking-wide text-tinta-suave">
+                  <tr><th className="px-4 py-3 font-semibold">Persona</th><th className="px-3 py-3 font-semibold">Comuna</th><th className="px-3 py-3 font-semibold">Procesos</th><th className="px-3 py-3 font-semibold">Etiquetas</th><th className="px-3 py-3 font-semibold">Último</th><th className="px-3 py-3" /></tr>
+                </thead>
+                <tbody>
+                  {page.map((x) => (
+                    <tr key={x.subject_id} className="border-b border-[#F4EEF2] last:border-0 hover:bg-[#FBF7FA]">
+                      <td className="px-4 py-2.5">
+                        <button className="flex items-center gap-3 text-left" onClick={() => openPerson(x)}>
+                          <WithDot p={pres[x.candidate_id]}><Avatar text={x.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={36} round /></WithDot>
+                          <span className="flex min-w-0 flex-col">
+                            <span className="flex items-center gap-1.5 font-semibold">{x.name}{x.saved && <Svg name="bookmark" size={13} className="text-naranja" />}{x.duplicate && <span className="rounded bg-naranja-palido px-1 text-[10px] text-naranja-texto">duplicado</span>}</span>
+                            <span className="max-w-[260px] truncate text-xs text-tinta-3">{x.headline || '—'}{x.kind === 'externo' ? ' · Otro portal' : ''}</span>
+                          </span>
+                        </button>
+                      </td>
+                      <td className="px-3 py-2.5 text-tinta-2">{x.comuna || '—'}</td>
+                      <td className="px-3 py-2.5"><div className="flex max-w-[280px] flex-col gap-0.5 text-xs">{x.jobs.slice(0, 2).map((j) => <span key={j.job_id + j.stage} className="truncate"><span className="text-tinta-2">{j.title}</span> · <b>{STAGE_TXT(j.stage)}</b></span>)}{x.jobs.length > 2 && <span className="text-tinta-suave">+{x.jobs.length - 2} más</span>}</div></td>
+                      <td className="px-3 py-2.5"><div className="flex max-w-[200px] flex-wrap gap-1">{x.tags.map((t) => <span key={t} className="rounded-md bg-[#F7F0FB] px-1.5 py-0.5 text-[11px] font-semibold text-[#6B2E8F]">#{t}</span>)}</div></td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-tinta-suave">{daysAgo(x.last_at)}</td>
+                      <td className="px-3 py-2.5 text-right">{canManage && <button className="whitespace-nowrap text-xs font-semibold text-rosa-texto" onClick={() => setPick(x)}>Invitar a otra vacante</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {page.map((x) => (
+              <div key={x.subject_id} className="card flex flex-col gap-2 p-3.5 lg:hidden">
                 <button className="flex items-center gap-3 text-left" onClick={() => openPerson(x)}>
                   <WithDot p={pres[x.candidate_id]}><Avatar text={x.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()} color={x.kind === 'externo' ? '#3B5BA9' : '#302538'} size={44} round /></WithDot>
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -110,6 +140,7 @@ export default function Talent() {
                 {canManage && <button className="self-start text-sm font-semibold text-rosa-texto" onClick={() => setPick(x)}>Invitar a otra vacante ›</button>}
               </div>
             ))}
+            {shown.length > limit && <button className="btn-sec" onClick={() => setLimit(limit + 60)}>Ver más ({shown.length - limit} restantes)</button>}
           </>
         )}
       </div>

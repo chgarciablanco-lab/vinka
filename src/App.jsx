@@ -1,33 +1,48 @@
-import { useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useAuth } from './lib/auth'
 import { useHeartbeat } from './lib/presence'
-import { BottomNav, Spinner } from './components/ui'
+import { BottomNav, Spinner, Svg } from './components/ui'
+import { DesktopNav } from './components/DesktopNav'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import Welcome from './pages/auth/Welcome'
 import { CheckEmail, Forgot, Login, NewPassword } from './pages/auth/AuthPages'
 import { SignupCandidate, SignupCompany } from './pages/auth/Signup'
-import { Onboarding, StepIntro, StepPrefs, StepWork } from './pages/candidate/ProfileSteps'
-import Explore from './pages/candidate/Explore'
-import Interests from './pages/candidate/Interests'
-import { ChatList, ChatRoom } from './pages/Chats'
-import { CandidateProfile } from './pages/Account'
-import { CompanyAccount, CompanyMissing, CompanyPanel, JobCandidates, JobForm } from './pages/company/Company'
-import Admin from './pages/admin/Admin'
-import Legal from './pages/Legal'
-import Agenda from './pages/company/Agenda'
-import BookInterview from './pages/candidate/BookInterview'
-import Notifications from './pages/Notifications'
-import Invitation, { readPendingInvite } from './pages/Invitation'
-import { ExternalApplicants, ImportJobs } from './pages/company/ImportPages'
-import { useEffect } from 'react'
-import Pipeline from './pages/company/Pipeline'
-import CandidateDetail from './pages/company/CandidateDetail'
-import Talent from './pages/company/Talent'
-import Reports from './pages/company/Reports'
-import { JoinTeam, Team, Templates } from './pages/company/TeamPages'
-import Offer from './pages/candidate/Offer'
-import { useLocation } from 'react-router-dom'
+import { readPendingInvite } from './pages/Invitation'
+
+// Cada pantalla se descarga solo cuando se abre: la app inicial pesa menos y carga más rápido
+const lz = (load, name = 'default') => lazy(() => load().then((m) => ({ default: m[name] })))
+const Onboarding = lz(() => import('./pages/candidate/ProfileSteps'), 'Onboarding')
+const StepWork = lz(() => import('./pages/candidate/ProfileSteps'), 'StepWork')
+const StepPrefs = lz(() => import('./pages/candidate/ProfileSteps'), 'StepPrefs')
+const StepIntro = lz(() => import('./pages/candidate/ProfileSteps'), 'StepIntro')
+const Explore = lz(() => import('./pages/candidate/Explore'))
+const Interests = lz(() => import('./pages/candidate/Interests'))
+const ChatList = lz(() => import('./pages/Chats'), 'ChatList')
+const ChatRoom = lz(() => import('./pages/Chats'), 'ChatRoom')
+const CandidateProfile = lz(() => import('./pages/Account'), 'CandidateProfile')
+const CompanyAccount = lz(() => import('./pages/company/Company'), 'CompanyAccount')
+const CompanyMissing = lz(() => import('./pages/company/Company'), 'CompanyMissing')
+const CompanyPanel = lz(() => import('./pages/company/Company'), 'CompanyPanel')
+const JobCandidates = lz(() => import('./pages/company/Company'), 'JobCandidates')
+const JobForm = lz(() => import('./pages/company/Company'), 'JobForm')
+const Admin = lz(() => import('./pages/admin/Admin'))
+const Legal = lz(() => import('./pages/Legal'))
+const Agenda = lz(() => import('./pages/company/Agenda'))
+const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
+const Notifications = lz(() => import('./pages/Notifications'))
+const Invitation = lz(() => import('./pages/Invitation'))
+const ImportJobs = lz(() => import('./pages/company/ImportPages'), 'ImportJobs')
+const ExternalApplicants = lz(() => import('./pages/company/ImportPages'), 'ExternalApplicants')
+const Pipeline = lz(() => import('./pages/company/Pipeline'))
+const CandidateDetail = lz(() => import('./pages/company/CandidateDetail'))
+const Talent = lz(() => import('./pages/company/Talent'))
+const Reports = lz(() => import('./pages/company/Reports'))
+const Templates = lz(() => import('./pages/company/TeamPages'), 'Templates')
+const Team = lz(() => import('./pages/company/TeamPages'), 'Team')
+const JoinTeam = lz(() => import('./pages/company/TeamPages'), 'JoinTeam')
+const Offer = lz(() => import('./pages/candidate/Offer'))
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -48,12 +63,36 @@ function EditStep({ Comp }) {
   return <Comp edit onDone={() => nav('/perfil')} />
 }
 
+/** En computador: lista de chats a la izquierda y conversación a la derecha. En móvil: una pantalla a la vez. */
+function ChatsSplit({ items }) {
+  const { id } = useParams()
+  return (
+    <div className="h-full lg:grid lg:grid-cols-[380px_1fr]">
+      <div className={`${id ? 'hidden lg:block' : ''} h-full overflow-y-auto lg:border-r lg:border-[#EEE3EA]`}>
+        <ChatList />{!id && <BottomNav items={items} />}
+      </div>
+      {id ? <div className="h-full lg:overflow-hidden"><ChatRoom key={id} /></div> : (
+        <div className="hidden h-full flex-col items-center justify-center gap-2 bg-rosa-fondo text-center lg:flex">
+          <Svg name="chat" size={40} className="text-tinta-suave" />
+          <span className="font-display text-lg font-semibold">Elige una conversación</span>
+          <span className="text-sm text-tinta-3">Aquí verás el chat sin salir de la lista.</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const Loading = () => <div className="flex h-full min-h-[50vh]"><Spinner /></div>
+
 export default function App() {
   const { session, profile, candidate, company, isAdmin, loading, recovery } = useAuth()
   useHeartbeat(!!session && !!profile && profile.show_online !== false)
   const [unseen, setUnseen] = useState(0)
+  const loc = useLocation()
 
   if (loading || (session && !profile)) return <div className="flex h-full"><Spinner /></div>
+
+  const wrap = (routes) => <ErrorBoundary resetKey={loc.pathname}><Suspense fallback={<Loading />}>{routes}</Suspense></ErrorBoundary>
 
   const common = [
     <Route key="legal" path="/legal/:doc" element={<Legal />} />,
@@ -64,7 +103,7 @@ export default function App() {
   if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
 
   if (!session) {
-    return (
+    return wrap(
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/ingresar" element={<Login />} />
@@ -74,14 +113,14 @@ export default function App() {
         <Route path="/confirmar" element={<CheckEmail />} />
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Routes>,
     )
   }
 
   const adminItem = isAdmin ? [{ to: '/admin', label: 'Admin', icon: 'shield' }] : []
 
   if (profile.role === 'candidate') {
-    if (!candidate?.onboarding_done) return <Routes>{common}<Route path="*" element={<Onboarding />} /></Routes>
+    if (!candidate?.onboarding_done) return wrap(<Routes>{common}<Route path="*" element={<Onboarding />} /></Routes>)
     const nav = [
       { to: '/', label: 'Explorar', icon: 'card' }, { to: '/intereses', label: 'Intereses', icon: 'swap' },
       { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/perfil', label: 'Perfil', icon: 'user' }, ...adminItem,
@@ -90,6 +129,7 @@ export default function App() {
       <>
       <MatchWatcher onCount={setUnseen} />
       <PendingInvite />
+      {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
@@ -105,19 +145,29 @@ export default function App() {
         {isAdmin && <Route path="/admin" element={<Admin />} />}
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Routes>)}
       </>
     )
   }
 
-  if (!company) return <Routes>{common}{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>
+  if (!company) return wrap(<Routes>{common}{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>)
   const nav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
     { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
   ]
+  const deskNav = [
+    { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
+    { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
+    { section: 'Gestión' },
+    { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
+    { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
+  ]
   return (
     <>
     <MatchWatcher onCount={setUnseen} />
+    <DesktopNav items={deskNav} />
+    <div className="desk h-full lg:pl-64">
+    {wrap(
     <Routes>
       <Route path="/" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />
       <Route path="/vacantes/nueva" element={<JobForm />} />
@@ -133,15 +183,16 @@ export default function App() {
       <Route path="/equipo" element={<Team />} />
       <Route path="/ofertas/:id" element={<Offer />} />
       <Route path="/importar/vacantes" element={<ImportJobs />} />
-      <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
-      <Route path="/chats/:id" element={<ChatRoom />} />
+      <Route path="/chats" element={<ChatsSplit items={nav} />} />
+      <Route path="/chats/:id" element={<ChatsSplit items={nav} />} />
       <Route path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />
       <Route path="/agenda" element={<WithNav items={nav}><Agenda /></WithNav>} />
       <Route path="/avisos" element={<Notifications />} />
       {isAdmin && <Route path="/admin" element={<Admin />} />}
       {common}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    </Routes>)}
+    </div>
     </>
   )
 }

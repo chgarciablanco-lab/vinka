@@ -60,8 +60,8 @@ export function Logo({ compact = false }) {
   )
 }
 
-export function Screen({ children, className = '' }) {
-  return <div className={`mx-auto flex min-h-full w-full max-w-md flex-col bg-white ${className}`}>{children}</div>
+export function Screen({ children, className = '', wide = false }) {
+  return <div className={`mx-auto flex min-h-full w-full max-w-md flex-col bg-white ${wide ? 'lg:max-w-5xl' : 'lg:max-w-2xl'} ${className}`}>{children}</div>
 }
 
 export function TopBar({ title, back, right, step }) {
@@ -174,7 +174,7 @@ export function Avatar({ text, color, size = 48, round = false }) {
 
 export function BottomNav({ items }) {
   return (
-    <nav className="safe-b fixed bottom-0 left-1/2 z-20 flex w-full max-w-md -translate-x-1/2 border-t border-[#EEE3EA] bg-white px-2 pt-2">
+    <nav className="safe-b fixed bottom-0 left-1/2 z-20 flex w-full max-w-md -translate-x-1/2 border-t border-[#EEE3EA] bg-white px-2 pt-2 lg:hidden">
       {items.map((it) => (
         <NavLink key={it.to} to={it.to} className={({ isActive }) => `relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold ${isActive ? 'text-rosa-texto' : 'text-tinta-suave'}`}>
           <Svg name={it.icon} />
@@ -199,8 +199,8 @@ export function Empty({ title, children, action }) {
 export function Sheet({ open, onClose, title, children }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="safe-b w-full max-w-md rounded-t-3xl bg-white px-5 pt-5" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 lg:items-center" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="safe-b w-full max-w-md rounded-t-3xl bg-white px-5 pt-5 lg:max-w-lg lg:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button aria-label="Cerrar" onClick={onClose} className="flex h-11 w-11 items-center justify-center"><Svg name="x" /></button>
