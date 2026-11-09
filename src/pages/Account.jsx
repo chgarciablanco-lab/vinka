@@ -9,7 +9,7 @@ import { Bell } from '../components/Bell'
 import { InstallBanner } from '../components/InstallBanner'
 import { EmailToggle } from './Notifications'
 import { CalendarSync } from '../components/CalendarSync'
-import { OnlineToggle } from '../components/Presence'
+import { OnlineToggle, StatusPill } from '../components/Presence'
 
 function Row({ to, title, sub }) {
   return (
@@ -112,6 +112,7 @@ export function CandidateProfile() {
           <span className="hint">Si lo desactivas, solo verán tu perfil las empresas a las que tú muestres interés. Tu teléfono y correo nunca se muestran sin tu permiso.</span>
           <ErrorBox>{err}</ErrorBox>
         </div>
+        <div className="card flex items-center justify-between gap-3 p-4"><span className="flex flex-col"><span className="text-[15px] font-semibold">Tu disponibilidad</span><span className="text-[13px] text-tinta-3">Avisa cuando no quieras que te molesten</span></span><StatusPill /></div>
         <OnlineToggle />
         <CalendarSync />
         <NotifyCard />

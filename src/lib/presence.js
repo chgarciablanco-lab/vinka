@@ -43,8 +43,22 @@ export function usePresence({ users = [], companies = [] } = {}) {
   return map
 }
 
+/** "hasta las 16:00", "hasta mañana 09:00", "hasta el vie 12 nov" o "" si es indefinido */
+export function untilText(d) {
+  if (!d) return ''
+  const t = new Date(d), now = new Date()
+  if (t - now > 20 * 864e5) return ''
+  const hh = t.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = Math.round((day(t) - day(now)) / 864e5)
+  if (diff === 0) return `hasta las ${hh}`
+  if (diff === 1) return `hasta mañana ${hh}`
+  return `hasta el ${t.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' })} ${hh}`
+}
+
 export function presenceText(p, { company = false } = {}) {
   if (!p?.status) return ''
+  if (p.status === 'away') return ['No disponible', untilText(p.away_until)].filter(Boolean).join(' · ')
   if (p.status === 'online') return company ? 'Equipo en línea' : 'En línea'
   const who = company ? 'Activa' : 'Activo/a'
   if (p.status === 'recent' && p.last_seen) {

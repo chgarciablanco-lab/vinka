@@ -7,7 +7,7 @@ import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toa
 import { DangerZone, MyData } from '../Account'
 import { CalendarSync } from '../../components/CalendarSync'
 import { usePresence } from '../../lib/presence'
-import { OnlineToggle, PresenceLine } from '../../components/Presence'
+import { OnlineToggle, PresenceLine, StatusPill } from '../../components/Presence'
 import { NotifyCard } from '../../components/NotifyCard'
 import { AiAssist } from '../../components/AiAssist'
 import { Bell } from '../../components/Bell'
@@ -62,7 +62,7 @@ export function CompanyPanel() {
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
         <div className="flex min-w-0 flex-col"><span className="text-[13px] text-tinta-suave">VINKA Company</span>
         <h1 className="truncate text-[22px] font-bold">{company?.display_name}</h1></div>
-        <Bell />
+        <div className="flex items-center gap-2"><StatusPill /><Bell /></div>
       </div>
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
@@ -399,7 +399,7 @@ export function CompanyAccount() {
   }
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28">
-      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><Bell /></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
           <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />

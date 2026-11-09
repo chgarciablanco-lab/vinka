@@ -6,7 +6,7 @@ import { ETAPAS, colorFor, fillVars, initials } from '../lib/catalog'
 import { useTemplates } from './company/Pipeline'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast } from '../components/ui'
 import { usePresence } from '../lib/presence'
-import { PresenceLine, WithDot } from '../components/Presence'
+import { AwayBanner, PresenceLine, StatusPill, WithDot } from '../components/Presence'
 import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
 import { Sparkle, callAi } from '../components/AiAssist'
@@ -28,7 +28,7 @@ export function ChatList() {
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
-      <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><Bell /></div>
+      <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />
         {ivs.length > 0 && (
@@ -164,6 +164,7 @@ export function ChatRoom() {
         </div>
         <button aria-label="Opciones: etapa, denunciar o bloquear" onClick={() => setMenu(true)} className="flex h-11 w-11 items-center justify-center"><Svg name="dots" /></button>
       </div>
+      {!m.closed && <AwayBanner p={pres[isCompany ? m.candidate_id : m.company_id]} name={isCompany ? (m.candidate_name || '').split(' ')[0] : m.company_name} />}
       <div className="flex gap-1 overflow-x-auto border-b border-[#EEE3EA] bg-white px-4 py-2.5 text-xs font-semibold">
         {ETAPAS.slice(0, 5).map(([k, l], idx) => (
           <span key={k} className={`whitespace-nowrap rounded-md px-2 py-1 ${idx < stageIdx ? 'bg-rosa-accion text-white' : idx === stageIdx ? 'border border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'bg-[#F4EEF2] text-tinta-3'}`}>{l}</span>

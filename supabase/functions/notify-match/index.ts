@@ -256,9 +256,11 @@ Deno.serve(async (req) => {
     const { data: n } = await sb.from('notifications').select('*').eq('id', payload.id).single()
     if (!n) return new Response('not found', { status: 404 })
 
-    // 1) Push
+    // 1) Push (se silencia mientras la persona está "No disponible"; el aviso queda en la campana)
     let pushed = 0
-    const { data: subs } = await sb.from('push_subscriptions').select('*').eq('user_id', n.user_id)
+    const { data: st } = await sb.from('profiles').select('away_until').eq('id', n.user_id).maybeSingle()
+    const away = !!st?.away_until && new Date(st.away_until) > new Date()
+    const { data: subs } = away ? { data: [] as any[] } : await sb.from('push_subscriptions').select('*').eq('user_id', n.user_id)
     if (subs?.length) {
       webpush.setVapidDetails(cfg.app_url, cfg.vapid_public, cfg.vapid_private)
       const pl = JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: `${n.kind}-${n.url}` })
@@ -283,7 +285,7 @@ Deno.serve(async (req) => {
       else emailStatus = await sendEmail(cfg, RESEND, to, n.title, await render(n, prof?.first_name || '', cfg.app_url), `${n.title}\n\n${n.body}\n\n${cfg.app_url + n.url}`)
       await sb.from('notifications').update({ email_status: emailStatus }).eq('id', n.id)
     }
-    return Response.json({ pushed, email: emailStatus })
+    return Response.json({ pushed, away, email: emailStatus })
   } catch (e) {
     console.error(e)
     return new Response('error', { status: 500 })
