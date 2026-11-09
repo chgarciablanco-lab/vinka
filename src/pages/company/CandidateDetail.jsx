@@ -6,7 +6,7 @@ import { COLUMNAS, CONTRATOS, CRITERIOS, JORNADAS, RECOMENDACION, clp, colLabel,
 import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { Avatar, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Sparkle, callAi } from '../../components/AiAssist'
-import { BulkSheet } from './Pipeline'
+import { BulkSheet, StagePicker } from './Pipeline'
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtDT = (d) => `${new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · ${fmtTime(d)}`
@@ -445,15 +445,8 @@ export default function CandidateDetail() {
         {tab === 'historial' && <History events={d.events} />}
       </div>
 
-      <Sheet open={moveOpen} onClose={() => setMoveOpen(false)} title="Mover a">
-        <div className="flex flex-col gap-2">
-          {COLUMNAS.slice(1).map(([k, l, color]) => (
-            <button key={k} disabled={stage === k} onClick={() => move(k)} className="flex h-12 items-center gap-3 rounded-xl border border-linea px-4 text-left text-[15px] font-semibold disabled:opacity-40">
-              <span className="h-3 w-3 rounded-full" style={{ background: color }} />{l}
-            </button>
-          ))}
-          {d.kind === 'interesado' && <p className="hint mt-1">Al avanzarlo se crea el match y podrán conversar.</p>}
-        </div>
+      <Sheet open={moveOpen} onClose={() => setMoveOpen(false)} title={`Mover a ${name}`}>
+        <StagePicker current={stage} kind={d.kind} onPick={move} />
       </Sheet>
       {d.match && <BulkSheet open={msgOpen} onClose={() => setMsgOpen(false)} items={[{ kind: 'match', id: cid, name }]} job={d.job} onDone={() => { setMsgOpen(false); saved('Mensaje enviado') }} />}
       {d.match && <OfferForm open={offerOpen} onClose={() => setOfferOpen(false)} matchId={d.match.id} job={job} onSent={() => { setOfferOpen(false); saved('Carta oferta enviada') }} />}
