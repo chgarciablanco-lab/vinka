@@ -17,7 +17,7 @@ import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
-import { CompanyContext } from '../../components/CompanySwitcher'
+import { CompanyContext, homeCompany } from '../../components/CompanySwitcher'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -48,7 +48,7 @@ export function VerificationBanner({ company }) {
 export const copyText = async (t) => { try { await navigator.clipboard.writeText(t); return true } catch { return false } }
 
 export function CompanyPanel() {
-  const { company } = useAuth()
+  const { company, companies } = useAuth()
   const [jobs, setJobs] = useState(null)
   const [toast, setToast] = useState('')
   const [reload, setReload] = useState(0)
@@ -80,7 +80,7 @@ export function CompanyPanel() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-6xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
         <div className="flex min-w-0 flex-col"><span className="text-[13px] text-tinta-suave">VINKA Company</span>
-        <h1 className="truncate text-[22px] font-bold">{company?.display_name}</h1></div>
+        <h1 className="truncate text-[22px] font-bold">{homeCompany(companies, company)?.display_name}</h1></div>
         <div className="flex items-center gap-2"><StatusPill /><Bell /></div>
       </div>
       <div className="flex flex-col gap-3.5 px-5">
