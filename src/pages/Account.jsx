@@ -59,6 +59,7 @@ export function DangerZone() {
   return (
     <>
       <div className="flex flex-col gap-2.5">
+        <div className="card grid grid-cols-2 divide-x divide-[#F1E7ED] overflow-hidden"><Link to="/ayuda" className="flex items-center justify-center gap-2 py-3.5 text-sm font-semibold"><Svg name="chat" size={18} />Ayuda y reportes</Link><Link to="/tutoriales" className="flex items-center justify-center gap-2 py-3.5 text-sm font-semibold"><Svg name="video" size={18} />Tutoriales</Link></div>
         <button className="btn-sec" onClick={async () => { await signOut(); nav('/') }}>Cerrar sesión</button>
         <button className="h-11 text-sm font-semibold text-[#B42318]" onClick={() => setOpen(true)}>Eliminar mi cuenta</button>
         <p className="text-center text-xs text-tinta-suave">

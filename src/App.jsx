@@ -38,6 +38,8 @@ const AdvisorTerms = lz(() => import('./pages/advisor/Advisor'), 'AdvisorTerms')
 const AdvisorTeam = lz(() => import('./pages/advisor/Advisor'), 'AdvisorTeam')
 const ForcePassword = lz(() => import('./pages/advisor/Advisor'), 'ForcePassword')
 const Legal = lz(() => import('./pages/Legal'))
+const Help = lz(() => import('./pages/Help'))
+const Tutorials = lz(() => import('./pages/Tutorials'))
 const Agenda = lz(() => import('./pages/company/Agenda'))
 const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
 const Notifications = lz(() => import('./pages/Notifications'))
@@ -128,6 +130,9 @@ export default function App() {
     <Route key="team" path="/equipo/unirse/:token" element={<JoinTeam />} />,
     <Route key="pubco" path="/empleos/:slug" element={<PublicCompany />} />,
     <Route key="pubjob" path="/empleo/:id" element={<PublicJob />} />,
+    <Route key="help" path="/ayuda" element={<Help />} />,
+    <Route key="tut" path="/tutoriales" element={<Tutorials />} />,
+    <Route key="tutw" path="/tutoriales/:who" element={<Tutorials />} />,
   ]
 
   if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
@@ -188,7 +193,7 @@ export default function App() {
       { section: 'Usuarios' },
       { to: '/postulantes', label: 'Postulantes', icon: 'people' },
       { section: 'Empresas' },
-      { to: '/verificar', label: 'Por verificar', icon: 'shield' }, { to: '/empresas', label: 'Todas las empresas', icon: 'building' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' },
+      { to: '/verificar', label: 'Por verificar', icon: 'shield' }, { to: '/empresas', label: 'Todas las empresas', icon: 'building' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' }, { to: '/sugerencias', label: 'Errores y sugerencias', icon: 'chat' },
       { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Mi cuenta', icon: 'user' },
     ]
     return (
@@ -205,6 +210,7 @@ export default function App() {
         <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />
         <Route path="/empresas" element={<WithNav items={nav}><Admin section="all" /></WithNav>} />
         <Route path="/denuncias" element={<WithNav items={nav}><Admin section="reports" /></WithNav>} />
+        <Route path="/sugerencias" element={<WithNav items={nav}><Admin section="feedback" /></WithNav>} />
         <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount /></WithNav>} />
         <Route path="/admin" element={<Navigate to="/" replace />} />
         <Route path="/avisos" element={<Notifications />} />
@@ -227,7 +233,8 @@ export default function App() {
       { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
       { section: 'Mi perfil' },
       { to: '/perfil', label: 'Perfil', icon: 'user' }, { to: '/asesoria', label: 'Asesoría', icon: 'people' }, { to: '/visibilidad', label: 'Perfil destacado', icon: 'star' },
-      { to: '/avisos', label: 'Avisos', icon: 'bell' }, ...adminItem,
+      { to: '/avisos', label: 'Avisos', icon: 'bell' },
+      { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
     ]
     return (
       <>
@@ -271,7 +278,8 @@ export default function App() {
     { section: 'Gestión' },
     { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
     { to: '/plan', label: 'Plan y uso', icon: 'chart' },
-    { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
+    { to: '/vitrina', label: 'Empresa', icon: 'building' },
+    { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
   ]
   return (
     <>

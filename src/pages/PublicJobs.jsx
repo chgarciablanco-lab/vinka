@@ -5,10 +5,12 @@ import { useAuth } from '../lib/auth'
 import { salaryText } from '../lib/catalog'
 import { ErrorBox, Field, Spinner, Svg } from '../components/ui'
 import { FeaturedBadge, trackPromo } from '../lib/promo'
+import { HelpBubble } from '../components/HelpChat'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
 
 function Shell({ children }) {
+  const { session } = useAuth()
   return (
     <div className="min-h-full bg-rosa-fondo">
       <header className="border-b border-[#EEE3EA] bg-white">
@@ -19,8 +21,9 @@ function Shell({ children }) {
       </header>
       <main className="mx-auto flex max-w-3xl flex-col gap-4 px-5 py-6">{children}</main>
       <footer className="mx-auto max-w-3xl px-5 pb-10 text-xs text-tinta-suave">
-        Publicado en VINKA · <Link to="/legal/privacidad" className="underline">Privacidad</Link> · <Link to="/legal/terminos" className="underline">Términos</Link>
+        Publicado en VINKA · <Link to="/legal/privacidad" className="underline">Privacidad</Link> · <Link to="/legal/terminos" className="underline">Términos</Link> · <Link to="/tutoriales" className="underline">Tutoriales</Link>
       </footer>
+      {!session && <HelpBubble />}
     </div>
   )
 }

@@ -719,7 +719,69 @@ function Promos() {
   )
 }
 
-const TITLES = { promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias' }
+const TITLES = { promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias', feedback: 'Errores y sugerencias' }
+
+const FB_KIND = { error: ['Error', 'bg-[#FEF3F2] text-[#912018]'], mejora: ['Mejora', 'bg-[#EAF6EF] text-[#134A2B]'], consulta: ['Consulta', 'bg-[#E7F1FB] text-[#1F4E86]'] }
+const FB_ST = [['nuevo', 'Nuevo'], ['revisando', 'En revisión'], ['resuelto', 'Resuelto'], ['descartado', 'Descartado']]
+const ROLE_TXT = { candidate: 'Postulante', company: 'Empresa', advisor: 'Asesor/a', admin: 'Administración' }
+
+/** Errores y sugerencias que envían los usuarios (formulario o asistente) */
+function Feedback() {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  const [fk, setFk] = useState('')
+  const [fs, setFs] = useState('abiertos')
+  const [demo, setDemo] = useState(false)
+  const [open, setOpen] = useState(null)
+  const [note, setNote] = useState('')
+  const load = useCallback(() => { supabase.rpc('admin_feedback').then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
+  useEffect(() => { load() }, [load])
+  const set = async (r, status, notify) => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_update_feedback', { p_id: r.id, p_status: status, p_note: note, p_notify: notify })
+    if (error) return setErr(errMsg(error))
+    setOpen(null); setNote(''); load()
+  }
+  if (!list) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
+  const base = list.filter((r) => demo || !r.demo)
+  const shown = base.filter((r) => (!fk || r.kind === fk) && (fs === 'abiertos' ? ['nuevo', 'revisando'].includes(r.status) : !fs || r.status === fs))
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-3 gap-2">
+        {[['Nuevos', base.filter((r) => r.status === 'nuevo').length], ['Errores abiertos', base.filter((r) => r.kind === 'error' && ['nuevo', 'revisando'].includes(r.status)).length], ['Mejoras propuestas', base.filter((r) => r.kind === 'mejora').length]].map(([l, v]) => (
+          <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {[['', 'Todos'], ['error', 'Errores'], ['mejora', 'Mejoras'], ['consulta', 'Consultas']].map(([k, l]) => <button key={k} className={`chip h-9 text-[13px] ${fk === k ? 'chip-on' : ''}`} onClick={() => setFk(k)}>{l}</button>)}
+        <select className="input h-9 w-auto py-0 text-[13px]" value={fs} onChange={(e) => setFs(e.target.value)}><option value="abiertos">Abiertos</option><option value="">Todos los estados</option>{FB_ST.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        <label className="ml-auto flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir cuentas de prueba</label>
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      {shown.length === 0 ? <Empty title="Nada por revisar">Cuando alguien reporte un error o proponga una mejora, aparecerá aquí y te llegará un aviso.</Empty> : shown.map((r) => (
+        <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <span className="flex min-w-0 flex-col"><b>{r.summary}</b><span className="text-xs text-tinta-3">{r.name || 'Usuario'} · {ROLE_TXT[r.role] || '—'} · {new Date(r.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · {r.source === 'asistente' ? 'vía asistente' : 'formulario'}{r.path ? ` · pantalla ${r.path}` : ''}</span></span>
+            <span className="flex shrink-0 gap-1"><span className={`pill ${FB_KIND[r.kind][1]}`}>{FB_KIND[r.kind][0]}</span><span className="pill bg-[#F4EEF2] text-tinta-2">{FB_ST.find(([k]) => k === r.status)[1]}</span></span>
+          </div>
+          {r.details && <p className="whitespace-pre-wrap text-[13px] leading-snug text-tinta-2">{r.details}</p>}
+          {r.note && <span className="text-xs text-tinta-3">Nota: {r.note}</span>}
+          {open === r.id ? (
+            <div className="flex flex-col gap-2 rounded-xl bg-[#FAF7F9] p-3">
+              <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Respuesta para la persona (opcional; se la enviamos si marcas «avisar»)" />
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-sm border border-linea bg-white" onClick={() => set(r, 'revisando', false)}>En revisión</button>
+                <button className="btn-sm bg-[#1E6B3F] text-white" onClick={() => set(r, 'resuelto', true)}>Resuelto y avisar</button>
+                <button className="btn-sm border border-linea bg-white" onClick={() => set(r, 'descartado', true)}>Descartar y avisar</button>
+                <button className="btn-sm text-tinta-3" onClick={() => setOpen(null)}>Cancelar</button>
+              </div>
+            </div>
+          ) : <button className="self-start text-xs font-semibold text-rosa-texto" onClick={() => { setOpen(r.id); setNote(r.note || '') }}>Gestionar</button>}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /** Cuenta de administración: datos, avisos y cierre de sesión */
 export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Para probar la app como postulante o empresa, usa las cuentas de prueba.' }) {
@@ -737,7 +799,7 @@ export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Pa
           </div>
         )}
         <div className="card px-4">
-          {[['/avisos', 'Avisos'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
+          {[['/avisos', 'Avisos'], ['/ayuda', 'Ayuda y reportes'], ['/tutoriales', 'Tutoriales'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
             <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
           ))}
         </div>
@@ -798,7 +860,7 @@ export default function Admin({ section }) {
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>

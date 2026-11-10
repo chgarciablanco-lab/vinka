@@ -12,7 +12,7 @@ export function FeaturedBadge({ kind = 'job', className = '' }) {
 
 // Cada aparición o clic se cuenta una vez por sesión del navegador (y la base cuenta una vez por persona al día)
 const seen = new Set()
-function viewerId() {
+export function viewerId() {
   try {
     let v = localStorage.getItem('vinka-viewer')
     if (!v) { v = (crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now()).replace(/-/g, ''); localStorage.setItem('vinka-viewer', v) }

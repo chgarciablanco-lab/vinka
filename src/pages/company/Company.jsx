@@ -540,8 +540,12 @@ export function JobCandidates() {
 }
 
 /** Renta esperada como rango (las empresas no reciben el monto exacto) */
-const mil = (v) => (v >= 1000000 ? `${(v / 1000000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} M` : `${Math.round(v / 1000)} mil`)
-function bandTxt(c) { return c.salary_min ? `$${mil(c.salary_min)} a $${mil(c.salary_max)} líq.` : '' }
+const millones = (v) => (v / 1000000).toLocaleString('es-CL', { maximumFractionDigits: 1 })
+// Corto para que quepa en la tarjeta del teléfono: «$700–800 mil líq.» o «$1,2–1,4 M líq.»
+function bandTxt(c) {
+  if (!c.salary_min) return ''
+  return c.salary_max <= 1000000 ? `$${Math.round(c.salary_min / 1000)}–${Math.round(c.salary_max / 1000)} mil líq.` : `$${millones(c.salary_min)}–${millones(c.salary_max)} M líq.`
+}
 
 /** Prueba versiones de la tarjeta, de la más completa a la más breve, y deja la primera que no la hace crecer más que el alto disponible (así los botones siguen abajo) */
 function FitExtras({ steps, dep, box }) {
@@ -666,6 +670,7 @@ export function CompanyMissing() {
       <div className="flex flex-1 flex-col gap-4 px-6 pb-8">
         {team && <Link to={`/equipo/unirse/${team}`} className="btn">Aceptar mi invitación al equipo</Link>}
         <Empty title="No encontramos tu empresa">Tu cuenta no tiene una empresa asociada. Si te invitaron a un equipo, abre el enlace del correo de invitación.</Empty>
+        <div className="card grid grid-cols-2 divide-x divide-[#F1E7ED] overflow-hidden"><Link to="/ayuda" className="flex items-center justify-center gap-2 py-3.5 text-sm font-semibold"><Svg name="chat" size={18} />Ayuda y reportes</Link><Link to="/tutoriales" className="flex items-center justify-center gap-2 py-3.5 text-sm font-semibold"><Svg name="video" size={18} />Tutoriales</Link></div>
         <button className="btn-sec" onClick={signOut}>Cerrar sesión</button>
       </div>
     </Screen>

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Svg } from '../../components/ui'
 import { FeaturedBadge, trackPromo } from '../../lib/promo'
 import { salaryText } from '../../lib/catalog'
+import { HelpBubble } from '../../components/HelpChat'
 
 const money = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`
 /** Recuerda qué quería contratar la persona para llevarla ahí después de registrarse o ingresar */
@@ -328,9 +329,10 @@ export default function Welcome() {
       <footer className="border-t border-[#F1E4EB] bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-sm text-tinta-3 sm:flex-row">
           <span><b className="font-display text-tinta">VINKA</b> · Empleo y selección en Chile</span>
-          <span className="flex gap-4"><Link to="/legal/terminos" className="hover:text-rosa-texto">Términos</Link><Link to="/legal/privacidad" className="hover:text-rosa-texto">Privacidad</Link><Link to="/ingresar" className="hover:text-rosa-texto">Ingresar</Link></span>
+          <span className="flex gap-4"><Link to="/legal/terminos" className="hover:text-rosa-texto">Términos</Link><Link to="/legal/privacidad" className="hover:text-rosa-texto">Privacidad</Link><Link to="/tutoriales" className="hover:text-rosa-texto">Tutoriales</Link><Link to="/ayuda" className="hover:text-rosa-texto">Ayuda</Link><Link to="/ingresar" className="hover:text-rosa-texto">Ingresar</Link></span>
         </div>
       </footer>
+      <HelpBubble />
     </div>
   )
 }
