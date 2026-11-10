@@ -886,6 +886,12 @@ export default function Admin({ section }) {
               return (
                 <div key={c.id} className="card flex flex-col gap-2 p-3.5 text-sm">
                   <div className="flex items-start justify-between gap-2"><b>{c.display_name}</b><span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span></div>
+                  {(c.kind === 'consultora' || c.parent_id) && (
+                    <span className="flex flex-wrap gap-1.5">
+                      {c.kind === 'consultora' && <span className="pill bg-[#F7F0FB] text-[#4A2163]">Consultora · {(companies || []).filter((k) => k.parent_id === c.id).length} cliente(s)</span>}
+                      {c.parent_id && <span className="pill bg-[#F7F0FB] text-[#4A2163]">Cliente de {(companies || []).find((k) => k.id === c.parent_id)?.display_name || 'una consultora'}</span>}
+                    </span>
+                  )}
                   <span>{c.legal_name} · RUT {c.rut}</span>
                   <span className="text-tinta-3">{[c.sector, c.size, c.comuna, c.region].filter(Boolean).join(' · ')}</span>
                   {c.verification_status === 'pending' && <a className="text-rosa-texto underline" href={`https://www.google.com/search?q=${encodeURIComponent(c.rut + ' ' + c.legal_name)}`} target="_blank" rel="noreferrer">Buscar RUT en la web</a>}

@@ -15,7 +15,7 @@ export function Templates() {
   const [edit, setEdit] = useState(null)
   const [err, setErr] = useState('')
   const [toast, setToast] = useState('')
-  const canManage = company?.member_role !== 'viewer'
+  const canManage = ['owner', 'admin', 'recruiter'].includes(company?.member_role)
   const load = useCallback(() => {
     supabase.from('message_templates').select('*').eq('company_id', company.id).order('created_at').then(({ data }) => setList(data || []))
   }, [company])
@@ -71,11 +71,14 @@ export function Team() {
   const [members, setMembers] = useState(null)
   const [invites, setInvites] = useState([])
   const [open, setOpen] = useState(false)
-  const [f, setF] = useState({ email: '', role: 'recruiter' })
+  const [f, setF] = useState(() => ({ email: '', role: company?.parent_id ? 'client' : 'recruiter' }))
   const [roleFor, setRoleFor] = useState(null)
   const [err, setErr] = useState('')
   const [toast, setToast] = useState('')
   const isAdmin = ['owner', 'admin'].includes(company?.member_role)
+  // En una empresa cliente de una consultora solo se invita con rol «cliente»: el equipo de la consultora ya tiene acceso
+  const isClientCo = !!company?.parent_id
+  const roleKeys = isClientCo ? ['client'] : ['admin', 'recruiter', 'viewer']
   const pres = usePresence({ users: (members || []).filter((m) => !m.is_me).map((m) => m.user_id) })
   const load = useCallback(async () => {
     const [{ data: m }, { data: i }] = await Promise.all([
@@ -89,7 +92,7 @@ export function Team() {
     setErr('')
     const { error } = await supabase.rpc('invite_member', { p_company: company.id, p_email: f.email, p_role: f.role })
     if (error) return setErr(errMsg(error))
-    setOpen(false); setF({ email: '', role: 'recruiter' }); setToast('Invitación enviada'); load()
+    setOpen(false); setF({ email: '', role: roleKeys[0] === 'client' ? 'client' : 'recruiter' }); setToast('Invitación enviada'); load()
   }
   const changeRole = async (role) => {
     const { error } = await supabase.rpc('set_member_role', { p_company: company.id, p_user: roleFor.user_id, p_role: role })
@@ -136,14 +139,14 @@ export function Team() {
         )}
         <div className="card flex flex-col gap-2 p-4">
           <span className="label">Qué puede hacer cada rol</span>
-          {Object.entries(ROLES).map(([k, [l, d]]) => <span key={k} className="text-sm"><b>{l}:</b> <span className="text-tinta-2">{d}</span></span>)}
+          {Object.entries(ROLES).filter(([k]) => k !== 'client' || isClientCo).map(([k, [l, d]]) => <span key={k} className="text-sm"><b>{l}:</b> <span className="text-tinta-2">{d}</span></span>)}
         </div>
       </div>
       <Sheet open={open} onClose={() => setOpen(false)} title="Invitar al equipo">
         <div className="flex flex-col gap-3.5">
           <Field label="Correo"><input className="input" type="email" inputMode="email" autoCapitalize="none" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="nombre@empresa.cl" /></Field>
           <fieldset className="flex flex-col gap-2"><legend className="label mb-2">Rol</legend>
-            {['admin', 'recruiter', 'viewer'].map((k) => (
+            {roleKeys.map((k) => (
               <label key={k} className={`flex items-start gap-3 rounded-xl border p-3 ${f.role === k ? 'border-rosa-accion bg-rosa-fondo' : 'border-linea'}`}>
                 <input type="radio" name="role" className="mt-0.5 h-5 w-5 accent-[#D02E72]" checked={f.role === k} onChange={() => setF({ ...f, role: k })} />
                 <span className="flex flex-col"><span className="text-sm font-semibold">{ROLES[k][0]}</span><span className="text-xs text-tinta-3">{ROLES[k][1]}</span></span>
@@ -157,7 +160,7 @@ export function Team() {
       <Sheet open={!!roleFor} onClose={() => setRoleFor(null)} title={roleFor?.name || ''}>
         {roleFor && (
           <div className="flex flex-col gap-2">
-            {['admin', 'recruiter', 'viewer'].map((k) => (
+            {roleKeys.map((k) => (
               <button key={k} onClick={() => changeRole(k)} className={`flex flex-col items-start rounded-xl border p-3 text-left ${roleFor.role === k ? 'border-rosa-accion bg-rosa-fondo' : 'border-linea'}`}>
                 <span className="text-sm font-semibold">{ROLES[k][0]}</span><span className="text-xs text-tinta-3">{ROLES[k][1]}</span>
               </button>

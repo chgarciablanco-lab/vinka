@@ -28,7 +28,7 @@ export default function Promote() {
   const [pick, setPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
-  const canManage = company?.member_role !== 'viewer'
+  const canManage = ['owner', 'admin', 'recruiter'].includes(company?.member_role)
 
   const load = useCallback(() => {
     supabase.rpc('job_promotions', { p_job: id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) })

@@ -54,6 +54,7 @@ export const ROLES = {
   admin: ['Administrador/a', 'Vacantes, candidatos, equipo y vitrina'],
   recruiter: ['Reclutador/a', 'Vacantes y candidatos'],
   viewer: ['Evaluador/a', 'Ve candidatos, evalúa y comenta'],
+  client: ['Cliente', 'Ve los procesos de su empresa, evalúa y aprueba ofertas (empresas clientes de una consultora)'],
 }
 export const CRITERIOS = [['experiencia', 'Experiencia'], ['habilidades', 'Habilidades técnicas'], ['comunicacion', 'Comunicación'], ['motivacion', 'Motivación'], ['ajuste', 'Ajuste al cargo']]
 export const RECOMENDACION = { si: ['Avanzar', 'bg-[#EAF6EF] text-[#134A2B]'], tal_vez: ['Con dudas', 'bg-naranja-palido text-naranja-texto'], no: ['No avanzar', 'bg-[#FEF3F2] text-[#912018]'] }

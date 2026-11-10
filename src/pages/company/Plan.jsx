@@ -61,6 +61,7 @@ export default function Plan() {
           </div>
           <div className="card flex flex-col gap-4 p-4">
             <span className="text-[15px] font-semibold">Uso de este mes</span>
+            {(d.managed_by || d.clients > 0) && <p className="rounded-xl bg-[#F7F0FB] px-3 py-2 text-sm leading-snug text-[#4A2163]">El uso suma {d.managed_by ? `${d.managed_by} (matriz) y todas sus empresas clientes` : `tu consultora y sus ${d.clients} empresa(s) cliente(s)`}: el plan es uno solo para todo el grupo.</p>}
             <Meter label="Vacantes publicadas a la vez" used={d.usage.jobs} max={p.max_active_jobs} />
             {p.max_active_jobs != null && d.usage.jobs > p.max_active_jobs && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-sm text-[#4A2A00]">Tienes {d.usage.jobs - p.max_active_jobs} vacante(s) más de las que permite tu plan. Pausa alguna o cambia de plan; mientras tanto no podrás publicar nuevas.</p>}
             <Meter label="Personas en el equipo" used={d.usage.members} max={p.max_members} />
@@ -70,6 +71,12 @@ export default function Plan() {
             <p className="hint">Destacar una vacante la muestra entre los primeros resultados para las personas a quienes calza; no cambia cómo se evalúa a nadie. {p.promo_credits > 0 ? 'Úsalos desde cada vacante en el Panel.' : 'Con plan Gratis puedes comprar destacados sueltos desde cada vacante.'}</p>
           </div>
         </div>
+        {d.managed_by ? (
+          <div className="card flex flex-col gap-2 p-4">
+            <span className="text-[15px] font-semibold">Plan administrado por {d.managed_by}</span>
+            <p className="text-sm leading-relaxed text-tinta-2">Esta empresa es cliente de la consultora <b>{d.managed_by}</b>, que es la cuenta matriz. El plan, los pagos y los límites se manejan desde la matriz; aquí no hay nada que pagar ni cambiar.</p>
+          </div>
+        ) : (
         <div className="flex flex-col gap-3">
           <span className="text-[15px] font-semibold">Planes</span>
           {(d.plans || []).map((x) => (
@@ -91,6 +98,7 @@ export default function Plan() {
           {!isAdmin && <p className="hint">Solo quien administra la empresa puede cambiar el plan.</p>}
           <ErrorBox>{err}</ErrorBox>
         </div>
+        )}
       </div>
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>

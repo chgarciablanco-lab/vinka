@@ -485,7 +485,7 @@ export default function CandidateDetail({ panel }) {
             {d.match && !d.match.closed && <button className="btn-sm h-11 border border-naranja bg-naranja-palido text-naranja-texto" onClick={() => { setEditOffer(!!d.offer && d.offer.status !== 'aceptada'); setOfferOpen(true) }}>{d.offer && d.offer.status !== 'aceptada' ? 'Editar carta oferta' : 'Carta oferta'}</button>}
           </div>
         )}
-        {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} onApprove={isAdmin ? approveOffer : null} />}
+        {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} onApprove={isAdmin || company?.member_role === 'client' ? approveOffer : null} />}
 
         {tab === 'perfil' && !ext && (
           <div className="flex flex-col gap-4">

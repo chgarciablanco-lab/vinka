@@ -23,7 +23,7 @@ function JobCard({ job, onDetail, p }) {
         <Avatar text={initials(job.company_name)} color={colorFor(job.company_name)} />
         <div className="flex flex-col">
           <span className="flex items-center gap-1.5 text-sm font-semibold">{job.company_name}<Verified /></span>
-          <span className="text-xs text-tinta-suave">{[job.company_sector, job.company_size && `${job.company_size} personas`].filter(Boolean).join(' · ')}</span>
+          <span className="text-xs text-tinta-suave">{[job.managed_by && `Gestionado por ${job.managed_by}`, job.company_sector, job.company_size && `${job.company_size} personas`].filter(Boolean).join(' · ')}</span>
           <PresenceLine p={p} company />
         </div>
       </div>
@@ -148,6 +148,7 @@ export default function Explore() {
             )}
             <div className="flex flex-col gap-1.5 rounded-2xl bg-rosa-fondo p-3.5">
               <p className="flex items-center gap-1.5 font-semibold">{job.company_name} <Verified /></p>
+              {job.managed_by && <p className="text-[13px] text-tinta-3">Proceso gestionado por la consultora <b>{job.managed_by}</b>{job.company_name === 'Empresa confidencial' ? '. La empresa prefiere mantener su nombre en reserva por ahora.' : '.'}</p>}
               {job.company_description && <p className="text-sm">{job.company_description}</p>}
               {job.company_benefits && <p className="text-sm"><b>Beneficios:</b> {job.company_benefits}</p>}
             </div>

@@ -59,6 +59,7 @@ const PublicJob = lz(() => import('./pages/PublicJobs'), 'PublicJob')
 const Compare = lz(() => import('./pages/company/Compare'))
 const Automations = lz(() => import('./pages/company/Automations'))
 const Plan = lz(() => import('./pages/company/Plan'))
+const Clients = lz(() => import('./pages/company/Clients'))
 const Advisory = lz(() => import('./pages/candidate/Advisory'))
 const Visibility = lz(() => import('./pages/candidate/Visibility'))
 const Promote = lz(() => import('./pages/company/Promote'))
@@ -278,6 +279,7 @@ export default function App() {
     { section: 'Gestión' },
     { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
     { to: '/plan', label: 'Plan y uso', icon: 'chart' },
+    ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
     { to: '/vitrina', label: 'Empresa', icon: 'building' },
     { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
   ]
@@ -298,6 +300,7 @@ export default function App() {
       <Route path="/vacantes/:id/comparar" element={<Compare />} />
       <Route path="/automatizaciones" element={<Automations />} />
       <Route path="/plan" element={<Plan />} />
+      <Route path="/clientes" element={<Clients />} />
       <Route path="/vacantes/:id/destacar" element={<Promote />} />
       <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />

@@ -35,8 +35,8 @@ export function AuthProvider({ children }) {
       const { data: c } = await supabase.from('candidate_profiles').select('*').eq('user_id', uid).maybeSingle()
       setCandidate(c); setCompany(null)
     } else if (p?.role === 'company') {
-      // Una persona puede ser parte de varias empresas (consultoras, holdings): se recuerda la última elegida
-      const fetchAll = () => supabase.from('company_members').select('company_id, role, created_at, companies(*)').eq('user_id', uid).order('created_at', { ascending: true })
+      // Una persona puede ser parte de varias empresas; una consultora (matriz) además maneja a sus clientes. Se recuerda la última elegida.
+      const fetchAll = () => supabase.rpc('my_companies')
       let { data: ms } = await fetchAll()
       // Primer ingreso tras confirmar correo: crear la empresa con los datos del registro
       const pending = sess.user.user_metadata?.company
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
           ;({ data: ms } = await fetchAll())
         }
       }
-      const list = (ms || []).filter((m) => m.companies).map((m) => ({ ...m.companies, member_role: m.role }))
+      const list = (ms || []).filter((m) => m.companies).map((m) => ({ ...m.companies, member_role: m.role, inherited: !!m.inherited }))
       let saved = ''
       try { saved = localStorage.getItem(KEY) || '' } catch { /* sin almacenamiento */ }
       setCompanies(list)

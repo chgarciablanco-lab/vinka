@@ -17,6 +17,7 @@ import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
+import { CompanyContext } from '../../components/CompanySwitcher'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -68,10 +69,13 @@ export function CompanyPanel() {
       .then(({ data }) => setPromos(Object.fromEntries((data || []).map((p) => [p.job_id, p]))))
   }, [company, reload])
   const pubN = jobs?.filter((j) => j.status === 'published').length ?? 0
+  // El límite del plan es del grupo (matriz + clientes)
+  const groupN = planInfo?.usage?.jobs ?? pubN
+  const inGroup = !!company?.parent_id || company?.kind === 'consultora'
   const lim = planInfo?.plan?.max_active_jobs
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
   const verified = company?.verification_status === 'verified'
-  const canManage = company?.member_role !== 'viewer'
+  const canManage = ['owner', 'admin', 'recruiter'].includes(company?.member_role)
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-6xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
@@ -82,13 +86,14 @@ export function CompanyPanel() {
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
         <VerificationBanner company={company} />
+        <CompanyContext />
         <div className="grid grid-cols-3 gap-2">
-          {[[jobs ? `${pubN}${lim ? ` de ${lim}` : ''}` : '—', 'Publicadas ahora', 'Vacantes publicadas en este momento y el máximo de tu plan'], [verified ? tot.i : '—', 'Intereses', 'Personas que mostraron interés desde la app, desde que publicaste cada vacante. No incluye postulaciones externas ni importadas'], [verified ? tot.m : '—', 'Matches', 'Interés mutuo desde que publicaste cada vacante']].map(([v, l, t]) => (
+          {[[jobs ? (inGroup ? pubN : `${pubN}${lim ? ` de ${lim}` : ''}`) : '—', 'Publicadas ahora', inGroup ? `Publicadas en esta empresa. El plan permite ${lim ?? 'sin límite de'} entre la matriz y sus clientes (hoy ${groupN})` : 'Vacantes publicadas en este momento y el máximo de tu plan'], [verified ? tot.i : '—', 'Intereses', 'Personas que mostraron interés desde la app, desde que publicaste cada vacante. No incluye postulaciones externas ni importadas'], [verified ? tot.m : '—', 'Matches', 'Interés mutuo desde que publicaste cada vacante']].map(([v, l, t]) => (
             <div key={l} className="card flex flex-col gap-0.5 p-3" title={t}><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
           ))}
         </div>
         <p className="-mt-1.5 text-[11px] leading-snug text-tinta-suave">Intereses y matches: total histórico desde la app. Reportes muestra el período que elijas e incluye otras fuentes, por eso las cifras pueden diferir.</p>
-        {lim != null && pubN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>Tienes {pubN} vacantes publicadas y tu plan permite {lim}.</b> Pausa {pubN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
+        {lim != null && groupN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>{inGroup ? `Entre la matriz y sus clientes hay ${groupN} vacantes publicadas` : `Tienes ${groupN} vacantes publicadas`} y el plan permite {lim}.</b> Pausa {groupN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
         <Link to="/reportes" className="card flex items-center gap-3 p-3.5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="chart" /></span>
           <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Reportes</span><span className="text-[13px] text-tinta-3">Embudo, tiempo de contratación y fuentes</span></span>
@@ -325,6 +330,12 @@ export function JobForm() {
         </div>
         <QuestionsEditor value={j.questions || []} onChange={(v) => set('questions', v)} />
         <BiasReview job={j} onFix={(next) => setJ(next)} />
+        {company?.parent_id && (
+          <label className="flex items-start gap-2.5 rounded-xl border border-linea bg-white p-3 text-[13px] leading-snug">
+            <input type="checkbox" checked={!!j.confidential} onChange={(e) => set('confidential', e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
+            <span><b>Vacante confidencial.</b> Los postulantes verán «Empresa confidencial · gestionado por {company.managed_by || 'la consultora'}» en vez del nombre de {company.display_name}. Tú decides cuándo revelarlo en el chat.</span>
+          </label>
+        )}
         <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
           <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
           Confirmo que esta oferta es real, no cobra a postulantes y no excluye por motivos ilegales.
@@ -622,7 +633,8 @@ export function CompanyAccount() {
         <button className="btn" onClick={save} disabled={!isAdmin}>Guardar vitrina</button>
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <div className="card px-4">
-          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan']].map(([to, icon, t, sub]) => (
+          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan'],
+            ...(company?.parent_id ? [] : [['/clientes', 'building', company?.kind === 'consultora' ? 'Clientes de la consultora' : 'Somos consultora', company?.kind === 'consultora' ? `${company?.clients || 0} cliente(s) · agrega y cambia de cliente` : 'Recluta para otras empresas desde una cuenta matriz']])].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
               <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />
             </Link>

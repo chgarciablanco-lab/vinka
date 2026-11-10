@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Svg } from './ui'
 import { StatusPill } from './Presence'
+import { companyOption } from './CompanySwitcher'
 
 /** Barra lateral fija para computadores (desde 1024 px). En móvil no se muestra y se usa la barra inferior. */
 export function DesktopNav({ items }) {
@@ -14,9 +15,11 @@ export function DesktopNav({ items }) {
         {company && (companies?.length > 1 ? (
           <label className="mt-1"><span className="sr-only">Empresa</span>
             <select className="h-9 w-full rounded-lg border border-linea bg-white px-2 text-[13px] font-semibold text-tinta-2" value={company.id} onChange={(e) => { switchCompany(e.target.value); window.location.assign('/') }}>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
+              {companies.map((c) => <option key={c.id} value={c.id}>{companyOption(c)}</option>)}
             </select></label>
         ) : <span className="truncate text-[13px] text-tinta-3" title={company.display_name}>{company.display_name}</span>)}
+        {company?.parent_id && <span className="text-[11px] font-semibold text-[#6B2E8F]">Cliente de {company.managed_by}</span>}
+        {company?.kind === 'consultora' && !company.parent_id && <span className="text-[11px] font-semibold text-rosa-oscuro">Matriz · {company.clients || 0} cliente(s)</span>}
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
         {items.map((it) => it.section ? (

@@ -41,7 +41,7 @@ export default function Talent() {
   const [jobs, setJobs] = useState([])
   const [toast, setToast] = useState('')
   const [limit, setLimit] = useState(60)
-  const canManage = company?.member_role !== 'viewer'
+  const canManage = ['owner', 'admin', 'recruiter'].includes(company?.member_role)
 
   useEffect(() => {
     supabase.rpc('talent_pool', { p_company: company.id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) })

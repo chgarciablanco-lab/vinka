@@ -56,6 +56,7 @@ export function PublicCompany() {
     <Shell>
       <section className="card flex flex-col gap-2 p-5">
         <h1 className="text-[24px] font-bold">{c.display_name}</h1>
+        {c.managed_by && <span className="text-[13px] font-semibold text-tinta-suave">Procesos gestionados por {c.managed_by}</span>}
         <span className="text-sm text-tinta-3">{[c.sector, c.comuna, c.size && `${c.size} personas`].filter(Boolean).join(' · ')}</span>
         {c.description && <p className="text-[15px] leading-relaxed text-tinta-2">{c.description}</p>}
         {c.benefits && <p className="text-sm text-tinta-2"><b>Beneficios:</b> {c.benefits}</p>}
@@ -103,7 +104,10 @@ export function PublicJob() {
   return (
     <Shell>
       <section className="card flex flex-col gap-3 p-5">
-        <Link to={`/empleos/${c.slug}`} className="text-sm font-semibold text-rosa-texto">{c.display_name}</Link>
+        <span className="flex flex-col text-sm">
+          {c.slug ? <Link to={`/empleos/${c.slug}`} className="font-semibold text-rosa-texto">{c.display_name}</Link> : <span className="font-semibold text-tinta-2">{c.display_name}</span>}
+          {c.managed_by && <span className="text-[13px] text-tinta-suave">Proceso gestionado por la consultora {c.managed_by}</span>}
+        </span>
         <h1 className="text-[24px] font-bold leading-tight">{j.title}</h1>
         <span className="text-sm text-tinta-3">{meta(j)}</span>
         {salaryText(j) && <span className="text-[15px] font-semibold">{salaryText(j)}</span>}
