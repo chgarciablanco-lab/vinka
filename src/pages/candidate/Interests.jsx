@@ -16,6 +16,16 @@ const TABS = [
   ['saved', 'Guardadas', 'Solo tú ves lo que guardas. La empresa no recibe aviso.'],
 ]
 const STATUS_PILL = { no_seleccionado: ['NO SELECCIONADO', 'bg-[#F4EEF2] text-tinta-3'], cerrada: ['VACANTE CERRADA', 'bg-[#F4EEF2] text-tinta-3'] }
+// Etapa del proceso con palabras para la persona (sin notas ni evaluaciones internas de la empresa)
+const STAGE_PILL = {
+  match: ['MATCH', 'bg-rosa-accion text-white', 'Ambos se interesaron. La empresa te escribirá por el chat.'],
+  contacto: ['EN CONVERSACIÓN', 'bg-[#F7F0FB] text-[#6B2E8F]', 'La empresa está en contacto contigo por el chat.'],
+  entrevista: ['ENTREVISTA', 'bg-[#E7F1FB] text-[#1F4E86]', 'Tienes una entrevista en este proceso. Revisa la fecha en el chat.'],
+  oferta: ['OFERTA RECIBIDA', 'bg-[#FFF4D6] text-[#7A5200]', 'Te enviaron una carta oferta. Respóndela desde el chat.'],
+  contratado: ['CONTRATADO/A', 'bg-[#EAF6EF] text-[#134A2B]', '¡Felicitaciones! Coordina tu ingreso con la empresa.'],
+  descartado: ['PROCESO CERRADO', 'bg-[#F4EEF2] text-tinta-3', 'La empresa decidió no seguir contigo en esta vacante.'],
+  cerrado: ['PROCESO CERRADO', 'bg-[#F4EEF2] text-tinta-3', 'Este proceso terminó.'],
+}
 const STATUS_TXT = { no_seleccionado: 'La empresa decidió avanzar con otras personas. ¡Sigue postulando!', cerrada: 'La empresa cerró o pausó esta vacante.' }
 const ORDER = { pendiente: 0, no_seleccionado: 1, cerrada: 2 }
 const PILL = { match: ['MATCH', 'bg-rosa-accion text-white'], invited: ['TE INVITARON', 'bg-[#FFE7CC] text-naranja-texto'], sent: ['ENVIADO', 'bg-[#ECE6F2] text-[#3D2F4A]'], saved: ['GUARDADA', 'bg-[#F1F1F1] text-[#3A3A3A]'] }
@@ -60,7 +70,7 @@ export default function Interests() {
 
   const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length)
   const list = tab === 'match'
-    ? matches.map((m) => ({ key: m.match_id, title: m.job_title, company: m.company_name, match_id: m.match_id }))
+    ? matches.map((m) => ({ key: m.match_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage }))
     : (rows || []).filter((r) => r.kind === tab).sort((a, b) => (ORDER[a.status] || 0) - (ORDER[b.status] || 0))
       .map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, status: r.status, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
 
@@ -91,9 +101,9 @@ export default function Interests() {
                 <span className="text-[15px] font-semibold">{r.title}</span>
                 <span className="truncate text-[13px] text-tinta-3">{r.company}</span>
               </div>
-              <span className={`pill whitespace-nowrap ${(STATUS_PILL[r.status] || PILL[tab])[1]}`}>{(STATUS_PILL[r.status] || PILL[tab])[0]}</span>
+              <span className={`pill whitespace-nowrap ${(STAGE_PILL[r.stage] || STATUS_PILL[r.status] || PILL[tab])[1]}`}>{(STAGE_PILL[r.stage] || STATUS_PILL[r.status] || PILL[tab])[0]}</span>
             </div>
-            {STATUS_TXT[r.status] && <span className="text-[13px] leading-snug text-tinta-3">{STATUS_TXT[r.status]}</span>}
+            {(STAGE_PILL[r.stage]?.[2] || STATUS_TXT[r.status]) && <span className="text-[13px] leading-snug text-tinta-3">{STAGE_PILL[r.stage]?.[2] || STATUS_TXT[r.status]}</span>}
             {tab === 'invited' && (
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn-sm border border-linea bg-white" onClick={() => respond(r.job_id, 'pass')}>No, gracias</button>

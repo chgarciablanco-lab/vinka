@@ -62,6 +62,7 @@ export default function Plan() {
           <div className="card flex flex-col gap-4 p-4">
             <span className="text-[15px] font-semibold">Uso de este mes</span>
             <Meter label="Vacantes publicadas a la vez" used={d.usage.jobs} max={p.max_active_jobs} />
+            {p.max_active_jobs != null && d.usage.jobs > p.max_active_jobs && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-sm text-[#4A2A00]">Tienes {d.usage.jobs - p.max_active_jobs} vacante(s) más de las que permite tu plan. Pausa alguna o cambia de plan; mientras tanto no podrás publicar nuevas.</p>}
             <Meter label="Personas en el equipo" used={d.usage.members} max={p.max_members} />
             <Meter label="Consultas de IA del mes" used={d.usage.ai} max={p.ai_monthly} />
             {p.promo_credits > 0 && <Meter label={`Destacados incluidos (${p.promo_days} días c/u)`} used={d.usage.promos || 0} max={p.promo_credits} />}

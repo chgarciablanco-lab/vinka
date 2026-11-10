@@ -55,6 +55,7 @@ export function CompanyPanel() {
   const share = async (url) => setToast((await copyText(url)) ? 'Enlace copiado' : url)
   const approve = async (j) => { const { error } = await supabase.rpc('approve_job', { p_job: j.id }); setToast(error ? errMsg(error) : `«${j.title}» publicada`); setReload((n) => n + 1) }
   const [stats, setStats] = useState({})
+  const [planInfo, setPlanInfo] = useState(null)
   const [ext, setExt] = useState({})
   const [promos, setPromos] = useState({})
   useEffect(() => {
@@ -62,9 +63,12 @@ export function CompanyPanel() {
     supabase.from('jobs').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).then(({ data }) => setJobs(data || []))
     supabase.from('external_applicants').select('job_id').eq('company_id', company.id).then(({ data }) => { const c = {}; (data || []).forEach((r) => { c[r.job_id] = (c[r.job_id] || 0) + 1 }); setExt(c) })
     supabase.rpc('company_stats', { p_company: company.id }).then(({ data }) => setStats(Object.fromEntries((data || []).map((s) => [s.job_id, s]))))
+    supabase.rpc('company_plan', { p_company: company.id }).then(({ data }) => setPlanInfo(data || null))
     supabase.from('promotions').select('job_id, status, ends_at').eq('company_id', company.id).in('status', ['solicitada', 'activa', 'pausada'])
       .then(({ data }) => setPromos(Object.fromEntries((data || []).map((p) => [p.job_id, p]))))
   }, [company, reload])
+  const pubN = jobs?.filter((j) => j.status === 'published').length ?? 0
+  const lim = planInfo?.plan?.max_active_jobs
   const tot = Object.values(stats).reduce((a, s) => ({ i: a.i + s.interests, m: a.m + s.matches }), { i: 0, m: 0 })
   const verified = company?.verification_status === 'verified'
   const canManage = company?.member_role !== 'viewer'
@@ -79,10 +83,12 @@ export function CompanyPanel() {
         <InstallBanner />
         <VerificationBanner company={company} />
         <div className="grid grid-cols-3 gap-2">
-          {[[jobs?.filter((j) => j.status === 'published').length ?? '—', 'Publicadas'], [verified ? tot.i : '—', 'Intereses'], [verified ? tot.m : '—', 'Matches']].map(([v, l]) => (
-            <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
+          {[[jobs ? `${pubN}${lim ? ` de ${lim}` : ''}` : '—', 'Publicadas ahora', 'Vacantes publicadas en este momento y el máximo de tu plan'], [verified ? tot.i : '—', 'Intereses', 'Personas que mostraron interés desde la app, desde que publicaste cada vacante. No incluye postulaciones externas ni importadas'], [verified ? tot.m : '—', 'Matches', 'Interés mutuo desde que publicaste cada vacante']].map(([v, l, t]) => (
+            <div key={l} className="card flex flex-col gap-0.5 p-3" title={t}><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
           ))}
         </div>
+        <p className="-mt-1.5 text-[11px] leading-snug text-tinta-suave">Intereses y matches: total histórico desde la app. Reportes muestra el período que elijas e incluye otras fuentes, por eso las cifras pueden diferir.</p>
+        {lim != null && pubN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>Tienes {pubN} vacantes publicadas y tu plan permite {lim}.</b> Pausa {pubN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
         <Link to="/reportes" className="card flex items-center gap-3 p-3.5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="chart" /></span>
           <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Reportes</span><span className="text-[13px] text-tinta-3">Embudo, tiempo de contratación y fuentes</span></span>

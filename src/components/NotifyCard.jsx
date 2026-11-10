@@ -3,6 +3,8 @@ import { useAuth } from '../lib/auth'
 import { disablePush, enablePush, pushStatus } from '../lib/push'
 import { errMsg } from '../lib/supabase'
 
+const MOBILE = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
 /** Tarjeta para activar las notificaciones de match en este teléfono. */
 export function NotifyCard({ compact = false }) {
   const { user } = useAuth()
@@ -27,7 +29,7 @@ export function NotifyCard({ compact = false }) {
         {!compact && <button className="btn-sm self-start border border-linea bg-white" disabled={busy} onClick={off}>Desactivar</button>}
       </>}
       {st === 'off' && <>
-        <span className="text-sm leading-snug text-tinta-3">Recibe un aviso en tu teléfono cuando alguien haga match contigo, aunque la app esté cerrada.</span>
+        <span className="text-sm leading-snug text-tinta-3">Recibe un aviso en este dispositivo cuando alguien haga match contigo, aunque la app esté cerrada.</span>
         <button className="btn-sm self-start bg-rosa-accion text-white" disabled={busy} onClick={on}>{busy ? 'Activando…' : 'Activar notificaciones'}</button>
       </>}
       {st === 'needs-install' && (
@@ -35,7 +37,7 @@ export function NotifyCard({ compact = false }) {
           En iPhone, primero agrega VINKA a tu pantalla de inicio: en Safari toca <b>Compartir</b> → <b>Agregar a pantalla de inicio</b>. Luego abre VINKA desde ese ícono y vuelve aquí para activarlas.
         </span>
       )}
-      {st === 'denied' && <span className="text-sm leading-snug text-tinta-3">Las notificaciones están bloqueadas. Actívalas en Ajustes del teléfono → Notificaciones → VINKA.</span>}
+      {st === 'denied' && <span className="text-sm leading-snug text-tinta-3">{MOBILE ? 'Las notificaciones están bloqueadas. Actívalas en Ajustes del teléfono → Notificaciones → VINKA.' : 'Las notificaciones están bloqueadas en este navegador. Actívalas desde el candado junto a la dirección de la página → Notificaciones → Permitir.'}</span>}
       {st === 'unsupported' && <span className="text-sm text-tinta-3">Este navegador no permite notificaciones. Igual verás tus matches al abrir la app.</span>}
       {err && <span className="text-xs font-medium text-[#B42318]">{err}</span>}
     </div>

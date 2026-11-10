@@ -111,8 +111,8 @@ export function CvImport({ current, onApply }) {
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#6B2E8F]"><Svg name="doc" /></span>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[15px] font-semibold text-[#4A2163]">¿Tienes tu CV? Te ahorramos el trabajo</span>
-            <span className="text-[13px] leading-snug text-[#5B3A70]">Súbelo en PDF, Word o como foto y completamos tu perfil. Tú revisas antes de guardar.</span>
+            <span className="text-[15px] font-semibold text-[#4A2163]">Completar mi perfil con mi CV</span>
+            <span className="text-[13px] leading-snug text-[#5B3A70]">Lo leemos y llenamos tu perfil laboral por ti; tú revisas antes de guardar. Las empresas ven tu perfil, no el archivo.</span>
           </div>
         </div>
         <input ref={input} type="file" accept=".pdf,.docx,.doc,application/pdf,image/*" className="sr-only" onChange={onFile} aria-label="Subir CV" />
@@ -122,7 +122,7 @@ export function CvImport({ current, onApply }) {
           </div>
         ) : (
           <button type="button" onClick={() => input.current?.click()} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#6B2E8F] text-[15px] font-semibold text-white">
-            <Svg name="download" size={18} className="rotate-180" />Subir mi CV
+            <Svg name="download" size={18} className="rotate-180" />Completar con mi CV
           </button>
         )}
         <ErrorBox>{err}</ErrorBox>

@@ -23,7 +23,7 @@ export function letterText({ offer: o, company: c, candidate }) {
     ...offerRows(o).map(([k, v]) => `• ${k}: ${v}`), '',
     ...(o.benefits ? [`Beneficios: ${o.benefits}`, ''] : []), ...(o.message ? [o.message, ''] : []),
     L.closing || DEFAULT_CLOSING, '', ...(o.expires_on ? [`Te pedimos responder antes del ${longDate(o.expires_on)}.`, ''] : []),
-    'Atentamente,', L.signer_name || '', L.signer_title || '', c.legal_name || c.display_name,
+    'Atentamente,', ...[L.signer_name, L.signer_title].filter(Boolean), c.legal_name || c.display_name,
   ]
   return lines.join('\n').replace(/\n{3,}/g, '\n\n')
 }
@@ -58,8 +58,8 @@ export function OfferLetter({ offer: o, company: c, candidate }) {
       <div className="mt-6 break-inside-avoid print:mt-4">
         <p className="mb-8 print:mb-6">Atentamente,</p>
         <div className="w-60 border-t border-[#302538] pt-2">
-          <b className="block">{L.signer_name || 'Nombre de quien firma'}</b>
-          <span className="block text-[13px] text-[#4A3F4E]">{L.signer_title || 'Cargo'}</span>
+          {L.signer_name && <b className="block">{L.signer_name}</b>}
+          {L.signer_title && <span className="block text-[13px] text-[#4A3F4E]">{L.signer_title}</span>}
           <span className="block text-[13px] text-[#4A3F4E]">{c?.legal_name || c?.display_name}</span>
         </div>
       </div>

@@ -30,8 +30,8 @@ export function MyCv() {
   return (
     <div className="card flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex flex-col"><span className="text-[15px] font-semibold">Mi CV</span><span className="text-[13px] text-tinta-3">Guárdalo en VINKA para tus asesorías.</span></span>
-        <button className="btn-sm shrink-0 bg-morado text-white" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Subiendo…' : 'Subir CV'}</button>
+        <span className="flex flex-col"><span className="text-[15px] font-semibold">CV para mis asesorías</span><span className="text-[13px] text-tinta-3">Guarda el archivo para que tu asesor/a lo trabaje. No completa tu perfil.</span></span>
+        <button className="btn-sm shrink-0 bg-morado text-white" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Subiendo…' : 'Guardar archivo'}</button>
         <input ref={input} type="file" accept={CV_ACCEPT} className="hidden" onChange={onFile} />
       </div>
       {list?.map((f) => (

@@ -117,6 +117,7 @@ function Business() {
   const [q, setQ] = useState('')
   const [demo, setDemo] = useState(false)
   const [pay, setPay] = useState(null)
+  const [msgErr, setMsgErr] = useState('')
   const load = useCallback(() => { supabase.rpc('admin_overview').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [])
   useEffect(() => { load() }, [load])
   const save = async () => {
@@ -197,7 +198,10 @@ function Business() {
       </div>
       {d.errors?.length > 0 && (
         <div className="card flex flex-col gap-1.5 p-4">
-          <span className="text-[15px] font-semibold">Errores recientes en la app ({n(m.errors_7d)} en 7 días)</span>
+          <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Errores pendientes en la app ({n(m.errors_7d)} en 7 días)</span>
+            <button className="btn-sm shrink-0 border border-linea bg-white" onClick={async () => { const { data } = await supabase.rpc('admin_resolve_errors'); setMsgErr(`${data || 0} marcados como resueltos. Si vuelven a ocurrir, aparecerán de nuevo.`); load() }}>Marcar como resueltos</button></div>
+          <span className="text-[11px] text-tinta-suave">Fecha y hora de Chile · pantalla · mensaje. Márcalos como resueltos después de publicar la corrección.</span>
+          {msgErr && <span className="text-xs text-[#1E6B3F]">{msgErr}</span>}
           {d.errors.slice(0, 15).map((e, i) => <span key={i} className="truncate text-xs text-tinta-3" title={e.message}>{new Date(e.at).toLocaleString('es-CL')} · {e.path} · {e.message}</span>)}
         </div>
       )}
@@ -290,6 +294,7 @@ function Advisory() {
   const [fst, setFst] = useState('')
   const [fadv, setFadv] = useState('')
   const [limit, setLimit] = useState(30)
+  const [showDemo, setShowDemo] = useState(false)
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([supabase.rpc('admin_service_requests'), supabase.from('career_services').select('*').order('sort'), supabase.rpc('admin_advisors')])
@@ -318,17 +323,18 @@ function Advisory() {
   }
   if (!reqs) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
   const OPEN = ['solicitada', 'pago_pendiente', 'en_curso', 'entregada']
-  const openN = reqs.filter((r) => OPEN.includes(r.status)).length
-  const toReview = reqs.filter((r) => r.status === 'entregada').length
-  const income = reqs.filter((r) => ['en_curso', 'entregada', 'aprobada'].includes(r.status)).reduce((a, r) => a + r.price, 0)
+  const openN = reqs.filter((r) => (showDemo || !r.demo) && OPEN.includes(r.status)).length
+  const toReview = reqs.filter((r) => (showDemo || !r.demo) && r.status === 'entregada').length
+  const income = reqs.filter((r) => (showDemo || !r.demo) && ['en_curso', 'entregada', 'aprobada'].includes(r.status)).reduce((a, r) => a + r.price, 0)
   const qn = fq.trim().toLowerCase()
-  const list = reqs.filter((r) => (fst ? r.status === fst : !only || OPEN.includes(r.status))
+  const list = reqs.filter((r) => (showDemo || !r.demo) && (fst ? r.status === fst : !only || OPEN.includes(r.status))
     && (!fadv || (fadv === 'none' ? !r.advisor_id : r.advisor_id === fadv))
     && (!qn || `${r.name} ${r.email} ${r.service} ${r.advisor || ''} ${r.goal}`.toLowerCase().includes(qn)))
   return (
     <div className="flex flex-col gap-4">
+      <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={showDemo} onChange={(e) => setShowDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir demostración en cifras y lista</label>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[['Por revisar', n(toReview)], ['Abiertas', n(openN)], ['Total', n(reqs.length)], ['Vendido (pagadas)', `$${n(income)}`]].map(([l, v]) => (
+        {[['Por revisar', n(toReview)], ['Abiertas', n(openN)], ['Total', n(reqs.filter((r) => showDemo || !r.demo).length)], ['Vendido (pagadas)', `$${n(income)}`]].map(([l, v]) => (
           <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
         ))}
       </div>
@@ -742,6 +748,15 @@ export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Pa
   )
 }
 
+const VST = { pending: ['Por verificar', 'bg-naranja-palido text-naranja-texto'], verified: ['Verificada', 'bg-[#EAF6EF] text-[#134A2B]'], rejected: ['Rechazada', 'bg-[#FEF3F2] text-[#912018]'], suspended: ['Suspendida', 'bg-[#F4EEF2] text-tinta-3'] }
+// Acciones según el estado actual (antes se ofrecía «Verificar» incluso a empresas ya verificadas)
+const ACTIONS = {
+  pending: [['verified', 'Verificar', true], ['rejected', 'Rechazar'], ['suspended', 'Suspender']],
+  verified: [['suspended', 'Suspender']],
+  rejected: [['verified', 'Verificar', true]],
+  suspended: [['verified', 'Reactivar', true]],
+}
+
 export default function Admin({ section }) {
   const [tab, setTab] = useState(section || 'business')
   useEffect(() => { if (section) setTab(section) }, [section])
@@ -767,7 +782,12 @@ export default function Admin({ section }) {
   }
   const closeReport = async (id) => { await supabase.from('reports').update({ status: 'reviewed' }).eq('id', id); load() }
 
-  const list = (companies || []).filter((c) => (tab === 'pending' ? c.verification_status === 'pending' : tab === 'all' ? true : false))
+  const [cq, setCq] = useState('')
+  const [cf, setCf] = useState('')
+  const [climit, setClimit] = useState(40)
+  const cqn = cq.trim().toLowerCase()
+  const list = (companies || []).filter((c) => (tab === 'pending' ? c.verification_status === 'pending' : tab === 'all' ? (!cf || c.verification_status === cf) : false)
+    && (!cqn || `${c.display_name} ${c.legal_name} ${c.rut} ${c.comuna} ${c.region} ${c.sector}`.toLowerCase().includes(cqn)))
   return (
     <Screen className="bg-[#FAF7F9]" wide>
       {section ? <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">{TITLES[tab]}</h1></div> : <TopBar back="/" title="Administración" />}
@@ -787,20 +807,38 @@ export default function Admin({ section }) {
               {r.status === 'open' && <button className="btn-sm self-start border border-linea bg-white" onClick={() => closeReport(r.id)}>Marcar revisada</button>}
             </div>
           ))
-        ) : list.length === 0 ? <Empty title="Nada pendiente">No hay empresas esperando verificación.</Empty> : list.map((c) => (
-          <div key={c.id} className="card flex flex-col gap-2 p-3.5 text-sm">
-            <div className="flex justify-between gap-2"><b>{c.display_name}</b><span className="text-xs text-tinta-suave">{c.verification_status}</span></div>
-            <span>{c.legal_name} · RUT {c.rut}</span>
-            <span className="text-tinta-3">{[c.sector, c.size, c.comuna, c.region].filter(Boolean).join(' · ')}</span>
-            <a className="text-rosa-texto underline" href={`https://www.google.com/search?q=${encodeURIComponent(c.rut + ' ' + c.legal_name)}`} target="_blank" rel="noreferrer">Buscar RUT en la web</a>
-            <input className="input h-11" placeholder="Nota para la empresa (opcional)" value={notes[c.id] || ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />
-            <div className="grid grid-cols-3 gap-2">
-              <button className="btn-sm bg-[#1E6B3F] text-white" onClick={() => decide(c.id, 'verified')}>Verificar</button>
-              <button className="btn-sm border border-linea bg-white" onClick={() => decide(c.id, 'rejected')}>Rechazar</button>
-              <button className="btn-sm border border-linea bg-white" onClick={() => decide(c.id, 'suspended')}>Suspender</button>
-            </div>
-          </div>
-        ))}
+        ) : (
+          <>
+            {tab === 'all' && (
+              <div className="grid gap-2 sm:grid-cols-[1fr_200px]">
+                <input className="input h-11" placeholder="Buscar por nombre, razón social, RUT o comuna" value={cq} onChange={(e) => { setCq(e.target.value); setClimit(40) }} />
+                <select className="input h-11" value={cf} onChange={(e) => { setCf(e.target.value); setClimit(40) }}>
+                  <option value="">Todos los estados</option>{Object.entries(VST).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+              </div>
+            )}
+            {tab === 'all' && <span className="text-xs text-tinta-suave">{list.length} empresas</span>}
+            {list.length === 0 ? <Empty title={tab === 'pending' ? 'Nada pendiente' : 'Sin resultados'}>{tab === 'pending' ? 'No hay empresas esperando verificación.' : 'Prueba con otra búsqueda o estado.'}</Empty> : list.slice(0, climit).map((c) => {
+              const st = VST[c.verification_status] || [c.verification_status, 'bg-[#F4EEF2]']
+              const acts = ACTIONS[c.verification_status] || []
+              return (
+                <div key={c.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+                  <div className="flex items-start justify-between gap-2"><b>{c.display_name}</b><span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span></div>
+                  <span>{c.legal_name} · RUT {c.rut}</span>
+                  <span className="text-tinta-3">{[c.sector, c.size, c.comuna, c.region].filter(Boolean).join(' · ')}</span>
+                  {c.verification_status === 'pending' && <a className="text-rosa-texto underline" href={`https://www.google.com/search?q=${encodeURIComponent(c.rut + ' ' + c.legal_name)}`} target="_blank" rel="noreferrer">Buscar RUT en la web</a>}
+                  {acts.length > 0 && <input className="input h-11" placeholder="Nota para la empresa (opcional)" value={notes[c.id] || ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />}
+                  {acts.length > 0 && (
+                    <div className={`grid gap-2 ${acts.length === 3 ? 'grid-cols-3' : acts.length === 2 ? 'grid-cols-2' : 'grid-cols-1 sm:max-w-[220px]'}`}>
+                      {acts.map(([to, label, main]) => <button key={to} className={`btn-sm ${main ? 'bg-[#1E6B3F] text-white' : 'border border-linea bg-white'}`} onClick={() => decide(c.id, to)}>{label}</button>)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {list.length > climit && <button className="btn-sec" onClick={() => setClimit(climit + 40)}>Ver más ({list.length - climit} restantes)</button>}
+          </>
+        )}
       </div>
     </Screen>
   )

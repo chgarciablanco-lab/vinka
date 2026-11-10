@@ -43,7 +43,7 @@ export function CvTab({ requestId, canUpload, asCandidate = false }) {
   if (!d) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
   return (
     <div className="flex flex-col gap-2">
-      {d.files.length === 0 && <p className="text-sm text-tinta-3">{asCandidate ? 'Sube tu CV en Perfil → Mi CV para que tu asesor/a pueda trabajarlo. Aquí verás también las versiones mejoradas.' : 'La persona aún no sube su CV a VINKA. Pídeselo por el chat: lo puede subir en Perfil → Mi CV.'}</p>}
+      {d.files.length === 0 && <p className="text-sm text-tinta-3">{asCandidate ? 'Sube tu CV en Perfil → «CV para mis asesorías» para que tu asesor/a pueda trabajarlo. Aquí verás también las versiones mejoradas.' : 'La persona aún no sube su CV a VINKA. Pídeselo por el chat: lo puede subir en Perfil → «CV para mis asesorías».'}</p>}
       {d.files.map((f) => (
         <div key={f.id} className="flex items-center gap-3 rounded-xl border border-linea bg-white p-3">
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${f.kind === 'mejorado' ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2] text-tinta-2'}`}>v{f.version}</span>

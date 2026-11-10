@@ -287,7 +287,7 @@ export function OfferForm({ open, onClose, matchId, job, onSent, candidateName, 
   const send = async () => {
     setErr('')
     if (!f.position?.trim()) { setView('editar'); return setErr('Indica el cargo.') }
-    if (!L.signer_name?.trim()) { setView('editar'); return setErr('Indica quién firma la carta.') }
+    if (!L.signer_name?.trim() || !L.signer_title?.trim()) { setView('editar'); return setErr('Indica el nombre y el cargo de quien firma la carta.') }
     setBusy(true)
     const { error } = await supabase.rpc('send_offer', { p_match: matchId, p: { ...f, salary: f.salary ? String(f.salary) : '', letter } })
     setBusy(false)

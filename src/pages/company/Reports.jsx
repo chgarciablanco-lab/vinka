@@ -70,6 +70,7 @@ export default function Reports() {
         <select className="input" aria-label="Vacante" value={job} onChange={(e) => setJob(e.target.value)}>
           <option value="">Todas las vacantes</option>{jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
         </select>
+        <p className="-mt-1 text-[12px] leading-snug text-tinta-3">{days ? `Solo lo ocurrido en los últimos ${days === 365 ? '12 meses' : `${days} días`}` : 'Todo el historial'}. Las etapas (contactados, entrevistas, ofertas, contratados) suman a quienes llegaron por VINKA y a los de otros portales o importados. «Me interesa» y «Matches» cuentan solo los de la app, por eso el panel inicial puede mostrar otros totales.</p>
         <ErrorBox>{err}</ErrorBox>
         {!r ? <Spinner /> : (
           <>

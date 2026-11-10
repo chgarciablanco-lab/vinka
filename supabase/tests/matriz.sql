@@ -70,10 +70,10 @@ begin
   update interviews set starts_at = ts, ends_at = ts + interval '45 minutes' where id = iv;
   perform pg_temp.as_user(nova);
   perform complete_interview(iv);
-  o := send_offer(m, '{"position":"Vendedor","salary":"700000","salary_type":"liquido","letter":{"signer_name":"Nova Test","hack":"x"}}');
+  o := send_offer(m, '{"position":"Vendedor","salary":"700000","salary_type":"liquido","letter":{"signer_name":"Nova Test","signer_title":"Gerenta","hack":"x"}}');
   log := log || pg_temp.ok((select stage from matches where id = m) = 'oferta', 'A12 enviar oferta pasa a etapa oferta');
   log := log || pg_temp.ok(not ((select letter from offers where id = o) ? 'hack'), 'C1 la carta descarta campos no permitidos');
-  o2 := send_offer(m, '{"position":"Vendedor Sr","salary":"750000","salary_type":"liquido","letter":{"signer_name":"Nova Test"}}');
+  o2 := send_offer(m, '{"position":"Vendedor Sr","salary":"750000","salary_type":"liquido","letter":{"signer_name":"Nova Test","signer_title":"Gerenta"}}');
   log := log || pg_temp.ok((select status from offers where id = o) = 'retirada' and (select status from offers where id = o2) = 'enviada', 'C9 editar y reenviar reemplaza la anterior');
   begin perform email_offer(o2, true); log := log || pg_temp.ok(false, 'C6 reenvío inmediato se bloquea');
   exception when others then log := log || pg_temp.ok(true, 'C6 reenvío inmediato se bloquea'); end;
@@ -89,7 +89,7 @@ begin
   perform respond_offer(o2, true, 'feliz');
   reset role;
   log := log || pg_temp.ok((select status from offers where id = o2) = 'aceptada', 'C10 aceptar oferta registra la respuesta');
-  update offers set status = 'enviada', expires_on = current_date - 1 where id = o2;
+  update offers set status = 'enviada', expires_on = (now() at time zone 'America/Santiago')::date - 1 where id = o2;
   perform pg_temp.as_user(cam);
   begin perform respond_offer(o2, true, ''); log := log || pg_temp.ok(false, 'C11 oferta vencida no se puede aceptar');
   exception when others then log := log || pg_temp.ok(true, 'C11 oferta vencida no se puede aceptar'); end;
@@ -180,11 +180,11 @@ begin
   begin perform send_service_message(ext, 'gracias'); log := log || pg_temp.ok(true, 'E4 la persona responde después de su asesor/a');
   exception when others then log := log || pg_temp.ok(false, 'E4 la persona responde después de su asesor/a: ' || sqlerrm); end;
   reset role;
-  perform pg_temp.as_user(nova); o := send_offer(m, '{"position":"Prueba E","salary":"700000","salary_type":"liquido","expires_on":"2030-01-01","letter":{"signer_name":"Nova"}}'); reset role;
+  perform pg_temp.as_user(nova); o := send_offer(m, '{"position":"Prueba E","salary":"700000","salary_type":"liquido","expires_on":"2030-01-01","letter":{"signer_name":"Nova","signer_title":"Gerenta"}}'); reset role;
   perform pg_temp.as_user(u); perform respond_offer(o, true, ''); reset role;
   log := log || pg_temp.ok((select stage from matches where id = m) = 'contratado', 'E5 oferta aceptada pasa sola a contratado');
-  perform pg_temp.as_user(nova); o2 := send_offer(m, '{"position":"Prueba E2","salary":"700000","salary_type":"liquido","letter":{"signer_name":"Nova"}}'); reset role;
-  update offers set expires_on = current_date - 1 where id = o2;
+  perform pg_temp.as_user(nova); o2 := send_offer(m, '{"position":"Prueba E2","salary":"700000","salary_type":"liquido","letter":{"signer_name":"Nova","signer_title":"Gerenta"}}'); reset role;
+  update offers set expires_on = (now() at time zone 'America/Santiago')::date - 1 where id = o2;
   perform expire_offers();
   log := log || pg_temp.ok((select status from offers where id = o2) = 'vencida' and exists (select 1 from notifications where kind = 'offer_expired' and created_at >= t0), 'E6 oferta vencida cambia de estado y avisa a la empresa');
   perform pg_temp.as_user(nova); log := log || pg_temp.ok(jsonb_array_length(offer_history(m)) >= 2, 'E7 historial muestra todas las versiones'); reset role;
@@ -206,6 +206,45 @@ begin
   perform promo_track(array[p2], 'impression', null);
   reset role;
   log := log || pg_temp.ok((select coalesce(sum(impressions), 0) from promo_stats where promotion_id = p2) - n = 1, 'E10 50 vistas del mismo navegador cuentan 1; sin identificador, 0');
+
+
+  ---------------- F. Revisión: renta, asesorías, carta, plan ----------------
+  select id into j from jobs where company_id = co and status = 'published' limit 1;
+  perform pg_temp.as_user(nova);
+  select count(*), count(*) filter (where c.salary_min is not null and c.salary_min % 100000 = 0 and c.salary_max > c.salary_min)
+    into n, n2 from candidates_for_job(j, false) c;
+  reset role;
+  log := log || pg_temp.ok(n > 0 and n2 > 0 and pg_get_function_result('public.candidates_for_job'::regproc) not like '%salary_expectation%', 'F1 la empresa recibe la renta como rango, nunca el monto exacto');
+  insert into service_requests (candidate_id, service_id, service_name, price_clp, goal, status, assigned_to, assigned_name)
+    select diego, id, name, price_clp, 'prueba F', 'pago_pendiente', adv, 'Asesora Test' from career_services where id = 'busqueda' returning id into ext;
+  update service_requests set status = 'en_curso' where id = ext;
+  log := log || pg_temp.ok(exists (select 1 from service_messages where request_id = ext and sender_kind = 'system' and body like '%1 día hábil%'), 'F2 al confirmar el pago VINKA escribe con el plazo');
+  perform pg_temp.as_user(diego);
+  begin perform send_service_message(ext, 'gracias, quedo atento'); log := log || pg_temp.ok(true, 'F3 tras el mensaje automático la persona puede escribir');
+  exception when others then log := log || pg_temp.ok(false, 'F3 tras el mensaje automático la persona puede escribir: ' || sqlerrm); end;
+  reset role;
+  perform pg_temp.as_user(adv);
+  begin perform advisor_deliver(ext, 'listo'); log := log || pg_temp.ok(false, 'F4 no se puede entregar sin sesiones ni ofertas');
+  exception when others then log := log || pg_temp.ok(sqlerrm like 'Aún falta para entregar%', 'F4 no se puede entregar sin sesiones ni ofertas'); end;
+  reset role;
+  update service_requests set status = 'entregada' where id = ext;
+  perform pg_temp.as_user(adm);
+  begin perform admin_review_request(ext, true, ''); log := log || pg_temp.ok(false, 'F5 aprobar con faltantes exige un motivo');
+  exception when others then log := log || pg_temp.ok(sqlerrm like 'Falta:%', 'F5 aprobar con faltantes exige un motivo'); end;
+  perform admin_review_request(ext, true, 'Excepción de prueba');
+  reset role;
+  log := log || pg_temp.ok((select status from service_requests where id = ext) = 'aprobada' and exists (select 1 from notifications where user_id = diego and title like '%terminada' and created_at >= t0), 'F6 la persona recibe «terminada» recién con la aprobación');
+  perform pg_temp.as_user(cam);
+  begin perform service_progress(ext); log := log || pg_temp.ok(false, 'F7 otra persona no ve el avance de una asesoría ajena');
+  exception when others then log := log || pg_temp.ok(true, 'F7 otra persona no ve el avance de una asesoría ajena'); end;
+  reset role;
+  select m2.id into m from matches m2 where m2.company_id = co and not m2.closed limit 1;
+  perform pg_temp.as_user(nova);
+  begin perform send_offer(m, '{"position":"Sin firma","letter":{"signer_name":"Nova"}}'); log := log || pg_temp.ok(false, 'F8 la carta exige nombre y cargo de quien firma');
+  exception when others then log := log || pg_temp.ok(sqlerrm like '%quien firma%', 'F8 la carta exige nombre y cargo de quien firma'); end;
+  reset role;
+  insert into subscriptions (company_id, plan_id, status) values (co, 'gratis', 'active') on conflict (company_id) do update set plan_id = 'gratis', status = 'active';
+  log := log || pg_temp.ok(exists (select 1 from notifications where kind = 'plan' and title like 'Tienes más vacantes%' and created_at >= t0), 'F9 bajar de plan con vacantes de más avisa a la empresa');
 
   ---------------- D. Permisos (se espera error o 0 filas) ----------------
   select id into j from jobs where company_id = co and status = 'published' limit 1;
@@ -263,6 +302,10 @@ begin
     ('anon', 'select count(*) from promo_settings'),
     ('anon', format('select request_promotion(%L, %L)::text', 'job_7', j)),
     ('anon', 'select admin_revenue(true)::text'),
+    ('cam', 'select admin_resolve_errors()::text'),
+    ('cam', 'select admin_set_setting(''whatsapp_vinka'', ''+56911112222'')::text'),
+    ('adv', 'select admin_resolve_errors()::text'),
+    ('anon', 'select count(*) from app_settings'),
     ('anon', 'select count(*) from service_requests')
   ) v(a, b) loop
     u := case who when 'agro' then agro when 'cam' then cam when 'nova' then nova when 'adv' then adv else null end;
