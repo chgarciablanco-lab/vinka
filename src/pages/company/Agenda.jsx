@@ -20,6 +20,7 @@ export default function Agenda() {
   const [toast, setToast] = useState('')
   const [err, setErr] = useState('')
   const [detail, setDetail] = useState(null)
+  const [jf, setJf] = useState('')
 
   const load = useCallback(async () => {
     const from = new Date(); from.setDate(1); from.setMonth(from.getMonth() - 1); from.setHours(0, 0, 0, 0)
@@ -35,16 +36,19 @@ export default function Agenda() {
     return () => { supabase.removeChannel(ch) }
   }, [load])
 
+  // Filtro por vacante: un horario sin vacante sirve para todas, así que aparece en cualquier filtro
+  const titles = useMemo(() => [...new Set([...jobs.map((j) => j.title), ...(rows || []).map((r) => r.booked_job_title || r.job_title)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [jobs, rows])
+  const shown = useMemo(() => (rows || []).filter((r) => !jf || (r.interview_id ? r.booked_job_title === jf : !r.job_title || r.job_title === jf)), [rows, jf])
   const marks = useMemo(() => {
     const m = {}
-    for (const r of rows || []) {
+    for (const r of shown) {
       const k = ymd(r.starts_at); m[k] = m[k] || { free: 0, booked: 0 }
       if (r.interview_id) m[k].booked++; else if (r.slot_status === 'open' && new Date(r.starts_at) > new Date()) m[k].free++
     }
     return m
-  }, [rows])
-  const dayRows = (rows || []).filter((r) => ymd(r.starts_at) === day)
-  const upcoming = (rows || []).filter((r) => r.interview_id && r.interview_status === 'confirmada' && new Date(r.ends_at) > new Date()).slice(0, 5)
+  }, [shown])
+  const dayRows = shown.filter((r) => ymd(r.starts_at) === day)
+  const upcoming = shown.filter((r) => r.interview_id && r.interview_status === 'confirmada' && new Date(r.ends_at) > new Date()).slice(0, 5)
 
   const del = async (id) => {
     const { error } = await supabase.rpc('delete_slot', { p_slot: id })
@@ -62,6 +66,15 @@ export default function Agenda() {
         {!verified && <div className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]">Podrás publicar horarios cuando tu empresa esté verificada.</div>}
         <button className="btn" disabled={!verified} onClick={() => setOpen(true)}><Svg name="plus" size={20} stroke="#fff" />Agregar disponibilidad</button>
         <ErrorBox>{err}</ErrorBox>
+        {titles.length > 1 && (
+          <label className="flex flex-col gap-1.5"><span className="label">Ver vacante</span>
+            <select className="input" value={jf} onChange={(e) => setJf(e.target.value)}>
+              <option value="">Todas las vacantes</option>
+              {titles.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {jf && <span className="text-xs text-tinta-3">Incluye los horarios libres que sirven para cualquier vacante.</span>}
+          </label>
+        )}
         {upcoming.length > 0 && (
           <div className="flex flex-col gap-2">
             <h2 className="text-[16px] font-semibold">Próximas entrevistas</h2>
@@ -102,7 +115,7 @@ export default function Agenda() {
                     <span className="truncate text-xs text-tinta-3">{r.booked_job_title} · {r.interview_status === 'realizada' ? 'Realizada' : 'Reservado'}</span>
                   </> : <>
                     <span className="text-sm font-medium">{past ? 'No se usó' : 'Libre'}</span>
-                    <span className="truncate text-xs text-tinta-3">{r.mode === 'online' ? 'Videollamada' : `Presencial · ${r.address}`}{r.job_title ? ` · ${r.job_title}` : ''}</span>
+                    <span className="truncate text-xs text-tinta-3">{r.mode === 'online' ? 'Videollamada' : `Presencial · ${r.address}`}{r.job_title ? ` · ${r.job_title}` : ' · Cualquier vacante'}</span>
                   </>}
                 </div>
                 {booked

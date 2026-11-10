@@ -222,17 +222,26 @@ export default function App() {
       { to: '/', label: 'Explorar', icon: 'card' }, { to: '/intereses', label: 'Intereses', icon: 'swap' },
       { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/perfil', label: 'Perfil', icon: 'user' }, ...adminItem,
     ]
+    const deskNav = [
+      { to: '/', label: 'Explorar vacantes', icon: 'card' }, { to: '/intereses', label: 'Intereses', icon: 'swap' },
+      { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
+      { section: 'Mi perfil' },
+      { to: '/perfil', label: 'Perfil', icon: 'user' }, { to: '/asesoria', label: 'Asesoría', icon: 'people' }, { to: '/visibilidad', label: 'Perfil destacado', icon: 'star' },
+      { to: '/avisos', label: 'Avisos', icon: 'bell' }, ...adminItem,
+    ]
     return (
       <>
       <MatchWatcher onCount={setUnseen} />
       <PendingInvite />
       <GoNext allowed={['/asesoria', '/visibilidad']} />
+      <DesktopNav items={deskNav} />
+      <div className="desk h-full lg:pl-64">
       {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
-        <Route path="/chats" element={<WithNav items={nav}><ChatList /></WithNav>} />
-        <Route path="/chats/:id" element={<ChatRoom />} />
+        <Route path="/chats" element={<ChatsSplit items={nav} />} />
+        <Route path="/chats/:id" element={<ChatsSplit items={nav} />} />
         <Route path="/chats/:id/agendar" element={<BookInterview />} />
         <Route path="/ofertas/:id" element={<Offer />} />
         <Route path="/avisos" element={<Notifications />} />
@@ -246,6 +255,7 @@ export default function App() {
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>)}
+      </div>
       </>
     )
   }

@@ -65,7 +65,7 @@ export default function Interests() {
       .map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, status: r.status, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24 lg:max-w-4xl lg:pb-10 lg:pt-4">
       <div className="safe-t px-5 pb-3">
         <div className="flex items-center justify-between"><h1 className="text-[22px] font-bold">Intereses</h1><Bell /></div>
         <div className="mt-3"><InstallBanner /></div>
@@ -79,10 +79,10 @@ export default function Interests() {
         </div>
         <p className="mt-3 text-[13px] leading-snug text-tinta-3">{TABS.find((t) => t[0] === tab)[2]}</p>
       </div>
-      <div className="flex flex-col gap-2.5 px-5">
-        <ErrorBox>{err}</ErrorBox>
-        {rows == null ? <Spinner /> : list.length === 0 ? (
-          <Empty title="Nada por aquí todavía">{tab === 'invited' ? 'Cuando una empresa se interese en ti, aparecerá aquí.' : <>Sigue explorando en <Link to="/" className="font-semibold text-rosa-texto">Explorar</Link>.</>}</Empty>
+      <div className="flex flex-col gap-2.5 px-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+        {err && <div className="lg:col-span-2"><ErrorBox>{err}</ErrorBox></div>}
+        {rows == null ? <div className="lg:col-span-2"><Spinner /></div> : list.length === 0 ? (
+          <div className="lg:col-span-2"><Empty title="Nada por aquí todavía">{tab === 'invited' ? 'Cuando una empresa se interese en ti, aparecerá aquí.' : <>Sigue explorando en <Link to="/" className="font-semibold text-rosa-texto">Explorar</Link>.</>}</Empty></div>
         ) : list.map((r) => (
           <div key={r.key} className="card flex flex-col gap-2.5 p-3.5">
             <div className="flex items-center gap-3">

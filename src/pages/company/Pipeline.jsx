@@ -287,7 +287,7 @@ export default function Pipeline() {
       </div>
 
       {selecting && (
-        <div className="safe-b fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 items-center gap-2 border-t border-[#EEE3EA] bg-white px-4 pt-3">
+        <div className="safe-b fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 lg:left-[calc(50%+8rem)] lg:max-w-2xl lg:rounded-t-2xl lg:border-x items-center gap-2 border-t border-[#EEE3EA] bg-white px-4 pt-3">
           <span className="flex-1 text-sm font-semibold">{sel.length ? `${sel.length} seleccionado${sel.length === 1 ? '' : 's'}` : 'Toca las personas'}{selected.length > 4 ? ' · máx. 4 para comparar' : ''}</span>
           {selected.length >= 2 && selected.length <= 4 && <button className="btn-sm border border-linea bg-white" onClick={() => nav(`/vacantes/${id}/comparar?c=${selected.map((c) => (c.kind === 'externo' ? `externo:${c.id}` : `vinka:${c.candidate_id || c.id}`)).join(',')}`)}>Comparar</button>}
           <button className="btn-sm bg-rosa-accion text-white" disabled={!sel.length} onClick={() => setBulk(true)}>Mover o escribir</button>

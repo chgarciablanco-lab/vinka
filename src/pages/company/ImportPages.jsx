@@ -174,7 +174,7 @@ export function ExternalApplicants() {
         {!verified && rows.length > 0 && <p className="hint">Podrás invitar a VINKA cuando tu empresa esté verificada.</p>}
       </div>
       {sel.length > 0 && (
-        <div className="safe-b fixed bottom-0 left-1/2 z-20 flex w-full max-w-md -translate-x-1/2 gap-2 border-t border-[#EEE3EA] bg-white px-5 pt-3">
+        <div className="safe-b fixed bottom-0 left-1/2 z-20 flex w-full max-w-md -translate-x-1/2 lg:left-[calc(50%+8rem)] lg:max-w-2xl gap-2 border-t border-[#EEE3EA] bg-white px-5 pt-3">
           <button className="btn-sec flex-1 text-[#B42318]" onClick={() => remove(sel)}>Eliminar ({sel.length})</button>
           <button className="btn flex-1" disabled={!verified} onClick={() => invite(sel)}>Invitar ({sel.length})</button>
         </div>

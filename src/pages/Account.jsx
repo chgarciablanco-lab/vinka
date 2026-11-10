@@ -92,7 +92,7 @@ export function CandidateProfile() {
   }
   const c = candidate || {}
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28">
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28 lg:max-w-2xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-center justify-between px-5 pb-4"><h1 className="text-[22px] font-bold">Perfil</h1><Bell /></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3.5 p-4">
