@@ -15,7 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>VINKA</title>
     <style>
-      #splash{position:fixed;inset:0;z-index:9999;overflow:hidden;background:#FFF9FB;transition:opacity .4s ease}
+      /* La barra de estado del iPhone se pinta un tono más oscuro (#F5EFF1); el borde superior parte con ese tono para que no se vea una franja */
+      #splash{position:fixed;inset:0;z-index:9999;overflow:hidden;background:#FFF9FB linear-gradient(#F5EFF1,#FFF9FB 160px) no-repeat;transition:opacity .4s ease}
       #splash.out{opacity:0;pointer-events:none}
     </style>
   </head>
