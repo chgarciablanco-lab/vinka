@@ -51,6 +51,7 @@ begin
   r := public_job(hj2);
   log := log || pg_temp.ok(r->'company'->>'display_name' = 'Empresa confidencial' and r->'company'->>'slug' is null and coalesce(r->'company'->>'description', '') = '', 'H11 vacante confidencial oculta al cliente');
   log := log || pg_temp.ok(not exists (select 1 from jsonb_array_elements(public_company((select slug from companies where id = hc))->'jobs') x where (x->>'id')::uuid = hj2), 'H12 la confidencial no sale en la página pública del cliente');
+  delete from company_members where user_id = agro;  -- una cuenta está en una sola empresa: agro pasa a ser usuario del cliente
   insert into company_members(company_id, user_id, role) values (hc, agro, 'client');
   perform pg_temp.as_user(agro);
   log := log || pg_temp.ok(is_company_member(hc) and not can_manage(hc) and member_role(hc) = 'client', 'H13 usuario cliente ve su empresa sin gestionar');

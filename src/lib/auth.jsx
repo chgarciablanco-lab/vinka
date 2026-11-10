@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
       const { data: c } = await supabase.from('candidate_profiles').select('*').eq('user_id', uid).maybeSingle()
       setCandidate(c); setCompany(null)
     } else if (p?.role === 'company') {
-      // Una persona puede ser parte de varias empresas; una consultora (matriz) además maneja a sus clientes. Se recuerda la última elegida.
+      // Una cuenta está en una sola empresa; si es una consultora (matriz), además maneja a sus clientes. Se recuerda la última elegida.
       const fetchAll = () => supabase.rpc('my_companies')
       let { data: ms } = await fetchAll()
       // Primer ingreso tras confirmar correo: crear la empresa con los datos del registro

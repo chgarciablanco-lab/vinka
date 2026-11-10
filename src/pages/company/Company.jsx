@@ -17,7 +17,7 @@ import { InstallBanner } from '../../components/InstallBanner'
 import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
-import { CompanyContext, homeCompany } from '../../components/CompanySwitcher'
+import { CompanyContext, companyOption, homeCompany } from '../../components/CompanySwitcher'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -654,18 +654,18 @@ export function CompanyAccount() {
   )
 }
 
-/** Si la persona es parte de varias empresas, elige con cuál trabajar. */
+/** Consultora: elegir si trabajar en la matriz o en uno de sus clientes. */
 function CompanySwitcher() {
   const { company, companies, switchCompany } = useAuth()
   if (!companies || companies.length < 2) return null
   return (
     <div className="card flex flex-col gap-2 p-4">
-      <span className="text-[15px] font-semibold">Tus empresas</span>
-      <span className="text-[13px] text-tinta-3">Eres parte de {companies.length} empresas. Elige con cuál trabajar.</span>
+      <span className="text-[15px] font-semibold">Tu consultora y sus clientes</span>
+      <span className="text-[13px] text-tinta-3">Elige con qué empresa trabajar. Los clientes se agregan desde «Clientes de la consultora».</span>
       {companies.map((c) => (
         <button key={c.id} type="button" disabled={c.id === company.id} onClick={() => { switchCompany(c.id); window.location.assign('/') }}
           className={`flex h-12 items-center justify-between rounded-xl border px-4 text-left text-sm font-semibold ${c.id === company.id ? 'border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'border-linea bg-white'}`}>
-          <span className="truncate">{c.display_name}</span><span className="text-xs font-normal text-tinta-3">{c.id === company.id ? 'Actual' : 'Cambiar'}</span>
+          <span className="truncate">{companyOption(c)}</span><span className="text-xs font-normal text-tinta-3">{c.id === company.id ? 'Actual' : 'Cambiar'}</span>
         </button>
       ))}
     </div>
