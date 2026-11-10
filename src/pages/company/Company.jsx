@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
@@ -371,6 +371,7 @@ export function JobCandidates() {
   const pres = usePresence({ users: [c?.candidate_id] })
   useEffect(() => { if (c?.promotion_id) trackPromo([c.promotion_id]) }, [c?.promotion_id])
   const cardRef = useRef()
+  const artRef = useRef()
   const [match, setMatch] = useState(null)
   const { company } = useAuth()
   const onSwipe = async (dir) => {
@@ -431,7 +432,7 @@ export function JobCandidates() {
           <>
           <SwipeCard key={c.candidate_id} ref={cardRef} onSwipe={onSwipe} labels={{ right: 'ME INTERESA' }}
             behind={list[i + 1] ? <div className="deck-h rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
-          <article className="deck-h flex flex-col gap-3 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
+          <article ref={artRef} className="deck-h flex flex-col gap-3 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
             {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya postuló · si te interesa, es match</div>}
             {c.featured && <FeaturedBadge kind="profile" />}
             <div className="flex items-center gap-3">
@@ -450,6 +451,25 @@ export function JobCandidates() {
               {c.salary_expectation && job?.salary_max && job?.salary_type === 'liquido' && <span className={`col-span-2 text-[11px] font-semibold ${c.salary_expectation <= job.salary_max ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>Pretensión {c.salary_expectation <= job.salary_max ? 'dentro de tu rango' : 'sobre tu rango'}</span>}
             </div>
             {c.out_of_profile && <span className="self-start rounded-full bg-[#F4EEF2] px-2.5 py-1 text-xs font-semibold text-tinta-3">Perfil distinto al cargo</span>}
+            <FitExtras dep={c.candidate_id} box={artRef} steps={(() => {
+              const bio = (lines) => (c.bio || c.has_video) && (
+              <div key="bio" className="flex flex-col gap-1 rounded-xl bg-rosa-fondo px-3 py-2.5">
+                <span className="text-xs font-semibold text-tinta-3">Presentación{c.has_video ? ' · tiene video' : ''}</span>
+                {c.bio && <p className={`${lines === 3 ? 'line-clamp-3' : 'line-clamp-2'} text-sm leading-snug`}>{c.bio}</p>}
+              </div>
+            )
+              const exp = c.experiences?.length > 0 ? (
+              <div key="exp" className="flex flex-col gap-1 text-sm"><span className="text-xs font-semibold text-tinta-3">Experiencia reciente</span>
+                {c.experiences.slice(0, 2).map((x, k) => <span key={k} className="flex justify-between gap-2"><span className="min-w-0 truncate"><b>{x.role}</b> · {x.company}</span><span className="shrink-0 text-xs text-tinta-suave">{period(x)}</span></span>)}
+              </div>
+            ) : c.education?.[0] && (
+              <div key="edu" className="flex flex-col gap-0.5 text-sm"><span className="text-xs font-semibold text-tinta-3">Estudios</span>
+                <span className="truncate"><b>{c.education[0].title || c.education[0].level}</b>{c.education[0].institution ? ` · ${c.education[0].institution}` : ''}{c.education[0].status ? ` · ${c.education[0].status}` : ''}</span>
+              </div>
+            )
+              const skills = c.skills?.length > 0 && <p key="skills" className="line-clamp-1 text-sm text-tinta-2"><span className="text-xs font-semibold text-tinta-3">Habilidades: </span>{c.skills.slice(0, 6).join(' · ')}</p>
+              return [[bio(3), exp, skills], [bio(3), exp], [bio(2), exp], [bio(3)], [bio(2)], []]
+            })()} />
             {c.reasons?.length > 0 && <p className="text-[13px] leading-snug text-[#1E6B3F]"><b>✓ Coincide en:</b> {c.reasons.map((r) => r.toLowerCase()).join(', ')}</p>}
             <div className="flex-1" />
             <button onClick={() => { if (c.promotion_id) trackPromo([c.promotion_id], 'click'); setFull(true) }} className="btn-sm h-11 w-full border border-rosa-accion bg-white text-rosa-texto">
@@ -511,6 +531,26 @@ export function JobCandidates() {
       <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
   )
+}
+
+/** Prueba versiones de la tarjeta, de la más completa a la más breve, y deja la primera que no la hace crecer más que el alto disponible (así los botones siguen abajo) */
+function FitExtras({ steps, dep, box }) {
+  const [i, setI] = useState(0)
+  const [tick, setTick] = useState(0)
+  useLayoutEffect(() => { setI(0) }, [dep, tick])
+  useLayoutEffect(() => {
+    const el = box?.current
+    if (!el || i >= steps.length - 1) return
+    const probe = document.createElement('div'); probe.className = 'deck-h'; probe.style.cssText = 'position:absolute;visibility:hidden;width:1px'
+    el.parentNode.appendChild(probe); const avail = probe.offsetHeight; probe.remove()
+    if (el.offsetHeight > avail + 1) setI(i + 1)
+  }, [i, dep, tick, box, steps.length])
+  useEffect(() => {
+    const f = () => setTick((t) => t + 1)
+    window.addEventListener('resize', f); document.fonts?.ready?.then(f)
+    return () => window.removeEventListener('resize', f)
+  }, [])
+  return (steps[i] || []).filter(Boolean)
 }
 
 export function CompanyAccount() {
