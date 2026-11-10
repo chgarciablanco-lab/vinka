@@ -14,8 +14,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>VINKA</title>
+    <style>
+      #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#FFF9FB;transition:opacity .4s ease}
+      #splash.out{opacity:0;pointer-events:none}
+    </style>
   </head>
   <body>
+    <!-- Pantalla de carga: persona con maletín que camina y va formando VINKA -->
+    <div id="splash" role="status" aria-label="Cargando VINKA"><svg viewBox="-40 30 415.192 100" width="320" style="max-width:82vw;height:auto" aria-hidden="true"><path d="M91.912 59.456 73.984 110.0H58.57599999999999L40.648 59.456H53.751999999999995L66.28 97.616L78.88 59.456Z" fill="#D02E72" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="0.56s" dur="0.3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="0 14" to="0 0" begin="0.56s" dur="0.35s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1" keyTimes="0;1"/></path><path d="M115.336 59.456V110.0H103.024V59.456Z" fill="#D02E72" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="0.79s" dur="0.3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="0 14" to="0 0" begin="0.79s" dur="0.35s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1" keyTimes="0;1"/></path><path d="M175.48 110.0H163.168L142.576 78.824V110.0H130.264V59.456H142.576L163.168 90.776V59.456H175.48Z" fill="#D02E72" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="1.02s" dur="0.3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="0 14" to="0 0" begin="1.02s" dur="0.35s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1" keyTimes="0;1"/></path><path d="M219.712 110.0 202.72 87.68V110.0H190.408V59.456H202.72V81.632L219.56799999999998 59.456H234.04L214.456 84.224L234.76 110.0Z" fill="#D02E72" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="1.34s" dur="0.3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="0 14" to="0 0" begin="1.34s" dur="0.35s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1" keyTimes="0;1"/></path><path d="M278.056 101.072H259.192L256.168 110.0H243.27999999999997L261.568 59.456H275.82399999999996L294.11199999999997 110.0H281.08ZM274.888 91.568 268.62399999999997 73.064 262.43199999999996 91.568Z" fill="#D02E72" opacity="0"><animate attributeName="opacity" from="0" to="1" begin="1.64s" dur="0.3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="0 14" to="0 0" begin="1.64s" dur="0.35s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1" keyTimes="0;1"/></path><g transform="translate(-20 110)"><animateTransform attributeName="transform" type="translate" from="-20 110" to="335.192 110" begin="0.15s" dur="1.9s" fill="freeze"/>
+<ellipse cx="0" cy="2" rx="14" ry="3" fill="#2E2532" opacity=".12"/><g><animateTransform attributeName="transform" type="translate" values="0 0;0 -2.5;0 0" dur="0.25s" begin="0.15s" repeatDur="1.9s"/>
+<g stroke="#2E2532" stroke-width="7.5" stroke-linecap="round" fill="none">
+<path d="M0 -26 L0 0"><animateTransform attributeName="transform" type="rotate" values="24 0 -26;-24 0 -26;24 0 -26" dur="0.5s" begin="0.15s" repeatDur="1.9s"/></path>
+<path d="M0 -26 L0 0"><animateTransform attributeName="transform" type="rotate" values="-24 0 -26;24 0 -26;-24 0 -26" dur="0.5s" begin="0.15s" repeatDur="1.9s"/></path>
+<path d="M0 -47 L0 -31"><animateTransform attributeName="transform" type="rotate" values="-26 0 -48;26 0 -48;-26 0 -48" dur="0.5s" begin="0.15s" repeatDur="1.9s"/></path>
+<path d="M0 -50 L0 -27" stroke-width="10"/>
+</g>
+<g><animateTransform attributeName="transform" type="rotate" values="18 0 -47;-18 0 -47;18 0 -47" dur="0.5s" begin="0.15s" repeatDur="1.9s"/>
+ <path d="M0 -47 L1 -29" stroke="#2E2532" stroke-width="6" stroke-linecap="round"/>
+ <g><animateTransform attributeName="transform" type="rotate" values="-12 1 -29;12 1 -29;-12 1 -29" dur="0.5s" begin="0.15s" repeatDur="1.9s"/>
+  <path d="M-3 -23 v-4 a2 2 0 0 1 2 -2 h4 a2 2 0 0 1 2 2 v4" stroke="#B85F00" stroke-width="2.2" fill="none"/>
+  <rect x="-10" y="-23" width="22" height="15" rx="3" fill="#FF941E"/>
+  <path d="M-10 -17 h22" stroke="#B85F00" stroke-width="1.6"/>
+ </g>
+</g>
+<circle cx="1" cy="-61" r="8" fill="#2E2532"/>
+</g></g></svg></div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
