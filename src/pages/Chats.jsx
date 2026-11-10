@@ -11,7 +11,7 @@ import { NotifyCard } from '../components/NotifyCard'
 import { InterviewCard } from '../components/InterviewCard'
 import { Sparkle, callAi } from '../components/AiAssist'
 import { Bell } from '../components/Bell'
-import { fmtDayShort, fmtTime } from '../lib/dates'
+import { dayNum, fmtDayShort, fmtTime } from '../lib/dates'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -38,7 +38,7 @@ export function ChatList() {
               <Link key={iv.interview_id} to={`/chats/${iv.match_id}`} className="flex items-center gap-3 rounded-2xl border border-rosa-borde bg-white p-3">
                 <div className="flex w-14 shrink-0 flex-col items-center rounded-xl bg-rosa-palido py-1.5 text-rosa-oscuro">
                   <span className="text-[11px] font-semibold uppercase">{fmtDayShort(iv.starts_at).split(' ')[0]}</span>
-                  <span className="font-display text-lg font-bold leading-none">{new Date(iv.starts_at).getDate()}</span>
+                  <span className="font-display text-lg font-bold leading-none">{dayNum(iv.starts_at)}</span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="font-semibold">{fmtTime(iv.starts_at)} · {isCompany ? iv.candidate_name : iv.company_name}</span>

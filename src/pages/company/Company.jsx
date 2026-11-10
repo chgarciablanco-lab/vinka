@@ -445,10 +445,10 @@ export function JobCandidates() {
               {[['Experiencia', c.has_experience ? yrs(c.experiences) : 'Primer empleo'],
                 ['Estudios', c.education?.[0] ? (c.education[0].level || c.education[0].title) : '—'],
                 ['Áreas', c.areas?.length ? c.areas.slice(0, 2).join(', ') : '—'],
-                ['Pretensión', c.salary_expectation ? `${clp(c.salary_expectation)} líq.` : 'No indicada']].map(([k, v]) => (
+                ['Pretensión', bandTxt(c) || 'No indicada']].map(([k, v]) => (
                 <div key={k} className="flex min-w-0 flex-col gap-0.5"><span className="text-xs text-tinta-suave">{k}</span><span className="truncate font-medium">{v}</span></div>
               ))}
-              {c.salary_expectation && job?.salary_max && job?.salary_type === 'liquido' && <span className={`col-span-2 text-[11px] font-semibold ${c.salary_expectation <= job.salary_max ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>Pretensión {c.salary_expectation <= job.salary_max ? 'dentro de tu rango' : 'sobre tu rango'}</span>}
+              {c.salary_in_range != null && <span className={`col-span-2 text-[11px] font-semibold ${c.salary_in_range ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>Pretensión {c.salary_in_range ? 'dentro de tu rango' : 'sobre tu rango'}</span>}
             </div>
             {c.out_of_profile && <span className="self-start rounded-full bg-[#F4EEF2] px-2.5 py-1 text-xs font-semibold text-tinta-3">Perfil distinto al cargo</span>}
             <FitExtras dep={c.candidate_id} box={artRef} steps={(() => {
@@ -491,7 +491,7 @@ export function JobCandidates() {
               <div className="flex flex-col gap-4">
                 <div className="card grid grid-cols-2 gap-3 p-4 text-sm">
                   {[['Ubicación', [c.comuna, c.region].filter(Boolean).join(', ')], ['Disponibilidad', c.availability], ['Modalidad', (c.modalities || []).join(', ')], ['Jornada', (c.schedules || []).join(', ')],
-                    ['También trabajaría en', (c.locations || []).join(', ')], ['Cambio de ciudad', c.relocate], ['Áreas de interés', (c.areas || []).join(', ')], ['Pretensión de renta', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : '']].map(([k, v]) => (
+                    ['También trabajaría en', (c.locations || []).join(', ')], ['Cambio de ciudad', c.relocate], ['Áreas de interés', (c.areas || []).join(', ')], ['Pretensión de renta (rango)', bandTxt(c)]].map(([k, v]) => (
                     <div key={k} className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">{k}</span><span className="font-medium">{v || '—'}</span></div>
                   ))}
                 </div>
@@ -532,6 +532,10 @@ export function JobCandidates() {
     </div>
   )
 }
+
+/** Renta esperada como rango (las empresas no reciben el monto exacto) */
+const mil = (v) => (v >= 1000000 ? `${(v / 1000000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} M` : `${Math.round(v / 1000)} mil`)
+function bandTxt(c) { return c.salary_min ? `$${mil(c.salary_min)} a $${mil(c.salary_max)} líq.` : '' }
 
 /** Prueba versiones de la tarjeta, de la más completa a la más breve, y deja la primera que no la hace crecer más que el alto disponible (así los botones siguen abajo) */
 function FitExtras({ steps, dep, box }) {

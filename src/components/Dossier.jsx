@@ -4,8 +4,10 @@ import { CV_ACCEPT, fmtDate, fmtDateTime, uploadCv, useSignedUrls } from '../lib
 import { FileLink } from './FileLink'
 import { ErrorBox, Spinner, Svg } from './ui'
 import { ServiceChat } from './ServiceChat'
+import { useSetting, waLink, fmtPhone } from '../lib/settings'
+import { fromInputLocal, toInputLocal } from '../lib/dates'
 
-export const LOG_KIND = { cv: ['CV', '#6B2E8F'], sesion: ['Sesión', '#1F6F78'], busqueda: ['Búsqueda', '#3B5BA9'], oferta: ['Oferta', '#B85F00'], nota: ['Nota', '#6B5F6E'], entrega: ['Entrega', '#2F7A4F'], revision: ['Revisión', '#D02E72'], estado: ['Estado', '#8A8090'] }
+export const LOG_KIND = { cv: ['CV', '#6B2E8F'], sesion: ['Sesión', '#1F6F78'], busqueda: ['Búsqueda', '#3B5BA9'], oferta: ['Oferta', '#B85F00'], nota: ['Nota', '#6B5F6E'], entrega: ['Entrega', '#2F7A4F'], revision: ['Revisión', '#D02E72'], estado: ['Estado', '#8A8090'], seguimiento: ['Seguimiento', '#1E6B3F'] }
 export const PICK_STATUS = { sugerida: 'Sugerida', postulo: 'Postuló', entrevista: 'En entrevista', descartada: 'Descartada' }
 export const SESSION_STATUS = { agendada: 'Agendada', realizada: 'Realizada', cancelada: 'Cancelada', no_asistio: 'No asistió' }
 const AUTHOR = { advisor: 'Asesor/a', admin: 'VINKA', candidate: 'Postulante', system: 'Sistema' }
@@ -146,7 +148,7 @@ export function PicksTab({ requestId, canEdit, asCandidate = false }) {
 }
 
 /* ---------- Calendario de sesiones ---------- */
-const localInput = (d) => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16) }
+const localInput = (d) => toInputLocal(d)
 export function SessionsTab({ requestId, canEdit, asCandidate = false }) {
   const [list, setList] = useState(null)
   const [f, setF] = useState(null)
@@ -156,7 +158,7 @@ export function SessionsTab({ requestId, canEdit, asCandidate = false }) {
   const save = async () => {
     setErr('')
     if (!f.starts) return setErr('Elige fecha y hora')
-    const { error } = await supabase.rpc('save_service_session', { p_id: f.id || null, p_request: requestId, p_starts: new Date(f.starts).toISOString(), p_minutes: Number(f.minutes) || 45, p_mode: f.mode, p_link: f.link.trim(), p_place: f.place, p_status: f.status, p_summary: f.summary })
+    const { error } = await supabase.rpc('save_service_session', { p_id: f.id || null, p_request: requestId, p_starts: fromInputLocal(f.starts).toISOString(), p_minutes: Number(f.minutes) || 45, p_mode: f.mode, p_link: f.link.trim(), p_place: f.place, p_status: f.status, p_summary: f.summary })
     if (error) return setErr(errMsg(error))
     setF(null); load()
   }
@@ -176,7 +178,7 @@ export function SessionsTab({ requestId, canEdit, asCandidate = false }) {
       {f && (
         <div className="flex flex-col gap-2 rounded-xl bg-[#FAF7F9] p-3">
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Fecha y hora</span><input type="datetime-local" className="input h-11 bg-white" value={f.starts} onChange={(e) => setF({ ...f, starts: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Fecha y hora (de Chile)</span><input type="datetime-local" className="input h-11 bg-white" value={f.starts} onChange={(e) => setF({ ...f, starts: e.target.value })} /></label>
             <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Duración (min)</span><input type="number" min={10} max={240} className="input h-11 bg-white" value={f.minutes} onChange={(e) => setF({ ...f, minutes: e.target.value })} /></label>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -215,7 +217,7 @@ export function LogTab({ requestId, canEdit, asCandidate = false }) {
       {f && (
         <div className="flex flex-col gap-2 rounded-xl bg-[#FAF7F9] p-3">
           <div className="grid grid-cols-[1fr_110px] gap-2">
-            <select className="input h-11 bg-white" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{['cv', 'sesion', 'busqueda', 'oferta', 'nota'].map((k) => <option key={k} value={k}>{LOG_KIND[k][0]}</option>)}</select>
+            <select className="input h-11 bg-white" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{['cv', 'sesion', 'busqueda', 'oferta', 'seguimiento', 'nota'].map((k) => <option key={k} value={k}>{k === 'seguimiento' ? 'Seguimiento (WhatsApp o chat)' : LOG_KIND[k][0]}</option>)}</select>
             <input type="number" min={0} max={600} className="input h-11 bg-white" placeholder="Minutos" value={f.minutes} onChange={(e) => setF({ ...f, minutes: e.target.value })} />
           </div>
           <input className="input h-11 bg-white" maxLength={200} placeholder="Qué hiciste (ej.: reescribí el resumen profesional)" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
@@ -239,6 +241,30 @@ export function LogTab({ requestId, canEdit, asCandidate = false }) {
           ))}
         </ol>
       )}
+    </div>
+  )
+}
+
+/* ---------- Avance de lo vendido (se mide en el expediente) ---------- */
+export function ServiceProgress({ requestId, as, onLoad }) {
+  const [items, setItems] = useState(null)
+  useEffect(() => {
+    supabase.rpc('service_progress', { p_id: requestId }).then(({ data }) => { setItems(data || []); onLoad?.(data || []) })
+    const t = setInterval(() => supabase.rpc('service_progress', { p_id: requestId }).then(({ data }) => { setItems(data || []); onLoad?.(data || []) }), 20000)
+    return () => clearInterval(t)
+  }, [requestId]) // eslint-disable-line
+  if (!items || items.length === 0) return null
+  const done = items.filter((x) => x.ok).length
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-[#E4D8EE] bg-white p-3">
+      <span className="text-[13px] font-semibold">{as === 'candidate' ? 'Lo que incluye tu asesoría' : 'Lo que se vendió'} · {done} de {items.length} listo</span>
+      {items.map((x) => (
+        <span key={x.key} className="flex items-center justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2"><span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${x.ok ? 'bg-[#EAF6EF] text-[#1E6B3F]' : 'bg-[#F4EEF2] text-tinta-suave'}`}>{x.ok ? '✓' : ''}</span>{x.label}</span>
+          <span className={`shrink-0 text-xs font-semibold ${x.ok ? 'text-[#1E6B3F]' : 'text-tinta-3'}`}>{x.have} de {x.need}</span>
+        </span>
+      ))}
+      {as !== 'candidate' && done < items.length && <span className="text-[11px] text-tinta-suave">Se cuenta solo: CV enviado por el chat, sesiones marcadas como realizadas, ofertas sugeridas y seguimientos registrados en el historial.</span>}
     </div>
   )
 }
@@ -298,8 +324,9 @@ export function Dossier({ r, as, counts = {} }) {
   ]
   return (
     <div className="flex flex-col gap-3">
+      <ServiceProgress requestId={r.id} as={as} />
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
-      {tab === 'chat' && <ServiceChat requestId={r.id} as={as} disabled={r.status === 'cancelada'} />}
+      {tab === 'chat' && <ServiceChat requestId={r.id} as={as} disabled={r.status === 'cancelada'} advisorName={r.assigned_name || r.advisor || ''} />}
       {tab === 'cv' && <CvTab requestId={r.id} canUpload={canEdit} />}
       {tab === 'ofertas' && <PicksTab requestId={r.id} canEdit={canEdit} />}
       {tab === 'sesiones' && <SessionsTab requestId={r.id} canEdit={canEdit} />}
@@ -312,11 +339,18 @@ export function Dossier({ r, as, counts = {} }) {
 /** Vista de la persona asesorada: conversación, CV, sesiones, ofertas e historial visible */
 export function CandidateDossier({ r }) {
   const [tab, setTab] = useState('chat')
+  const wa = useSetting('whatsapp_vinka')
   const tabs = [['chat', 'Conversación'], ['cv', 'Mi CV'], ['sesiones', 'Sesiones'], ['ofertas', 'Ofertas sugeridas'], ['historial', 'Avance']]
   return (
     <div className="flex flex-col gap-3">
+      {['en_curso', 'entregada', 'aprobada'].includes(r.status) && <ServiceProgress requestId={r.id} as="candidate" />}
+      {r.service_id === 'completa' && r.status === 'en_curso' && wa && (
+        <a href={waLink(wa, `Hola, tengo la Asesoría completa en VINKA. Mi asesor/a es ${r.assigned_name || 'quien me asignaron'}.`)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-[#BFE3CC] bg-[#EFF9F2] p-3 text-sm text-[#134A2B]">
+          <Svg name="chat" size={20} className="shrink-0" /><span className="flex flex-col"><b>Seguimiento por WhatsApp de VINKA</b><span className="text-xs">Te responde tu asesor/a{r.assigned_name ? ` ${r.assigned_name}` : ''} desde el número oficial {fmtPhone(wa)}, durante 2 semanas.</span></span>
+        </a>
+      )}
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
-      {tab === 'chat' && <ServiceChat requestId={r.id} as="candidate" disabled={r.status === 'cancelada'} />}
+      {tab === 'chat' && <ServiceChat requestId={r.id} as="candidate" disabled={r.status === 'cancelada'} advisorName={r.assigned_name || ''} />}
       {tab === 'cv' && <CvTab requestId={r.id} canUpload={false} asCandidate />}
       {tab === 'sesiones' && <SessionsTab requestId={r.id} canEdit={false} asCandidate />}
       {tab === 'ofertas' && <PicksTab requestId={r.id} canEdit={false} asCandidate />}

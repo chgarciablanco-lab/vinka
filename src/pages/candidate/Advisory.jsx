@@ -7,8 +7,8 @@ import { CandidateDossier } from '../../components/Dossier'
 export const SERVICE_STATUS = {
   solicitada: ['Solicitada', 'bg-[#F4EEF2] text-tinta-2', 'Te contactaremos pronto para coordinar.'],
   pago_pendiente: ['Pago pendiente', 'bg-naranja-palido text-naranja-texto', 'Te enviamos los datos para pagar. Al confirmar el pago comenzamos.'],
-  en_curso: ['En curso', 'bg-[#F7F0FB] text-[#6B2E8F]', 'Un reclutador está trabajando contigo.'],
-  entregada: ['Entregada', 'bg-[#EAF6EF] text-[#134A2B]', '¡Listo! Revisa la nota del reclutador.'],
+  en_curso: ['En curso', 'bg-[#F7F0FB] text-[#6B2E8F]', 'Tu asesor/a está trabajando contigo. Abajo ves lo que incluye tu asesoría y cuánto va listo.'],
+  entregada: ['En revisión de VINKA', 'bg-[#EAF6EF] text-[#134A2B]', 'Tu asesor/a terminó. VINKA está revisando que esté todo lo que incluye tu asesoría; te avisaremos.'],
   aprobada: ['Finalizada', 'bg-[#EAF6EF] text-[#134A2B]', 'Asesoría finalizada. Tus archivos y ofertas quedan guardados aquí.'],
   cancelada: ['Cancelada', 'bg-[#F1EDF0] text-tinta-3', ''],
 }

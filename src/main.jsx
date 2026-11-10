@@ -7,6 +7,9 @@ import './index.css'
 import { registerSW } from './lib/push'
 import { installGlobalErrorHandlers } from './components/ErrorBoundary'
 import './lib/install'
+import { installChileTime } from './lib/dates'
+
+installChileTime()
 
 registerSW()
 

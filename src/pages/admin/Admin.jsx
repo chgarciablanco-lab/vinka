@@ -3,7 +3,8 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
-import { Dossier, TeamNotes } from '../../components/Dossier'
+import { Dossier, ServiceProgress, TeamNotes } from '../../components/Dossier'
+import { atLocal, ymd } from '../../lib/dates'
 import { fmtDateTime } from '../../lib/files'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
@@ -207,6 +208,30 @@ function Business() {
 const SRV_STATUS = [['solicitada', 'Solicitada'], ['pago_pendiente', 'Pago pendiente'], ['en_curso', 'En curso'], ['entregada', 'Entregada (por revisar)'], ['cancelada', 'Cancelada']]
 const SRV_LABEL = { ...Object.fromEntries(SRV_STATUS), aprobada: 'Aprobada ✓' }
 
+/** WhatsApp oficial de VINKA: lo atiende el asesor/a asignado/a en la Asesoría completa (seguimiento de 2 semanas) */
+function WhatsAppSetting() {
+  const [v, setV] = useState(null)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => { supabase.from('app_settings').select('value').eq('key', 'whatsapp_vinka').maybeSingle().then(({ data }) => setV(data?.value ? `+${data.value}` : '')) }, [])
+  const save = async () => {
+    setErr(''); setMsg('')
+    const { error } = await supabase.rpc('admin_set_setting', { p_key: 'whatsapp_vinka', p_value: v })
+    if (error) return setErr(errMsg(error))
+    setMsg(v ? 'Guardado. Las personas con Asesoría completa en curso ya ven el botón.' : 'Quitado. El seguimiento queda solo por el chat de VINKA.')
+  }
+  if (v == null) return null
+  return (
+    <div className="card flex flex-col gap-2 p-3.5 text-sm">
+      <span className="text-[15px] font-semibold">WhatsApp oficial de VINKA</span>
+      <span className="text-xs leading-snug text-tinta-3">Para el seguimiento de 2 semanas de la Asesoría completa. Lo atiende el asesor/a asignado/a desde este número (nunca desde el suyo) y registra cada contacto como «Seguimiento» en el expediente.</span>
+      <div className="flex gap-2"><input className="input h-11 flex-1" inputMode="tel" placeholder="+56 9 1234 5678" value={v} onChange={(e) => setV(e.target.value)} /><button className="btn-sm h-11 bg-morado px-4 text-white" onClick={save}>Guardar</button></div>
+      {msg && <span className="text-xs text-[#1E6B3F]">{msg}</span>}
+      <ErrorBox>{err}</ErrorBox>
+    </div>
+  )
+}
+
 /** Revisión final: VINKA da el visto bueno o devuelve al asesor/a con observaciones */
 function Review({ r, onDone }) {
   const [note, setNote] = useState('')
@@ -220,8 +245,9 @@ function Review({ r, onDone }) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border-2 border-[#2F7A4F] bg-[#F3FAF6] p-3">
       <span className="text-[15px] font-semibold text-[#134A2B]">Revisión de VINKA</span>
-      <span className="text-xs text-[#134A2B]">Revisa en el expediente el CV mejorado, las sesiones, las búsquedas, las ofertas y el historial ({r.logs} registros, {Math.floor((r.minutes || 0) / 60)} h {(r.minutes || 0) % 60} min). Luego aprueba o devuelve con observaciones.</span>
-      <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Observaciones (obligatorio si la devuelves; al aprobar es opcional)" />
+      <ServiceProgress requestId={r.id} as="admin" />
+      <span className="text-xs text-[#134A2B]">Revisa también la calidad en el expediente. La persona recibe el aviso de «terminada» recién cuando apruebas.</span>
+      <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Observaciones: obligatorias si la devuelves o si apruebas con algo pendiente (queda registrado)" />
       <ErrorBox>{err}</ErrorBox>
       <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => go(false)}>Devolver al asesor/a</button><button className="btn h-11 bg-[#2F7A4F]" onClick={() => go(true)}>Aprobar asesoría ✓</button></div>
     </div>
@@ -232,7 +258,7 @@ function Review({ r, onDone }) {
 function UpcomingSessions() {
   const [list, setList] = useState(null)
   useEffect(() => {
-    const from = new Date(); from.setHours(0, 0, 0, 0)
+    const from = atLocal(ymd(new Date()), '00:00')
     supabase.rpc('admin_sessions', { p_from: from.toISOString(), p_to: new Date(Date.now() + 30 * 864e5).toISOString() }).then(({ data }) => setList(data || []))
   }, [])
   if (!list) return null
@@ -308,6 +334,7 @@ function Advisory() {
       </div>
       <ErrorBox>{err}</ErrorBox>
       <UpcomingSessions />
+      <WhatsAppSetting />
       <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} disabled={!!fst} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_190px_190px]">

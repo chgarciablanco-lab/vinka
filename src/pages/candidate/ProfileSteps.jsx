@@ -106,7 +106,7 @@ export function StepWork({ onDone, edit }) {
           <Field label="Región"><select className="input" value={f.region} onChange={(e) => setF({ ...f, region: e.target.value })}><option value="">Selecciona</option>{REGIONES.map((r) => <option key={r}>{r}</option>)}</select></Field>
           <Field label="Comuna"><input className="input" value={f.comuna} onChange={(e) => setF({ ...f, comuna: e.target.value })} /></Field>
         </div>
-        <Field label="Renta líquida esperada (CLP)" hint="Se usa para sugerirte vacantes compatibles. Las empresas no ven el monto exacto.">
+        <Field label="Renta líquida esperada (CLP)" hint="Se usa para sugerirte vacantes compatibles. Las empresas no ven el monto exacto: solo un rango (por ejemplo, entre $500 y $600 mil).">
           <input className="input" inputMode="numeric" placeholder="$ 800.000" value={f.salary} onChange={(e) => setF({ ...f, salary: clp(parseCLP(e.target.value)) })} />
         </Field>
         <ErrorBox>{err}</ErrorBox>

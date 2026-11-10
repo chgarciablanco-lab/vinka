@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { atLocal, fmtDayLong, fmtDayShort, fmtTime, minutes, ymd } from '../../lib/dates'
+import { atLocal, dayNum, fmtDayLong, fmtDayShort, fmtTime, minutes, outsideChile, ymd } from '../../lib/dates'
 import { Calendar } from '../../components/Calendar'
 import { InterviewCard } from '../../components/InterviewCard'
 import { Chips, Empty, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
@@ -59,7 +59,7 @@ export default function Agenda() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-end justify-between px-5 pb-3">
-        <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno.</p></div>
+        <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno. Todas las horas están en hora de Chile.</p>{outsideChile() && <p className="mt-1 rounded-lg bg-naranja-palido px-2 py-1 text-[12px] text-naranja-texto">Tu dispositivo está en otra zona horaria: aquí ves y creas los horarios en hora de Chile.</p>}</div>
         <Bell />
       </div>
       <div className="flex flex-col gap-4 px-5">
@@ -82,7 +82,7 @@ export default function Agenda() {
               <button key={r.slot_id} onClick={() => setDetail(r)} className="card flex items-center gap-3 p-3 text-left">
                 <div className="flex w-14 shrink-0 flex-col items-center rounded-xl bg-rosa-palido py-1.5 text-rosa-oscuro">
                   <span className="text-[11px] font-semibold uppercase">{fmtDayShort(r.starts_at).split(' ')[0]}</span>
-                  <span className="font-display text-lg font-bold leading-none">{new Date(r.starts_at).getDate()}</span>
+                  <span className="font-display text-lg font-bold leading-none">{dayNum(r.starts_at)}</span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="font-semibold">{fmtTime(r.starts_at)} · {r.candidate_name}</span>

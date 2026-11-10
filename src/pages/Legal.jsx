@@ -20,7 +20,7 @@ const DOCS = {
     body: [
       'Recopilamos los datos que entregas al registrarte y completar tu perfil, y los usamos solo para mostrarte vacantes o candidatos compatibles y operar el chat.',
       'Tu teléfono y correo son privados: una empresa solo los ve si tú decides compartirlos tras un match.',
-      'Las empresas ven tu nombre con la inicial del apellido, tu perfil laboral y tu presentación según la visibilidad que elijas. No ven tu renta esperada exacta.',
+      'Las empresas ven tu nombre con la inicial del apellido, tu perfil laboral y tu presentación según la visibilidad que elijas. No ven tu renta esperada exacta: solo un rango aproximado (por ejemplo, entre $500.000 y $600.000) y si calza con la renta de la vacante.',
       'Los videos se guardan en almacenamiento privado y solo se reproducen mediante enlaces temporales para empresas autorizadas.',
       'Si una vacante tiene preguntas de filtro, la empresa ve tus respuestas. El equipo de la empresa puede dejar notas y evaluaciones internas sobre tu postulación; se usan solo para ese proceso de selección.',
       'Estado en línea: mostramos si estás conectado/a o hace cuánto solo a quienes tienen relación contigo en un proceso (matches, postulaciones y tu equipo). Las empresas que revisan perfiles públicos solo ven "activo/a hoy" o "esta semana". Puedes ocultarlo en Perfil; mientras esté oculto, tampoco verás el estado de otros. Si te marcas como "No disponible", quienes tienen relación contigo verán ese aviso y tu mensaje, y no te llegarán notificaciones al teléfono hasta que vuelvas.',

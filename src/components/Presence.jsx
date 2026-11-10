@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { presenceText, untilText } from '../lib/presence'
 import { Sheet } from './ui'
+import { atLocal, ymd } from '../lib/dates'
 
 /** Punto de estado sobre un avatar: verde = en línea, gris = activo hace poco */
 export function WithDot({ p, children, size = 12 }) {
@@ -75,8 +76,8 @@ export function AwayBanner({ p, name }) {
   )
 }
 
-const tomorrowAt9 = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d }
-const nextMondayAt9 = () => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0); return d }
+const tomorrowAt9 = () => atLocal(ymd(Date.now() + 86400000), '09:00')
+const nextMondayAt9 = () => { const dow = new Date(ymd(Date.now()) + 'T12:00:00Z').getUTCDay(); return atLocal(ymd(Date.now() + ((8 - dow) % 7 || 7) * 86400000), '09:00') }
 const OPCIONES = [
   ['1 hora', () => new Date(Date.now() + 3600e3)],
   ['3 horas', () => new Date(Date.now() + 3 * 3600e3)],

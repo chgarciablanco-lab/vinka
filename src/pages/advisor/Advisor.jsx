@@ -3,6 +3,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
 import { Dossier, TeamNotes } from '../../components/Dossier'
+import { useSetting, fmtPhone } from '../../lib/settings'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
 const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'correo', videollamada: 'videollamada' }
@@ -100,6 +101,7 @@ export function AdvisorTeam() {
 
 export default function AdvisorHome() {
   const { profile } = useAuth()
+  const wa = useSetting('whatsapp_vinka')
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState(null)
@@ -141,11 +143,12 @@ export default function AdvisorHome() {
             <span className="text-xs text-tinta-3">Prefiere {CONTACT_TXT[r.contact_pref] || r.contact_pref}. Para videollamadas, comparte el enlace de la reunión en el chat.</span>
             {r.status !== 'en_curso' && r.status !== 'entregada' && <div className="rounded-xl bg-naranja-palido px-3 py-2.5 text-xs text-naranja-texto">VINKA está coordinando el pago. Puedes presentarte por el chat, pero la asesoría comienza cuando la solicitud pase a «En curso».</div>}
             <Profile r={r} />
+            {r.service_id === 'completa' && <div className="rounded-xl bg-[#EFF9F2] px-3 py-2.5 text-xs leading-snug text-[#134A2B]"><b>Seguimiento por WhatsApp (2 semanas):</b> lo atiendes tú desde el WhatsApp oficial de VINKA{wa ? ` (${fmtPhone(wa)})` : ' (pide el acceso a administración)'}, nunca desde tu número personal. Registra cada contacto en Historial → «Seguimiento»: se piden al menos 2 para entregar.</div>}
             <Dossier r={r} as="advisor" counts={{ messages: r.messages }} />
             {r.status === 'en_curso' && (
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
                 <span className="text-[13px] font-semibold">¿Terminaste la asesoría?</span>
-                <span className="text-xs text-tinta-3">Antes de entregar, deja en el expediente el CV mejorado, las sesiones realizadas, las ofertas sugeridas y tu registro de trabajo: VINKA lo revisa para dar el visto bueno.</span>
+                <span className="text-xs text-tinta-3">Solo puedes entregar cuando arriba esté listo todo lo que se vendió. VINKA revisa la calidad y recién ahí la persona recibe el aviso de «terminada».</span>
                 <textarea className="textarea h-20" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Mensaje final para la persona: qué le entregaste y próximos pasos" />
                 <button className="btn" onClick={() => deliver(r)}>Marcar como entregada</button>
               </div>
