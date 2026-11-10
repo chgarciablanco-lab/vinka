@@ -65,6 +65,7 @@ export default function Welcome() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5">
           <span className="font-display text-[22px] font-bold tracking-wide">VINKA</span>
           <nav className="hidden items-center gap-6 text-sm font-semibold text-tinta-2 md:flex" aria-label="Secciones">
+            <a href="#video" className="hover:text-rosa-texto">Video</a>
             <a href="#personas" className="hover:text-rosa-texto">Para personas</a>
             <a href="#empresas" className="hover:text-rosa-texto">Para empresas</a>
             <a href="#precios" className="hover:text-rosa-texto">Precios</a>
@@ -112,6 +113,32 @@ export default function Welcome() {
             <div className="mt-1 grid grid-cols-2 gap-2"><span className="flex h-11 items-center justify-center rounded-xl border border-linea text-sm font-semibold text-tinta-3">No me interesa</span><span className="flex h-11 items-center justify-center rounded-xl bg-rosa-accion text-sm font-semibold text-white">Me interesa</span></div>
           </div>
           <div className="relative -mt-3 ml-auto w-56 rounded-2xl bg-morado p-3.5 text-white shadow-lg"><span className="text-[13px] font-semibold">¡Es un match! 🎉</span><span className="block text-xs text-white/80">La empresa también se interesó en ti. Escríbele.</span></div>
+        </div>
+      </section>
+
+      {/* Video explicativo */}
+      <section id="video" className="scroll-mt-16 bg-white py-14">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 md:grid-cols-[1fr_auto]">
+          <div className="flex max-w-xl flex-col gap-3">
+            <span className="text-sm font-semibold uppercase tracking-wide text-rosa-texto">Mira cómo funciona</span>
+            <h2 className="font-display text-[28px] font-bold leading-tight md:text-[34px]">VINKA en menos de un minuto</h2>
+            <p className="text-[16px] leading-relaxed text-tinta-3">Desliza vacantes, haz match, conversa con la empresa y agenda tu entrevista. Si contratas, lleva todo el proceso de selección en un solo lugar.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={() => go('/registro/candidato')} className="btn-sm h-11 bg-rosa-accion px-5 text-white">Busco trabajo</button>
+              <button onClick={() => go('/registro/empresa')} className="btn-sm h-11 border border-linea bg-white px-5">Busco talento</button>
+            </div>
+          </div>
+          <div className="mx-auto w-full max-w-[280px] md:w-[300px] md:max-w-none">
+            <video
+              className="aspect-[9/16] w-full rounded-[28px] border border-[#F1E4EB] bg-rosa-palido object-cover shadow-[0_20px_50px_rgba(48,37,56,0.14)]"
+              src="/media/vinka-video.mp4"
+              poster="/media/vinka-video.jpg"
+              controls
+              playsInline
+              preload="none"
+              aria-label="Video explicativo de VINKA"
+            />
+          </div>
         </div>
       </section>
 
