@@ -412,7 +412,7 @@ export function JobCandidates() {
   const swipeFromSheet = (dir) => { setFull(false); setTimeout(() => cardRef.current?.swipe(dir), 120) }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] pb-10 lg:max-w-3xl">
+    <div className="safe-b mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] lg:max-w-3xl lg:pb-10">
       <div className="safe-t flex items-center gap-1.5 px-4 pb-3">
         <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
         <div className="flex flex-col"><span className="text-[11px] text-tinta-suave">Candidatos para</span><span className="text-[15px] font-semibold">{job?.title || '…'}</span></div>
@@ -430,8 +430,8 @@ export function JobCandidates() {
         ) : (
           <>
           <SwipeCard key={c.candidate_id} ref={cardRef} onSwipe={onSwipe} labels={{ right: 'ME INTERESA' }}
-            behind={list[i + 1] ? <div className="h-[400px] rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
-          <article className="flex min-h-[400px] flex-col gap-3 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
+            behind={list[i + 1] ? <div className="deck-h rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
+          <article className="deck-h flex flex-col gap-3 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
             {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya postuló · si te interesa, es match</div>}
             {c.featured && <FeaturedBadge kind="profile" />}
             <div className="flex items-center gap-3">
@@ -456,9 +456,9 @@ export function JobCandidates() {
               Ver más</button>
           </article>
           </SwipeCard>
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-4 flex flex-col gap-2.5">
             <SwipeButtons onPass={() => cardRef.current?.swipe('left')} onSave={() => cardRef.current?.swipe('up')} onLike={() => cardRef.current?.swipe('right')} />
-            <SwipeHint />
+            <div className="[@media(max-height:700px)]:hidden"><SwipeHint /></div>
           </div>
           </>
         )}

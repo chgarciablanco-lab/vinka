@@ -22,6 +22,9 @@
   .pill { @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide; }
   .safe-b { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
   .safe-t { padding-top: max(env(safe-area-inset-top), 16px); }
+  /* Tarjeta de candidatos: ocupa el alto disponible para que los botones queden abajo de la pantalla */
+  .deck-h { min-height: max(330px, calc(100dvh - 166px - max(env(safe-area-inset-top), 16px) - max(env(safe-area-inset-bottom), 12px))); }
+  @media (min-width: 1024px) { .deck-h { min-height: min(620px, calc(100dvh - 220px)); } }
 }
 
 /* Escritorio (desde 1024 px): las barras fijas inferiores se centran en el área de contenido, no sobre la barra lateral */
