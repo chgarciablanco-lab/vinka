@@ -430,49 +430,30 @@ export function JobCandidates() {
         ) : (
           <>
           <SwipeCard key={c.candidate_id} ref={cardRef} onSwipe={onSwipe} labels={{ right: 'ME INTERESA' }}
-            behind={list[i + 1] ? <div className="h-[480px] rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
-          <article className="flex min-h-[480px] flex-col gap-3.5 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
-            {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya mostró interés en esta vacante · si te interesa, es match</div>}
+            behind={list[i + 1] ? <div className="h-[400px] rounded-[22px] border border-[#EEE3EA] bg-white shadow-[0_10px_30px_rgba(48,37,56,0.10)]" /> : null}>
+          <article className="flex min-h-[400px] flex-col gap-3 rounded-[22px] border border-[#EEE3EA] bg-white p-[18px] shadow-[0_10px_30px_rgba(48,37,56,0.10)]">
+            {c.already_interested && <div className="rounded-xl bg-rosa-palido px-2.5 py-2 text-xs font-bold text-rosa-oscuro">Ya postuló · si te interesa, es match</div>}
             {c.featured && <FeaturedBadge kind="profile" />}
             <div className="flex items-center gap-3">
               <Avatar text={c.initials} color="#302538" size={56} round />
               <div className="flex min-w-0 flex-col gap-0.5"><span className="font-display text-[19px] font-semibold">{c.display_name}</span><span className="text-sm text-tinta-2">{c.headline}</span>
                 {c.role_label && c.role_label !== c.headline && <span className="text-xs text-tinta-suave">{c.role_label}</span>}<PresenceLine p={pres[c.candidate_id]} /></div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {[[c.comuna, c.region].filter(Boolean).join(', '), c.availability && `Disponible: ${c.availability.toLowerCase()}`, c.modalities?.join(' o '), c.schedules?.length && `Jornada ${c.schedules.join(' o ').toLowerCase()}`].filter(Boolean).map((t) => <span key={t} className="rounded-lg bg-[#F6F1F4] px-2.5 py-1.5 text-[13px] text-tinta-2">{t}</span>)}
+            <p className="text-[13px] leading-snug text-tinta-2">{[[c.comuna, c.region].filter(Boolean).join(', '), c.availability && `disponible ${c.availability.toLowerCase()}`, c.modalities?.join(' o ').toLowerCase(), c.schedules?.length && `jornada ${c.schedules.join(' o ').toLowerCase()}`].filter(Boolean).join(' · ')}</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-xl bg-[#FBF7FA] p-3 text-sm">
+              {[['Experiencia', c.has_experience ? yrs(c.experiences) : 'Primer empleo'],
+                ['Estudios', c.education?.[0] ? (c.education[0].level || c.education[0].title) : '—'],
+                ['Áreas', c.areas?.length ? c.areas.slice(0, 2).join(', ') : '—'],
+                ['Pretensión', c.salary_expectation ? `${clp(c.salary_expectation)} líq.` : 'No indicada']].map(([k, v]) => (
+                <div key={k} className="flex min-w-0 flex-col gap-0.5"><span className="text-xs text-tinta-suave">{k}</span><span className="truncate font-medium">{v}</span></div>
+              ))}
+              {c.salary_expectation && job?.salary_max && job?.salary_type === 'liquido' && <span className={`col-span-2 text-[11px] font-semibold ${c.salary_expectation <= job.salary_max ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>Pretensión {c.salary_expectation <= job.salary_max ? 'dentro de tu rango' : 'sobre tu rango'}</span>}
             </div>
-            <div className="grid grid-cols-2 gap-3 rounded-xl bg-[#FBF7FA] p-3 text-sm">
-              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Experiencia</span><span className="font-medium">{c.has_experience ? yrs(c.experiences) : 'Busca primer empleo'}</span></div>
-              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Estudios</span><span className="font-medium">{c.education?.[0] ? [c.education[0].title || c.education[0].level, c.education[0].status].filter(Boolean).join(' · ') : '—'}</span></div>
-              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Áreas</span><span className="font-medium">{c.areas?.length ? c.areas.slice(0, 3).join(', ') : '—'}</span></div>
-              <div className="flex flex-col gap-0.5"><span className="text-xs text-tinta-suave">Pretensión de renta</span><span className="font-medium">{c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : 'No indicada'}</span>
-                {c.salary_expectation && job?.salary_max && job?.salary_type === 'liquido' && <span className={`text-[11px] font-semibold ${c.salary_expectation <= job.salary_max ? 'text-[#1E6B3F]' : 'text-[#B85F00]'}`}>{c.salary_expectation <= job.salary_max ? 'Dentro de tu rango' : 'Sobre tu rango'}</span>}</div>
-            </div>
-            {c.experiences?.length > 0 && (
-              <div className="flex flex-col gap-1.5 text-sm"><span className="text-xs font-semibold text-tinta-3">Experiencia reciente</span>
-                {c.experiences.slice(0, 3).map((x, k) => <span key={k} className="flex justify-between gap-2"><span className="min-w-0"><b>{x.role}</b> · {x.company}</span><span className="shrink-0 text-xs text-tinta-suave">{period(x)}</span></span>)}
-                {c.experiences.length > 3 && <span className="text-xs text-tinta-suave">+{c.experiences.length - 3} más</span>}
-              </div>
-            )}
-            {c.skills?.length > 0 && <div className="flex flex-wrap gap-1.5">{c.skills.slice(0, 8).map((s) => <span key={s} className="rounded-full border border-linea px-2.5 py-1 text-xs">{s}</span>)}{c.skills.length > 8 && <span className="px-1 py-1 text-xs text-tinta-suave">+{c.skills.length - 8}</span>}</div>}
-            {(c.bio || c.has_video) && (
-              <div className="flex flex-col gap-2 rounded-xl bg-rosa-fondo p-3">
-                <span className="text-xs font-semibold text-tinta-3">Presentación</span>
-                {c.bio && <p className="line-clamp-3 text-sm leading-relaxed">{c.bio}</p>}
-                {c.has_video && (video ? <video src={video} controls autoPlay playsInline className="w-full rounded-xl bg-morado" /> : <button onClick={playVideo} className="btn-sm self-start bg-morado text-white"><Svg name="video" size={18} className="mr-1.5" />Ver video (15 s)</button>)}
-              </div>
-            )}
             {c.out_of_profile && <span className="self-start rounded-full bg-[#F4EEF2] px-2.5 py-1 text-xs font-semibold text-tinta-3">Perfil distinto al cargo</span>}
-            {c.reasons?.length > 0 && (
-              <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
-                <span className="text-xs font-semibold text-tinta-3">Coincide con tu vacante en</span>
-                <div className="flex flex-wrap gap-1.5">{c.reasons.map((r) => <span key={r} className="rounded-full bg-[#EAF6EF] px-2.5 py-1 text-xs font-semibold text-[#1E6B3F]">✓ {r}</span>)}</div>
-              </div>
-            )}
+            {c.reasons?.length > 0 && <p className="text-[13px] leading-snug text-[#1E6B3F]"><b>✓ Coincide en:</b> {c.reasons.map((r) => r.toLowerCase()).join(', ')}</p>}
             <div className="flex-1" />
-            <button onClick={() => { if (c.promotion_id) trackPromo([c.promotion_id], 'click'); setFull(true) }} className="self-start py-1 text-sm font-semibold text-rosa-texto">Ver perfil completo</button>
-            <span className="text-xs leading-snug text-tinta-suave">Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>
+            <button onClick={() => { if (c.promotion_id) trackPromo([c.promotion_id], 'click'); setFull(true) }} className="btn-sm h-11 w-full border border-rosa-accion bg-white text-rosa-texto">
+              Ver más</button>
           </article>
           </SwipeCard>
           <div className="mt-4 flex flex-col gap-3">
@@ -516,6 +497,7 @@ export function JobCandidates() {
                 {(c.skills || []).length > 0 && <div className="card flex flex-col gap-2 p-4"><span className="font-semibold">Habilidades</span><div className="flex flex-wrap gap-1.5">{c.skills.map((s) => <span key={s} className="rounded-full border border-linea px-2.5 py-1 text-xs">{s}</span>)}</div></div>}
               </div>
             </div>
+            <span className="text-xs text-tinta-suave">Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>
             {c.updated_at && <span className="text-xs text-tinta-suave">Perfil actualizado el {new Date(c.updated_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}. Teléfono y correo se muestran solo tras el match y si la persona los comparte.</span>}
             <div className="sticky bottom-0 grid grid-cols-3 gap-2 bg-white pt-2">
               <button className="btn-sm h-12 border border-linea bg-white" onClick={() => swipeFromSheet('left')}>Descartar</button>
