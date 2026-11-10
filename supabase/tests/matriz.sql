@@ -246,6 +246,22 @@ begin
   insert into subscriptions (company_id, plan_id, status) values (co, 'gratis', 'active') on conflict (company_id) do update set plan_id = 'gratis', status = 'active';
   log := log || pg_temp.ok(exists (select 1 from notifications where kind = 'plan' and title like 'Tienes más vacantes%' and created_at >= t0), 'F9 bajar de plan con vacantes de más avisa a la empresa');
 
+
+  ---------------- G. Asistente y reportes ----------------
+  perform pg_temp.as_user(cam);
+  ext := submit_feedback('error', 'No puedo subir mi CV', 'Queda cargando', '/perfil', 'matriz');
+  select count(*) into n from feedback where user_id is distinct from cam;
+  log := log || pg_temp.ok(ext is not null and n = 0, 'G1 la persona crea reportes y solo ve los suyos');
+  begin perform admin_feedback(); log := log || pg_temp.ok(false, 'G2 la persona no ve la bandeja de reportes');
+  exception when others then log := log || pg_temp.ok(true, 'G2 la persona no ve la bandeja de reportes'); end;
+  reset role;
+  perform pg_temp.as_user(null);
+  begin perform help_quota('a:matriz', 5, 10); log := log || pg_temp.ok(false, 'G3 el cupo del asistente solo se usa desde el servidor');
+  exception when others then log := log || pg_temp.ok(true, 'G3 el cupo del asistente solo se usa desde el servidor'); end;
+  reset role;
+  perform pg_temp.as_user(adm); perform admin_update_feedback(ext, 'resuelto', 'Corregido', true); reset role;
+  log := log || pg_temp.ok(exists (select 1 from notifications where kind = 'feedback' and user_id = adm and created_at >= t0) and exists (select 1 from notifications where kind = 'feedback' and user_id = cam and created_at >= t0), 'G4 el reporte avisa a administración y la respuesta a la persona');
+
   ---------------- D. Permisos (se espera error o 0 filas) ----------------
   select id into j from jobs where company_id = co and status = 'published' limit 1;
   select id into o from offers where company_id = co order by created_at desc limit 1;
