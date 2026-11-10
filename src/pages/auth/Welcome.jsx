@@ -118,21 +118,35 @@ export default function Welcome() {
 
       {/* Video explicativo */}
       <section id="video" className="scroll-mt-16 bg-white py-14">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 md:grid-cols-[1fr_auto]">
-          <div className="flex max-w-xl flex-col gap-3">
-            <span className="text-sm font-semibold uppercase tracking-wide text-rosa-texto">Mira cómo funciona</span>
-            <h2 className="font-display text-[28px] font-bold leading-tight md:text-[34px]">VINKA en menos de un minuto</h2>
-            <p className="text-[16px] leading-relaxed text-tinta-3">Desliza vacantes, haz match, conversa con la empresa y agenda tu entrevista. Si contratas, lleva todo el proceso de selección en un solo lugar.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5">
+          <div className="grid items-end gap-5 md:grid-cols-[1fr_auto]">
+            <div className="flex max-w-2xl flex-col gap-3">
+              <span className="text-sm font-semibold uppercase tracking-wide text-rosa-texto">Mira cómo funciona</span>
+              <h2 className="font-display text-[28px] font-bold leading-tight md:text-[34px]">VINKA en menos de un minuto</h2>
+              <p className="text-[16px] leading-relaxed text-tinta-3">Desliza vacantes, haz match, conversa con la empresa y agenda tu entrevista. Si contratas, lleva todo el proceso de selección en un solo lugar.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button onClick={() => go('/registro/candidato')} className="btn-sm h-11 bg-rosa-accion px-5 text-white">Busco trabajo</button>
               <button onClick={() => go('/registro/empresa')} className="btn-sm h-11 border border-linea bg-white px-5">Busco talento</button>
             </div>
           </div>
-          <div className="mx-auto w-full max-w-[280px] md:w-[300px] md:max-w-none">
+          {/* Teléfono: video vertical. Computador: video horizontal. Solo se descarga el que se reproduce. */}
+          <div className="mx-auto w-full max-w-[280px] md:hidden">
             <video
               className="aspect-[9/16] w-full rounded-[28px] border border-[#F1E4EB] bg-rosa-palido object-cover shadow-[0_20px_50px_rgba(48,37,56,0.14)]"
               src="/media/vinka-video.mp4"
               poster="/media/vinka-video.jpg"
+              controls
+              playsInline
+              preload="none"
+              aria-label="Video explicativo de VINKA"
+            />
+          </div>
+          <div className="hidden md:block">
+            <video
+              className="aspect-video w-full rounded-[28px] border border-[#F1E4EB] bg-rosa-palido object-cover shadow-[0_20px_50px_rgba(48,37,56,0.14)]"
+              src="/media/vinka-video-pc.mp4"
+              poster="/media/vinka-video-pc.jpg"
               controls
               playsInline
               preload="none"
