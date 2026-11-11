@@ -20,6 +20,7 @@ import { MatchModal } from '../../components/MatchModal'
 import { CompanyContext, companyOption, homeCompany } from '../../components/CompanySwitcher'
 import { pl } from '../../lib/text'
 import { CompanyPhotosEditor } from '../../components/CompanyPhotos'
+import { BillingBanner } from '../../components/BillingBanner'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -92,6 +93,7 @@ export function CompanyPanel() {
       </div>
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
+        {isAdmin && <BillingBanner billing={planInfo?.billing} />}
         <VerificationBanner company={company} />
         <CompanyContext />
         <div className="grid grid-cols-3 gap-2">

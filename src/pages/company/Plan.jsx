@@ -3,6 +3,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { pl, plw } from '../../lib/text'
+import { BillingBanner } from '../../components/BillingBanner'
 
 const STATUS = { trial: 'Prueba gratuita', active: 'Activo', past_due: 'Pago pendiente', canceled: 'Cancelado' }
 const money = (n) => (n == null ? 'Cotización' : n === 0 ? 'Gratis' : `$${n.toLocaleString('es-CL')} + IVA / mes`)
@@ -51,14 +52,15 @@ export default function Plan() {
       <TopBar back="/vitrina" title="Plan y uso" />
       <div className="flex flex-col gap-4 px-5 pb-10 lg:grid lg:grid-cols-2 lg:items-start lg:px-8">
         <div className="flex flex-col gap-4">
+          <BillingBanner billing={d.billing} link={false} />
           <div className="card flex flex-col gap-3 p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col"><span className="text-xs font-semibold uppercase tracking-wide text-tinta-suave">Tu plan</span><span className="font-display text-[26px] font-bold leading-tight">{p.name}</span><span className="text-sm text-tinta-3">{money(p.price_clp)}</span></div>
               <span className={`pill ${d.status === 'past_due' ? 'bg-[#FEF3F2] text-[#912018]' : d.status === 'trial' ? 'bg-naranja-palido text-naranja-texto' : 'bg-[#EAF6EF] text-[#134A2B]'}`}>{STATUS[d.status] || d.status}</span>
             </div>
             {d.status === 'trial' && d.trial_ends_at && <p className="text-sm text-tinta-2">Tu prueba termina el <b>{fmt(d.trial_ends_at)}</b>. Después pasarás al plan Gratis sin perder datos, salvo que elijas un plan.</p>}
-            {d.status === 'active' && d.current_period_end && <p className="text-sm text-tinta-2">Período pagado hasta el <b>{fmt(d.current_period_end)}</b>.</p>}
-            {d.status === 'past_due' && <p className="text-sm text-[#912018]">Hay un pago pendiente. Escríbenos para regularizarlo y evitar que tu cuenta pase al plan Gratis.</p>}
+            {['active', 'past_due'].includes(d.status) && d.current_period_end && <p className="text-sm text-tinta-2">Período pagado hasta el <b>{fmt(d.current_period_end)}</b>.{d.billing ? ` ${d.billing.state === 'overdue' ? 'Monto pendiente' : 'Próximo cobro'}: $${d.billing.total.toLocaleString('es-CL')} IVA incluido.` : ''}</p>}
+            {d.status === 'past_due' && !d.billing && <p className="text-sm text-[#912018]">Hay un pago pendiente. Escríbenos para regularizarlo y evitar que tu cuenta pase al plan Gratis.</p>}
           </div>
           <div className="card flex flex-col gap-4 p-4">
             <span className="text-[15px] font-semibold">Uso de este mes</span>
