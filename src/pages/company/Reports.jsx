@@ -4,8 +4,19 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
 
 const PERIODOS = [[30, '30 días'], [90, '90 días'], [365, '12 meses'], [0, 'Todo']]
-const STEPS = [['views', 'Vieron el aviso'], ['applied', 'Dijeron "Me interesa"'], ['matches', 'Match'], ['contacted', 'Contactados'], ['interviewed', 'Entrevistados'], ['offered', 'Con oferta'], ['hired', 'Contratados']]
+const STEPS = [['views', 'Vieron el aviso'], ['applied', 'Interesados («Me interesa»)'], ['matches', 'Match'], ['contacted', 'Contactados'], ['interviewed', 'Entrevistados'], ['offered', 'Con oferta'], ['hired', 'Contratados']]
 const STAGE_ORDER = [['match', 'Nuevo match'], ['contacto', 'Contacto'], ['entrevista', 'Entrevista'], ['oferta', 'Oferta']]
+// Cada indicador cuenta un universo distinto; aquí se explica cuál.
+const GLOSARIO = [
+  ['Interesados', 'Personas que tocaron «Me interesa» en tus vacantes de VINKA en el período. Si hay importados de otros portales, se suman y la tarjeta dice «Interesados + externos». Una persona interesada en dos vacantes cuenta dos veces.'],
+  ['Vieron el aviso', 'Veces que se abrió el detalle de tus vacantes.'],
+  ['Match', 'Interés mutuo: la persona y tu empresa se eligieron. Desde aquí empieza tu proceso de selección. Todo match parte de un «Me interesa», por eso los matches son una parte de los interesados.'],
+  ['Contactados, Entrevistados, Con oferta', 'Personas que llegaron al menos a esa etapa, aunque después avanzaran o fueran descartadas. Suman los matches de VINKA y los importados de otros portales.'],
+  ['Contratados', 'Personas marcadas como contratadas, de VINKA y de otros portales.'],
+  ['Por fuente · En proceso', 'Personas que entraron a tu proceso según de dónde vinieron: en VINKA, los matches; en otros portales, los importados. No incluye a quienes solo dijeron «Me interesa».'],
+  ['Tiempo promedio a contratar', 'Días entre el match y la contratación.'],
+  ['Período', 'Cada cifra cuenta lo ocurrido en el período elegido según su propia fecha: el «Me interesa», el match o la importación.'],
+]
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
 
 /** Embudo: una sola serie, un solo tono; el número va en texto, no en color. */
@@ -55,7 +66,7 @@ export default function Reports() {
     }))
     await downloadXlsx(`VINKA_reporte_${new Date().toISOString().slice(0, 10)}.xlsx`, [
       { name: 'Por vacante', rows },
-      { name: 'Por fuente', rows: (r.sources || []).map((s) => ({ Fuente: s.source, Postulantes: s.total, Contratados: s.hired })) },
+      { name: 'Por fuente', rows: (r.sources || []).map((s) => ({ Fuente: s.source === 'VINKA' ? 'VINKA (matches)' : `${s.source} (importados)`, 'En proceso': s.total, Contratados: s.hired })) },
       { name: 'Tiempo por etapa', rows: STAGE_ORDER.map(([k, l]) => times.find((t) => t.stage === k)).filter(Boolean).map((t) => ({ Etapa: STAGE_ORDER.find(([k]) => k === t.stage)[1], 'Días promedio': Number(t.avg_days), Personas: Number(t.n) })) },
     ])
   }
@@ -75,7 +86,7 @@ export default function Reports() {
         {!r ? <Spinner /> : (
           <>
             <div className="grid grid-cols-3 gap-2">
-              {[[tot.applied + tot.externals, 'Postulantes'], [tot.interviewed, 'Entrevistas'], [tot.hired, 'Contratados']].map(([v, l]) => (
+              {[[tot.applied + tot.externals, tot.externals ? 'Interesados + externos' : 'Interesados'], [tot.interviewed, 'Entrevistados'], [tot.hired, 'Contratados']].map(([v, l]) => (
                 <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[24px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
               ))}
             </div>
@@ -89,6 +100,12 @@ export default function Reports() {
               {tot.externals > 0 && <span className="hint">Incluye {tot.externals} postulante(s) importado(s) de otros portales desde "Contactados" en adelante.</span>}
               {tot.views === 0 && <span className="hint">Las vistas se cuentan desde hoy: es un dato nuevo.</span>}
             </div>
+            <details className="card p-4 text-[13px] leading-relaxed text-tinta-2">
+              <summary className="cursor-pointer text-[15px] font-semibold text-tinta">Qué incluye cada cifra</summary>
+              <dl className="mt-2 flex flex-col gap-2">
+                {GLOSARIO.map(([t, d]) => <div key={t}><dt className="font-semibold text-tinta">{t}</dt><dd>{d}</dd></div>)}
+              </dl>
+            </details>
             {!job && times.length > 0 && (() => {
               const max = Math.max(1, ...times.map((t) => Number(t.avg_days)))
               const slow = times.reduce((a, t) => (Number(t.avg_days) > Number(a.avg_days) ? t : a), times[0])
@@ -109,8 +126,9 @@ export default function Reports() {
             {!job && (r.sources || []).length > 0 && (
               <div className="card flex flex-col gap-2 p-4">
                 <span className="text-[15px] font-semibold">Por fuente</span>
-                <table className="w-full text-sm"><thead><tr className="text-left text-xs text-tinta-suave"><th className="pb-1 font-medium">Fuente</th><th className="pb-1 text-right font-medium">Postulantes</th><th className="pb-1 text-right font-medium">Contratados</th></tr></thead>
-                  <tbody>{r.sources.map((s) => <tr key={s.source} className="border-t border-[#F1E7ED]"><td className="py-2">{s.source}</td><td className="py-2 text-right font-semibold">{s.total}</td><td className="py-2 text-right font-semibold">{s.hired}</td></tr>)}</tbody></table>
+                <table className="w-full text-sm"><thead><tr className="text-left text-xs text-tinta-suave"><th className="pb-1 font-medium">Fuente</th><th className="pb-1 text-right font-medium">En proceso</th><th className="pb-1 text-right font-medium">Contratados</th></tr></thead>
+                  <tbody>{r.sources.map((s) => <tr key={s.source} className="border-t border-[#F1E7ED]"><td className="py-2">{s.source === 'VINKA' ? 'VINKA (matches)' : `${s.source} (importados)`}</td><td className="py-2 text-right font-semibold">{s.total}</td><td className="py-2 text-right font-semibold">{s.hired}</td></tr>)}</tbody></table>
+                <span className="hint">«En proceso» cuenta a las personas que entraron a tu proceso de selección: en VINKA, los matches; de otros portales, los importados. No incluye a quienes solo dijeron «Me interesa» sin match.</span>
               </div>
             )}
             {!job && jobs.length > 0 && (
