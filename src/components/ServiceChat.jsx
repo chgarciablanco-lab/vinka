@@ -59,7 +59,7 @@ export function ServiceChat({ requestId, as, disabled = false, advisorName = '' 
     <div className="flex flex-col gap-2">
       <div className="flex max-h-[420px] flex-col gap-2 overflow-y-auto rounded-xl bg-[#FAF7F9] p-3">
         {msgs == null ? <span className="text-center text-xs text-tinta-suave">Cargando…</span>
-          : msgs.length === 0 ? <span className="py-3 text-center text-xs text-tinta-suave">Aún no hay mensajes. La asesoría se conversa aquí, dentro de VINKA{as === 'candidate' ? '; apenas VINKA confirme tu pago te escribiremos con los próximos pasos' : ''}.</span>
+          : msgs.length === 0 ? <span className="py-3 text-center text-xs text-tinta-suave">Aún no hay mensajes. La asesoría se conversa aquí, dentro de VINKA{as === 'candidate' ? '; VINKA te escribirá aquí para coordinar el pago' : ''}.</span>
           : msgs.map((m) => {
             const mine = !!m.sender_id && m.sender_id === user?.id
             if (m.sender_kind === 'system') return (
@@ -84,7 +84,7 @@ export function ServiceChat({ requestId, as, disabled = false, advisorName = '' 
         <div ref={end} />
       </div>
       {!disabled && as === 'candidate' && msgs && !msgs.some((m) => m.sender_kind !== 'candidate') && (
-        <span className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-center text-sm leading-snug text-[#4A2163]">Apenas VINKA confirme tu pago te escribiremos aquí con el plazo y los próximos pasos. Podrás responder de inmediato.</span>
+        <span className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-center text-sm leading-snug text-[#4A2163]">VINKA te escribirá aquí para coordinar el pago y los próximos pasos. Podrás responder de inmediato.</span>
       )}
       {!disabled && !(as === 'candidate' && msgs && !msgs.some((m) => m.sender_kind !== 'candidate')) && (
         <>

@@ -4,7 +4,6 @@ import { CV_ACCEPT, fmtDate, fmtDateTime, uploadCv, useSignedUrls } from '../lib
 import { FileLink } from './FileLink'
 import { ErrorBox, Spinner, Svg } from './ui'
 import { ServiceChat } from './ServiceChat'
-import { useSetting, waLink, fmtPhone } from '../lib/settings'
 import { fromInputLocal, toInputLocal } from '../lib/dates'
 
 export const LOG_KIND = { cv: ['CV', '#6B2E8F'], sesion: ['Sesión', '#1F6F78'], busqueda: ['Búsqueda', '#3B5BA9'], oferta: ['Oferta', '#B85F00'], nota: ['Nota', '#6B5F6E'], entrega: ['Entrega', '#2F7A4F'], revision: ['Revisión', '#D02E72'], estado: ['Estado', '#8A8090'], seguimiento: ['Seguimiento', '#1E6B3F'] }
@@ -339,16 +338,10 @@ export function Dossier({ r, as, counts = {} }) {
 /** Vista de la persona asesorada: conversación, CV, sesiones, ofertas e historial visible */
 export function CandidateDossier({ r }) {
   const [tab, setTab] = useState('chat')
-  const wa = useSetting('whatsapp_vinka')
   const tabs = [['chat', 'Conversación'], ['cv', 'Mi CV'], ['sesiones', 'Sesiones'], ['ofertas', 'Ofertas sugeridas'], ['historial', 'Avance']]
   return (
     <div className="flex flex-col gap-3">
       {['en_curso', 'entregada', 'aprobada'].includes(r.status) && <ServiceProgress requestId={r.id} as="candidate" />}
-      {r.service_id === 'completa' && r.status === 'en_curso' && wa && (
-        <a href={waLink(wa, `Hola, tengo la Asesoría completa en VINKA. Mi asesor/a es ${r.assigned_name || 'quien me asignaron'}.`)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-[#BFE3CC] bg-[#EFF9F2] p-3 text-sm text-[#134A2B]">
-          <Svg name="chat" size={20} className="shrink-0" /><span className="flex flex-col"><b>Seguimiento por WhatsApp de VINKA</b><span className="text-xs">Te responde tu asesor/a{r.assigned_name ? ` ${r.assigned_name}` : ''} desde el número oficial {fmtPhone(wa)}, durante 2 semanas.</span></span>
-        </a>
-      )}
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
       {tab === 'chat' && <ServiceChat requestId={r.id} as="candidate" disabled={r.status === 'cancelada'} advisorName={r.assigned_name || ''} />}
       {tab === 'cv' && <CvTab requestId={r.id} canUpload={false} asCandidate />}

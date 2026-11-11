@@ -3,10 +3,8 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
 import { Dossier, TeamNotes } from '../../components/Dossier'
-import { useSetting, fmtPhone } from '../../lib/settings'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
-const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'correo', videollamada: 'videollamada' }
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
 
 /** Primera vez: acuerdo de confidencialidad y no captación de clientes */
@@ -101,7 +99,6 @@ export function AdvisorTeam() {
 
 export default function AdvisorHome() {
   const { profile } = useAuth()
-  const wa = useSetting('whatsapp_vinka')
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState(null)
@@ -140,10 +137,10 @@ export default function AdvisorHome() {
         {isOpen && (
           <>
             {r.goal && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-sm text-[#4A2163]"><b>Lo que busca:</b> {r.goal}</div>}
-            <span className="text-xs text-tinta-3">Prefiere {CONTACT_TXT[r.contact_pref] || r.contact_pref}. Para videollamadas, comparte el enlace de la reunión en el chat.</span>
+            <span className="text-xs text-tinta-3">Toda la asesoría ocurre en el chat de VINKA. Para sesiones online, comparte el enlace de la reunión en el chat.</span>
             {r.status !== 'en_curso' && r.status !== 'entregada' && <div className="rounded-xl bg-naranja-palido px-3 py-2.5 text-xs text-naranja-texto">VINKA está coordinando el pago. Puedes presentarte por el chat, pero la asesoría comienza cuando la solicitud pase a «En curso».</div>}
             <Profile r={r} />
-            {r.service_id === 'completa' && <div className="rounded-xl bg-[#EFF9F2] px-3 py-2.5 text-xs leading-snug text-[#134A2B]"><b>Seguimiento por WhatsApp (2 semanas):</b> lo atiendes tú desde el WhatsApp oficial de VINKA{wa ? ` (${fmtPhone(wa)})` : ' (pide el acceso a administración)'}, nunca desde tu número personal. Registra cada contacto en Historial → «Seguimiento»: se piden al menos 2 para entregar.</div>}
+            {r.service_id === 'completa' && <div className="rounded-xl bg-[#EFF9F2] px-3 py-2.5 text-xs leading-snug text-[#134A2B]"><b>Seguimiento de 2 semanas:</b> por el chat de esta asesoría. Registra cada seguimiento en el historial (tipo «Seguimiento»).</div>}
             <Dossier r={r} as="advisor" counts={{ messages: r.messages }} />
             {r.status === 'en_curso' && (
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">

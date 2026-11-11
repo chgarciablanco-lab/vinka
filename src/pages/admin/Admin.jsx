@@ -212,30 +212,6 @@ function Business() {
 const SRV_STATUS = [['solicitada', 'Solicitada'], ['pago_pendiente', 'Pago pendiente'], ['en_curso', 'En curso'], ['entregada', 'Entregada (por revisar)'], ['cancelada', 'Cancelada']]
 const SRV_LABEL = { ...Object.fromEntries(SRV_STATUS), aprobada: 'Aprobada ✓' }
 
-/** WhatsApp oficial de VINKA: lo atiende el asesor/a asignado/a en la Asesoría completa (seguimiento de 2 semanas) */
-function WhatsAppSetting() {
-  const [v, setV] = useState(null)
-  const [msg, setMsg] = useState('')
-  const [err, setErr] = useState('')
-  useEffect(() => { supabase.from('app_settings').select('value').eq('key', 'whatsapp_vinka').maybeSingle().then(({ data }) => setV(data?.value ? `+${data.value}` : '')) }, [])
-  const save = async () => {
-    setErr(''); setMsg('')
-    const { error } = await supabase.rpc('admin_set_setting', { p_key: 'whatsapp_vinka', p_value: v })
-    if (error) return setErr(errMsg(error))
-    setMsg(v ? 'Guardado. Las personas con Asesoría completa en curso ya ven el botón.' : 'Quitado. El seguimiento queda solo por el chat de VINKA.')
-  }
-  if (v == null) return null
-  return (
-    <div className="card flex flex-col gap-2 p-3.5 text-sm">
-      <span className="text-[15px] font-semibold">WhatsApp oficial de VINKA</span>
-      <span className="text-xs leading-snug text-tinta-3">Para el seguimiento de 2 semanas de la Asesoría completa. Lo atiende el asesor/a asignado/a desde este número (nunca desde el suyo) y registra cada contacto como «Seguimiento» en el expediente.</span>
-      <div className="flex gap-2"><input className="input h-11 flex-1" inputMode="tel" placeholder="+56 9 1234 5678" value={v} onChange={(e) => setV(e.target.value)} /><button className="btn-sm h-11 bg-morado px-4 text-white" onClick={save}>Guardar</button></div>
-      {msg && <span className="text-xs text-[#1E6B3F]">{msg}</span>}
-      <ErrorBox>{err}</ErrorBox>
-    </div>
-  )
-}
-
 /** Revisión final: VINKA da el visto bueno o devuelve al asesor/a con observaciones */
 function Review({ r, onDone }) {
   const [note, setNote] = useState('')
@@ -278,7 +254,6 @@ function UpcomingSessions() {
     </div>
   )
 }
-const CONTACT_TXT = { whatsapp: 'WhatsApp', correo: 'Correo', videollamada: 'Videollamada' }
 
 /** Asesorías con reclutador: solicitudes de postulantes y precios del catálogo */
 function Advisory() {
@@ -340,7 +315,6 @@ function Advisory() {
       </div>
       <ErrorBox>{err}</ErrorBox>
       <UpcomingSessions />
-      <WhatsAppSetting />
       <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} disabled={!!fst} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_190px_190px]">
@@ -358,7 +332,7 @@ function Advisory() {
               <span className="flex flex-col"><b>{r.name || 'Sin nombre'}</b><span className="text-xs text-tinta-3">{r.service} · ${n(r.price)} · {new Date(r.created_at).toLocaleDateString('es-CL')}</span></span>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${r.status === 'entregada' ? 'bg-naranja-palido text-naranja-texto' : r.status === 'aprobada' ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2]'}`}>{SRV_LABEL[r.status]}</span>
             </div>
-            <span>Prefiere: <b>{CONTACT_TXT[r.contact_pref]}</b> · {r.phone ? <a className="text-rosa-texto underline" href={`https://wa.me/${String(r.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">{r.phone}</a> : 'sin teléfono'} · <a className="text-rosa-texto underline" href={`mailto:${r.email}`}>{r.email}</a></span>
+            <span className="text-xs text-tinta-3">Coordinación y asesoría solo por el chat de VINKA (pestaña Conversación).</span>
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
             <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
               <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>

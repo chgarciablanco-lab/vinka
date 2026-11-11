@@ -110,7 +110,7 @@ const DOCS = {
         'El proveedor de inteligencia artificial procesa estos textos solo para entregarnos la respuesta y no los usa para entrenar sus modelos.',
       ]],
       ['6. Asesorías', [
-        'Si pides una asesoría, autorizas que el equipo de VINKA vea tu perfil laboral y te contacte para coordinar el servicio y su pago.',
+        'Si pides una asesoría, autorizas que el equipo de VINKA vea tu perfil laboral y te escriba por el chat de la asesoría para coordinar el servicio y su pago. Las asesorías no usan WhatsApp, llamadas ni correos: todo ocurre dentro de VINKA.',
         'El asesor o asesora asignado ve tu perfil laboral, tu nombre con la inicial del apellido, tu CV guardado y lo que compartas en el chat de la asesoría, pero no tu teléfono ni tu correo. Toda la asesoría ocurre dentro de VINKA, y VINKA puede revisar esas conversaciones para resguardar la calidad y tu seguridad.',
         'Las empresas no ven si contrataste una asesoría.',
       ]],
