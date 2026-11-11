@@ -229,6 +229,7 @@ function Quotes() {
 }
 
 function Business() {
+  const level = useAdminLevel()
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
   const [edit, setEdit] = useState(null)
@@ -258,7 +259,7 @@ function Business() {
   return (
     <div className="flex flex-col gap-4">
       <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración (ingresos, actividad y empresas)</label>
-      <Revenue demo={demo} />
+      {level === 'total' && <Revenue demo={demo} />}
       <span className="mt-2 text-[17px] font-bold">Actividad</span>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[['Empresas verificadas', n(m.companies)], ['Por verificar', n(m.pending)], ['Candidatos activos', n(m.candidates)], ['Vacantes abiertas', n(m.jobs_open)], ['Contrataciones 30 días', n(m.hires_30d)], ['Usos de IA 30 días', n(m.ai_30d)]].map(([l, v]) => (
@@ -307,7 +308,7 @@ function Business() {
                 <button className="btn-sec h-11" onClick={() => setPay(null)}>Cancelar</button><button className="btn h-11" onClick={recordPay}>Registrar pago y activar</button>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              level === 'total' && <div className="flex flex-wrap gap-2">
                 <button className="btn-sm border border-linea bg-white" onClick={() => setEdit({ id: c.id, plan: c.plan || 'gratis', status: c.status || 'active', period_end: c.period_end ? c.period_end.slice(0, 10) : '', note: c.note || '' })}>Cambiar plan</button>
                 <button className="btn-sm bg-morado text-white" onClick={() => { const pl = ['pyme', 'equipo', 'consultora', 'empresa'].includes(c.plan) ? c.plan : 'pyme'; setPay({ id: c.id, plan: pl, months: 1, amount: PRICES[pl], method: 'transferencia', note: '' }) }}>Registrar pago</button>
               </div>
@@ -377,6 +378,7 @@ function UpcomingSessions({ showDemo }) {
 
 /** Asesorías con reclutador: solicitudes de postulantes y precios del catálogo */
 function Advisory() {
+  const level = useAdminLevel()
   const [reqs, setReqs] = useState(null)
   const [services, setServices] = useState([])
   // ?caso=<id>: viene desde una nota interna o un aviso; muestra y abre ese caso
@@ -507,7 +509,7 @@ function Advisory() {
         ) : (
           <div key={s.id} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] py-2 text-sm last:border-0">
             <span className="flex flex-col"><b>{s.name}{!s.active && <span className="ml-2 text-xs font-normal text-tinta-suave">(oculto)</span>}</b><span className="text-xs text-tinta-3">${n(s.price_clp)} · {s.delivery}</span></span>
-            <button className="btn-sm border border-linea bg-white" onClick={() => setSvc({ ...s, includesText: (s.includes || []).join('\n') })}>Editar</button>
+            {level === 'total' && <button className="btn-sm border border-linea bg-white" onClick={() => setSvc({ ...s, includesText: (s.includes || []).join('\n') })}>Editar</button>}
           </div>
         ))}
         <p className="hint">Cambiar un precio no afecta a las solicitudes ya hechas: cada una guarda el precio del momento.</p>
@@ -622,6 +624,7 @@ function Candidates() {
 
 /** Asesores: cuentas entregadas por VINKA, con clave temporal; se pueden suspender y reiniciar */
 function Advisors() {
+  const level = useAdminLevel()
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
   const [form, setForm] = useState(null)
@@ -652,7 +655,7 @@ function Advisors() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2"><p className="text-sm text-tinta-3">Las cuentas de asesor las crea VINKA. Cada asesor/a solo ve las asesorías que le asignes, sin teléfono ni correo de las personas.</p>
-        <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={() => { setForm({ email: '', first: '', last: '', phone: '', specialty: '' }); setErr('') }}>Nuevo asesor/a</button></div>
+        {level === 'total' && <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={() => { setForm({ email: '', first: '', last: '', phone: '', specialty: '' }); setErr('') }}>Nuevo asesor/a</button>}</div>
       <ErrorBox>{!form && err}</ErrorBox>
       {cred && (
         <div className="card flex flex-col gap-2 border-2 border-[#2F7A4F] p-4 text-sm">
@@ -671,7 +674,7 @@ function Advisors() {
           </div>
           <span className="text-xs text-tinta-3">{a.open - (a.open_demo || 0)} abiertas · {a.delivered - (a.delivered_demo || 0)} entregadas{a.open_demo || a.delivered_demo ? ` (más ${a.open_demo + a.delivered_demo} de demostración)` : ''} · {a.terms_accepted_at ? `aceptó el acuerdo el ${dt(a.terms_accepted_at)}` : 'aún no acepta el acuerdo'}{a.pending_password ? ' · no ha creado su contraseña' : ''} · última conexión {dt(a.last_seen_at)}</span>
           <div className="flex flex-wrap gap-2">
-            <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>
+            {level === 'total' && <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>}
             <button className={`btn-sm border ${a.active ? 'border-[#C0362C] text-[#912018]' : 'border-linea'} bg-white`} onClick={() => toggle(a)}>{a.active ? 'Suspender' : 'Reactivar'}</button>
             <button className="btn-sm bg-morado text-white" onClick={() => setTalk(talk === a.id ? null : a.id)}>{talk === a.id ? 'Cerrar notas' : 'Notas y conversación'}</button>
           </div>
@@ -917,7 +920,81 @@ function CompanyUsers() {
   )
 }
 
-const TITLES = { companyusers: 'Usuarios de empresas', promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias', feedback: 'Errores y sugerencias' }
+// Nivel de la persona de VINKA: 'total' (todo) u 'operaciones' (sin pagos, precios, ajustes ni accesos)
+let levelCache = null
+export function useAdminLevel() {
+  const [lv, setLv] = useState(levelCache)
+  useEffect(() => { if (levelCache) return; supabase.rpc('my_admin_level').then(({ data }) => { levelCache = data || 'operaciones'; setLv(levelCache) }) }, [])
+  return lv
+}
+const LEVELS = { total: ['Administrador total', 'Todo: pagos, planes, precios, destacados, ajustes y dar o quitar accesos.'], operaciones: ['Operaciones', 'Verificar empresas, denuncias, reportes, cotizaciones, usuarios, equipos de empresas y asesorías. Sin pagos, planes, precios ni accesos.'] }
+
+/** Equipo VINKA: administradores por nivel. Solo el nivel total agrega, cambia o quita accesos. */
+function Staff() {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [f, setF] = useState({ email: '', first: '', last: '', level: 'operaciones' })
+  const [busy, setBusy] = useState(false)
+  const [created, setCreated] = useState(null)
+  const load = useCallback(() => { supabase.rpc('vinka_team').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [])
+  useEffect(() => { load() }, [load])
+  const total = d?.my_level === 'total'
+  const add = async () => {
+    setErr(''); setBusy(true)
+    const { data, error } = await supabase.rpc('admin_add_staff', { p_email: f.email, p_first: f.first, p_last: f.last, p_level: f.level })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setCreated(data); setF({ email: '', first: '', last: '', level: 'operaciones' }); load()
+  }
+  const level = async (a, lv) => { setErr(''); const { error } = await supabase.rpc('admin_set_staff_level', { p_user: a.user_id, p_level: lv }); if (error) setErr(errMsg(error)); load() }
+  const remove = async (a) => {
+    if (!window.confirm(`¿Quitar el acceso de administración a ${a.name || a.email}? Su cuenta sigue existiendo, pero deja de ver Administración.`)) return
+    setErr(''); const { error } = await supabase.rpc('admin_remove_staff', { p_user: a.user_id }); if (error) setErr(errMsg(error)); load()
+  }
+  if (!d) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="card flex flex-col gap-2 p-4 text-[13px] leading-snug text-tinta-2">
+        {Object.entries(LEVELS).map(([k, [l, t]]) => <span key={k}><b>{l}:</b> {t}</span>)}
+        <span className="text-tinta-3">Asesores y asesoras se gestionan en <Link to="/asesores" className="font-semibold text-rosa-texto underline">Asesores</Link>.</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {d.admins.map((a) => (
+          <div key={a.user_id} className="card flex flex-col gap-1.5 p-3.5 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="flex min-w-0 flex-col"><b className="truncate">{a.name || 'Sin nombre'}{a.user_id === d.me && <span className="ml-1.5 text-xs font-normal text-tinta-3">(tú)</span>}{a.test && <span className="ml-1.5 rounded bg-[#F4EEF2] px-1 text-[10px] font-semibold text-tinta-3">Prueba</span>}</b><span className="truncate text-xs text-tinta-3">{a.email}</span></span>
+              {total && a.user_id !== d.me ? (
+                <select aria-label="Nivel" className="h-8 rounded-lg border border-linea bg-white px-2 text-xs" value={a.level} onChange={(e) => level(a, e.target.value)}>
+                  {Object.entries(LEVELS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+              ) : <span className={`pill shrink-0 ${a.level === 'total' ? 'bg-[#F7F0FB] text-[#4A2163]' : 'bg-[#EAF1FB] text-[#1F3F78]'}`}>{LEVELS[a.level][0]}</span>}
+            </div>
+            <span className="text-xs text-tinta-3">Desde {new Date(a.since).toLocaleDateString('es-CL')}{a.added_by ? ` · agregado por ${a.added_by}` : ''} · última vez {ago(a.last_seen_at)}{a.pending_password ? ' · aún no cambia la contraseña temporal' : ''}</span>
+            {total && a.user_id !== d.me && <button className="self-start text-xs font-semibold text-[#912018]" onClick={() => remove(a)}>Quitar acceso</button>}
+          </div>
+        ))}
+      </div>
+      {total ? (
+        <div className="card flex flex-col gap-2.5 p-4">
+          <span className="text-[15px] font-semibold">Agregar a alguien al equipo VINKA</span>
+          <input className="input h-11" type="email" placeholder="correo@vinka.cl" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2"><input className="input h-11" placeholder="Nombre" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} /><input className="input h-11" placeholder="Apellido" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} /></div>
+          <select className="input h-11" value={f.level} onChange={(e) => setF({ ...f, level: e.target.value })}>{Object.entries(LEVELS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
+          <span className="text-[11px] text-tinta-suave">Si el correo no tiene cuenta, se crea una con contraseña temporal (debe cambiarla al entrar). Si ya tiene cuenta de postulante, se le da acceso. No se puede usar un correo de empresa ni de asesor/a.</span>
+          <button className="btn" disabled={busy || !f.email.includes('@')} onClick={add}>{busy ? 'Agregando…' : 'Agregar al equipo'}</button>
+          {created && (
+            <div className="rounded-xl bg-[#EAF6EF] px-3 py-2.5 text-[13px] text-[#134A2B]">
+              Listo: <b>{created.email}</b> ya tiene acceso.{created.password ? <> Contraseña temporal: <b className="select-all font-mono">{created.password}</b> (cópiala ahora; no se vuelve a mostrar).</> : ' Entra con su contraseña de siempre.'}
+            </div>
+          )}
+        </div>
+      ) : <p className="text-[13px] text-tinta-3">Solo un administrador total puede agregar, cambiar o quitar accesos.</p>}
+      <ErrorBox>{err}</ErrorBox>
+    </div>
+  )
+}
+
+const TITLES = { staff: 'Equipo VINKA', companyusers: 'Usuarios de empresas', promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias', feedback: 'Errores y sugerencias' }
 
 const FB_KIND = { error: ['Error', 'bg-[#FEF3F2] text-[#912018]'], mejora: ['Mejora', 'bg-[#EAF6EF] text-[#134A2B]'], consulta: ['Consulta', 'bg-[#E7F1FB] text-[#1F4E86]'] }
 const FB_ST = [['nuevo', 'Nuevo'], ['revisando', 'En revisión'], ['resuelto', 'Resuelto'], ['descartado', 'Descartado']]
@@ -997,7 +1074,7 @@ export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Pa
           </div>
         )}
         <div className="card px-4">
-          {[['/avisos', 'Avisos'], ['/ayuda', 'Ayuda y reportes'], ['/tutoriales', 'Tutoriales'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
+          {[['/equipo-vinka', 'Equipo VINKA'], ['/usuarios-empresas', 'Usuarios de empresas'], ['/avisos', 'Avisos'], ['/ayuda', 'Ayuda y reportes'], ['/tutoriales', 'Tutoriales'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
             <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
           ))}
         </div>
@@ -1018,6 +1095,7 @@ const ACTIONS = {
 }
 
 export default function Admin({ section }) {
+  const myLevel = useAdminLevel()
   const [tab, setTab] = useState(section || 'business')
   useEffect(() => { if (section) setTab(section) }, [section])
   const [companies, setCompanies] = useState(null)
@@ -1064,7 +1142,7 @@ export default function Admin({ section }) {
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'companyusers' ? <CompanyUsers /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? (myLevel && myLevel !== 'total' ? <Empty title="Solo administración total">Los destacados involucran pagos y precios. Pídele acceso a un administrador total.</Empty> : <Promos />) : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'companyusers' ? <CompanyUsers /> : tab === 'staff' ? <Staff /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>
