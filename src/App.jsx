@@ -82,7 +82,7 @@ function GoNext({ allowed }) {
   useEffect(() => {
     let t = ''
     try { t = localStorage.getItem('vinka-next') || ''; localStorage.removeItem('vinka-next') } catch { /* sin almacenamiento */ }
-    if (t && allowed.includes(t)) nav(t)
+    if (t && (allowed.includes(t) || (allowed.includes('/vacante/*') && /^\/vacante\/[0-9a-f-]{36}$/.test(t)))) nav(t)
   }, []) // eslint-disable-line
   return null
 }
@@ -246,7 +246,7 @@ export default function App() {
       <>
       <MatchWatcher onCount={setUnseen} />
       <PendingInvite />
-      <GoNext allowed={['/asesoria', '/visibilidad']} />
+      <GoNext allowed={['/asesoria', '/visibilidad', '/vacante/*']} />
       <DesktopNav items={deskNav} />
       <div className="desk h-full lg:pl-64">
       {wrap(

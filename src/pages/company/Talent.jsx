@@ -24,6 +24,9 @@ const FIELDS = [
   ['exp', 1.5, 'experiencia'], ['edu', 1, 'estudios'], ['jobs', 1, 'procesos'], ['place', 1, null], ['email', 1, null],
 ]
 
+const comunaKey = (c) => (c || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
+const capScore = (c) => (c.match(/(^|\s)[A-ZÁÉÍÓÚÑ]/g) || []).length
+
 export default function Talent() {
   const { company } = useAuth()
   const nav = useNavigate()
@@ -62,7 +65,16 @@ export default function Talent() {
   const pres = usePresence({ users: (list || []).map((x) => x.candidate_id).filter(Boolean) })
   const tags = useMemo(() => [...new Set((list || []).flatMap((x) => x.tags))].sort(), [list])
   const regiones = useMemo(() => REGIONES.filter((r) => (list || []).some((x) => x.region === r)), [list])
-  const comunas = useMemo(() => [...new Set((list || []).filter((x) => !f.region || x.region === f.region).map((x) => x.comuna).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [list, f.region])
+  // Una sola opción por comuna aunque esté escrita distinto («Las condes», «Las Condes », «las condes»)
+  const comunas = useMemo(() => {
+    const m = new Map()
+    ;(list || []).filter((x) => !f.region || x.region === f.region).forEach((x) => {
+      const k = comunaKey(x.comuna); if (!k) return
+      const label = x.comuna.trim().replace(/\s+/g, ' ')
+      if (!m.has(k) || capScore(label) > capScore(m.get(k))) m.set(k, label)
+    })
+    return [...m].sort((a, b) => a[1].localeCompare(b[1], 'es'))
+  }, [list, f.region])
   const procesos = useMemo(() => {
     const m = new Map(); (list || []).forEach((x) => x.jobs.forEach((j) => m.set(j.job_id, j.title))); return [...m].sort((a, b) => a[1].localeCompare(b[1], 'es'))
   }, [list])
@@ -78,7 +90,7 @@ export default function Talent() {
       if (f.area && !(x.areas || []).includes(f.area)) continue
       if (f.tag && !x.tags.includes(f.tag)) continue
       if (f.region && x.region !== f.region) continue
-      if (f.comuna && x.comuna !== f.comuna) continue
+      if (f.comuna && comunaKey(x.comuna) !== comunaKey(f.comuna)) continue
       if (f.job && !x.jobs.some((j) => j.job_id === f.job)) continue
       if (f.nivel && String(x.role_level || '') !== f.nivel) continue
       if (f.exp === 'si' && x.has_experience !== true) continue

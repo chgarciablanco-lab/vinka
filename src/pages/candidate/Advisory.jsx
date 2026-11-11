@@ -136,9 +136,9 @@ export default function Advisory() {
             <p className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-[13px] leading-snug text-[#4A2163]">VINKA te escribirá por el chat de tu asesoría, dentro de la app, para coordinar el pago y empezar. No usamos WhatsApp, llamadas ni correos para la asesoría.</p>
             <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
               <input type="checkbox" checked={form.consent} onChange={(e) => setForm({ ...form, consent: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
-              Autorizo que un reclutador de VINKA vea mi perfil laboral y me contacte por teléfono o correo para coordinar esta asesoría y su pago.
+              Autorizo que un reclutador de VINKA vea mi perfil laboral y me escriba por el chat de la asesoría, dentro de VINKA, para coordinarla y su pago.
             </label>
-            <p className="hint">No pagas nada ahora. Te contactaremos para confirmar el servicio y enviarte los datos de pago.</p>
+            <p className="hint">No pagas nada ahora. Te escribiremos por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.</p>
             <ErrorBox>{err}</ErrorBox>
             <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setPick(null)}>Cancelar</button><button className="btn" disabled={busy} onClick={request}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button></div>
           </div>

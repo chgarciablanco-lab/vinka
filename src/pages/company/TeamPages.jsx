@@ -67,7 +67,7 @@ export function Templates() {
 
 /* ===================== Equipo ===================== */
 export function Team() {
-  const { company } = useAuth()
+  const { company, refresh } = useAuth()
   const [members, setMembers] = useState(null)
   const [invites, setInvites] = useState([])
   const [open, setOpen] = useState(false)
@@ -103,6 +103,13 @@ export function Team() {
     const { error } = await supabase.rpc('remove_member', { p_company: company.id, p_user: roleFor.user_id })
     if (error) setErr(errMsg(error)); else { setToast('Persona quitada del equipo'); load() }
     setRoleFor(null)
+  }
+  const [transfer, setTransfer] = useState(false)
+  const isOwner = company?.member_role === 'owner'
+  const doTransfer = async () => {
+    const { error } = await supabase.rpc('transfer_company_ownership', { p_company: company.id, p_user: roleFor.user_id })
+    if (error) setErr(errMsg(error)); else { setToast(`Listo: ${roleFor.name || 'esa persona'} ahora es dueño/a de la empresa. Tú quedas como administrador/a.`); await refresh?.(); load() }
+    setTransfer(false); setRoleFor(null)
   }
   const cancel = async (id) => { await supabase.rpc('cancel_member_invite', { p_id: id }); load() }
   const copyLink = async (t) => { try { await navigator.clipboard.writeText(`${location.origin}/equipo/unirse/${t}`); setToast('Enlace copiado') } catch { setToast('No se pudo copiar') } }
@@ -157,7 +164,7 @@ export function Team() {
           <button className="btn" onClick={invite} disabled={!f.email.includes('@')}>Enviar invitación</button>
         </div>
       </Sheet>
-      <Sheet open={!!roleFor} onClose={() => setRoleFor(null)} title={roleFor?.name || ''}>
+      <Sheet open={!!roleFor} onClose={() => { setRoleFor(null); setTransfer(false) }} title={roleFor?.name || ''}>
         {roleFor && (
           <div className="flex flex-col gap-2">
             {roleKeys.map((k) => (
@@ -165,6 +172,12 @@ export function Team() {
                 <span className="text-sm font-semibold">{ROLES[k][0]}</span><span className="text-xs text-tinta-3">{ROLES[k][1]}</span>
               </button>
             ))}
+            {isOwner && !isClientCo && roleFor.role !== 'client' && (transfer ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-xl border border-[#E6C66A] bg-[#FFF8E6] p-3 text-sm">
+                <span><b>¿Traspasar la empresa a {roleFor.name || roleFor.email}?</b> Pasará a ser dueño/a (también de las empresas clientes, si las hay) y tú quedarás como administrador/a. Solo esa persona podrá devolvértela.</span>
+                <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-10 text-sm" onClick={() => setTransfer(false)}>Cancelar</button><button className="btn h-10 text-sm" onClick={doTransfer}>Sí, traspasar</button></div>
+              </div>
+            ) : <button className="mt-2 h-11 rounded-xl border border-linea text-sm font-semibold" onClick={() => setTransfer(true)}>Traspasar la empresa</button>)}
             <button className="mt-2 h-11 text-sm font-semibold text-[#B42318]" onClick={remove}>Quitar del equipo</button>
           </div>
         )}

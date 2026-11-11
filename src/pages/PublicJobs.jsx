@@ -92,6 +92,8 @@ export function PublicJob() {
   if (d === undefined) return <Spinner />
   if (!d) return <NotFound what="Esta vacante" />
   const j = d.job, c = d.company
+  // Al ingresar o crear la cuenta, la app vuelve a esta misma vacante
+  const keepJob = () => { try { localStorage.setItem('vinka-next', `/vacante/${j.id}`) } catch { /* sin almacenamiento */ } }
   const reqs = Array.isArray(j.requirements) ? j.requirements.filter(Boolean) : []
   const submit = async (e) => {
     e.preventDefault(); setErr('')
@@ -125,15 +127,15 @@ export function PublicJob() {
       {session && profile?.role === 'candidate' ? (
         <div className="card flex flex-col gap-2 p-5">
           <span className="text-[16px] font-semibold">Ya tienes cuenta en VINKA</span>
-          <span className="text-sm text-tinta-3">Postula con tu perfil desde Explorar: la empresa verá tu experiencia y podrán conversar por chat.</span>
-          <Link to="/" className="btn mt-1">Ir a VINKA</Link>
+          <span className="text-sm text-tinta-3">Abre esta vacante con tu perfil: ahí puedes decir «Me interesa», ver si ya postulaste o seguir la conversación si ya hay match.</span>
+          <Link to={`/vacante/${j.id}`} className="btn mt-1">Ver esta vacante en VINKA</Link>
         </div>
       ) : done ? (
         <div className="card flex flex-col items-center gap-2 p-6 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EAF6EF] text-[#1E6B3F]"><Svg name="check" size={28} /></span>
           <span className="font-display text-lg font-semibold">{done === 'ya_postulaste' ? 'Ya habías postulado a esta vacante' : '¡Postulación enviada!'}</span>
           <span className="text-sm leading-relaxed text-tinta-3">{c.display_name} revisará tus datos y te contactará por correo o teléfono. Si creas una cuenta en VINKA podrás seguir el proceso y recibir vacantes parecidas.</span>
-          <Link to="/registro/candidato" className="btn-sec mt-2">Crear mi cuenta gratis</Link>
+          <Link to="/registro/candidato" onClick={keepJob} className="btn-sec mt-2">Crear mi cuenta gratis</Link>
         </div>
       ) : (
         <form onSubmit={submit} className="card flex flex-col gap-3 p-5">
@@ -150,7 +152,7 @@ export function PublicJob() {
           </label>
           <ErrorBox>{err}</ErrorBox>
           <button className="btn" disabled={busy}>{busy ? 'Enviando…' : 'Enviar postulación'}</button>
-          <span className="text-center text-xs text-tinta-suave">¿Tienes cuenta? <Link to="/ingresar" className="font-semibold text-rosa-texto">Ingresa</Link> y postula con tu perfil.</span>
+          <span className="text-center text-xs text-tinta-suave">¿Tienes cuenta? <Link to="/ingresar" onClick={keepJob} className="font-semibold text-rosa-texto">Ingresa</Link> y postula con tu perfil.</span>
         </form>
       )}
     </Shell>

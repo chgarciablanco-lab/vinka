@@ -32,8 +32,9 @@ export default function Automations() {
   const [draft, setDraft] = useState({})
 
   const load = async () => {
+    setErr('')
     const { data, error } = await supabase.from('stage_rules').select('*').eq('company_id', company.id)
-    if (error) return setErr(errMsg(error))
+    if (error) { setErr(errMsg(error)); setRules((r) => r ?? false); return }
     const m = Object.fromEntries((data || []).map((r) => [r.stage, r]))
     setRules(m); setDraft(Object.fromEntries(STAGES.map(([k]) => [k, m[k]?.body || ''])))
   }
@@ -57,6 +58,12 @@ export default function Automations() {
     setToast('Guardado'); refresh?.()
   }
 
+  if (rules === false) return (
+    <Screen><TopBar back title="Automatizaciones" />
+      <div className="flex flex-col gap-3 px-6 pt-4"><ErrorBox>{err || 'No pudimos cargar tus automatizaciones.'}</ErrorBox>
+        <button className="btn-sec" onClick={() => { setRules(null); load() }}>Reintentar</button></div>
+    </Screen>
+  )
   if (!rules) return <Screen><TopBar back title="Automatizaciones" /><Spinner /></Screen>
   return (
     <Screen className="bg-[#FAF7F9]">

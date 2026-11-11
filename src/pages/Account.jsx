@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -52,9 +52,23 @@ export function DangerZone() {
   const [open, setOpen] = useState(false)
   const [txt, setTxt] = useState('')
   const [err, setErr] = useState('')
+  const [owned, setOwned] = useState(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    setErr(''); setTxt(''); setOwned(null)
+    supabase.rpc('my_deletion_check').then(({ data }) => setOwned(data?.owned || []))
+  }, [open])
+  // La baja la hace una función de servidor: borra tus archivos (video, CV y archivos de asesorías) y luego la cuenta
   const del = async () => {
-    const { error } = await supabase.rpc('delete_my_account')
-    if (error) return setErr(errMsg(error))
+    setErr(''); setBusy(true)
+    const { data, error } = await supabase.functions.invoke('delete-account', { body: { confirm: 'ELIMINAR' } })
+    setBusy(false)
+    if (error || !data?.deleted) {
+      let msg = data?.error
+      try { msg = msg || (await error?.context?.json())?.error } catch { /* sin detalle */ }
+      return setErr(msg || 'No pudimos eliminar tu cuenta. Inténtalo de nuevo.')
+    }
     await signOut(); nav('/')
   }
   return (
@@ -69,11 +83,22 @@ export function DangerZone() {
       </div>
       <Sheet open={open} onClose={() => setOpen(false)} title="Eliminar cuenta">
         <div className="flex flex-col gap-3 text-sm leading-relaxed">
-          <p>Se borrarán tu perfil, tus intereses, tus matches, tus mensajes y tu video. Esta acción no se puede deshacer.</p>
-          <label className="flex flex-col gap-1.5"><span className="label">Escribe ELIMINAR para confirmar</span>
-            <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} /></label>
-          <ErrorBox>{err}</ErrorBox>
-          <button className="btn bg-[#B42318]" disabled={txt !== 'ELIMINAR'} onClick={del}>Eliminar definitivamente</button>
+          {owned == null ? <p className="text-tinta-3">Revisando tu cuenta…</p> : owned.length > 0 ? (
+            <>
+              <p className="rounded-xl bg-[#FEF3F2] px-3 py-2.5 text-[#912018]"><b>Aún no puedes eliminar tu cuenta.</b> Eres dueño/a de {owned.map((c) => c.name).join(', ')}. Si la eliminas, se perderían sus vacantes, procesos y el trabajo de tu equipo.</p>
+              {owned.some((c) => !c.client && c.others > 0)
+                ? <p>Primero traspasa la empresa a otra persona del equipo: en <Link to="/equipo" className="font-semibold underline" onClick={() => setOpen(false)}>Equipo</Link>, toca a esa persona y elige «Traspasar la empresa». Después podrás eliminar tu cuenta.</p>
+                : <p>No hay otra persona en el equipo a quien traspasarla. <Link to="/equipo" className="font-semibold underline" onClick={() => setOpen(false)}>Invita a alguien</Link> y traspásale la empresa, o escribe a <a href="mailto:contacto@vinka.cl" className="font-semibold underline">contacto@vinka.cl</a> para cerrarla.</p>}
+            </>
+          ) : (
+            <>
+              <p>Se borrarán tu perfil, tus intereses, tus matches, tus mensajes, tu video, tus CV y los archivos de tus asesorías. Los registros de pagos se conservan sin tus datos por obligación tributaria. Esta acción no se puede deshacer.</p>
+              <label className="flex flex-col gap-1.5"><span className="label">Escribe ELIMINAR para confirmar</span>
+                <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} /></label>
+              <ErrorBox>{err}</ErrorBox>
+              <button className="btn bg-[#B42318]" disabled={txt !== 'ELIMINAR' || busy} onClick={del}>{busy ? 'Eliminando…' : 'Eliminar definitivamente'}</button>
+            </>
+          )}
         </div>
       </Sheet>
     </>

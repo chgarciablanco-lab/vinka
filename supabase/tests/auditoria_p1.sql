@@ -19,6 +19,12 @@ begin
   exception when others then reset role;
   end;
   r := r || case when ok then 'OK  ' else 'FALLA' end || ' F02 dueña no puede borrar su cuenta · ' || left(e, 90) || E'\n';
+  begin perform delete_account_data(nova_u); e := 'borró'; exception when others then e := sqlerrm; end;
+  ok := exists (select 1 from companies where id = nova);
+  r := r || case when ok then 'OK  ' else 'FALLA' end || ' F02 baja de servidor rechaza a la dueña · ' || left(e, 90) || E'\n';
+  begin delete from profiles where id = nova_u; e := 'borró'; exception when others then e := sqlerrm; end;
+  ok := exists (select 1 from companies where id = nova);
+  r := r || case when ok then 'OK  ' else 'FALLA' end || ' F02 la base no borra la empresa en cascada · ' || left(e, 70) || E'\n';
 
   -- F04: «ya cambié mi contraseña» sin cambiarla no debe quitar la obligación
   perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role','authenticated')::text, true);
@@ -53,6 +59,12 @@ begin
   reset role;
   ok := (select status from service_requests where id = sr) = 'cancelada' or exists (select 1 from payments where request_id = sr);
   r := r || case when ok then 'OK  ' else 'FALLA' end || ' F05 activar siempre deja pago o se rechaza · ' || left(e, 80) || E'\n';
+  set local role authenticated;
+  perform admin_update_service_request(sr, 'solicitada', 'reabierta');
+  perform admin_update_service_request(sr, 'en_curso', 'pago confirmado');
+  reset role;
+  ok := (select status from service_requests where id = sr) = 'en_curso' and (select count(*) from payments where request_id = sr) = 1;
+  r := r || case when ok then 'OK  ' else 'FALLA' end || ' F05 reabrir y confirmar deja exactamente 1 pago' || E'\n';
 
   -- F01: los destacados del plan son del grupo (matriz + clientes)
   select * into tpl from jobs where company_id = nova and status = 'published' limit 1;
