@@ -336,20 +336,40 @@ const SRV_LABEL = { ...Object.fromEntries(SRV_STATUS), aprobada: 'Aprobada ✓' 
 function Review({ r, onDone }) {
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
+  const [items, setItems] = useState(null)
+  const [exc, setExc] = useState(false)
+  const level = useAdminLevel()
+  const missing = (items || []).filter((x) => !x.ok)
+  const pending = missing.length > 0
   const go = async (ok) => {
     setErr('')
-    const { error } = await supabase.rpc('admin_review_request', { p_id: r.id, p_approve: ok, p_note: note })
+    const { error } = await supabase.rpc('admin_review_request', { p_id: r.id, p_approve: ok, p_note: note, p_exception: ok && pending && exc })
     if (error) return setErr(errMsg(error))
-    setNote(''); onDone()
+    setNote(''); setExc(false); onDone()
   }
+  const canApprove = items != null && (!pending || (exc && note.trim().length >= 20))
   return (
     <div className="flex flex-col gap-2 rounded-xl border-2 border-[#2F7A4F] bg-[#F3FAF6] p-3">
       <span className="text-[15px] font-semibold text-[#134A2B]">Revisión de VINKA</span>
-      <ServiceProgress requestId={r.id} as="admin" />
-      <span className="text-xs text-[#134A2B]">Revisa también la calidad en el expediente. La persona recibe el aviso de «terminada» recién cuando apruebas.</span>
-      <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Observaciones: obligatorias si la devuelves o si apruebas con algo pendiente (queda registrado)" />
+      <ServiceProgress requestId={r.id} as="admin" onLoad={setItems} />
+      {pending ? (
+        <div className="rounded-xl bg-[#FEF3F2] px-3 py-2.5 text-xs leading-snug text-[#912018]">
+          <b>Faltan entregables:</b> {missing.map((x) => `${x.label} (${x.have} de ${x.need})`).join(' · ')}. Lo normal es <b>devolverla al asesor/a</b> con lo que falta.
+        </div>
+      ) : <span className="text-xs text-[#134A2B]">Revisa también la calidad en el expediente. La persona recibe el aviso de «terminada» recién cuando apruebas.</span>}
+      <textarea className="textarea h-20 bg-white" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder={pending ? 'Qué falta (para devolver) o motivo de la excepción (mín. 20 caracteres)' : 'Observaciones (obligatorias si la devuelves)'} />
+      {pending && (level === 'total' ? (
+        <label className="flex items-start gap-2.5 rounded-xl border border-[#F4C7C3] bg-white px-3 py-2.5 text-[13px] leading-snug text-[#912018]">
+          <input type="checkbox" checked={exc} onChange={(e) => setExc(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#C0362C]" />
+          <span><b>Aprobar como excepción.</b> Se cierra con pendientes: la persona recibe «cerrada por VINKA» con lo que faltó, y queda registrado con tu nombre y el motivo.</span>
+        </label>
+      ) : <span className="text-xs text-tinta-3">Solo un administrador total puede aprobar como excepción.</span>)}
       <ErrorBox>{err}</ErrorBox>
-      <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => go(false)}>Devolver al asesor/a</button><button className="btn h-11 bg-[#2F7A4F]" onClick={() => go(true)}>Aprobar asesoría ✓</button></div>
+      <div className="grid grid-cols-2 gap-2">
+        <button className="btn-sec h-11" onClick={() => go(false)}>Devolver al asesor/a</button>
+        <button className={`btn h-11 ${pending ? 'bg-[#C0362C]' : 'bg-[#2F7A4F]'}`} disabled={!canApprove} onClick={() => go(true)}>{pending ? 'Aprobar como excepción' : 'Aprobar asesoría ✓'}</button>
+      </div>
+      {pending && exc && note.trim().length < 20 && <span className="text-[11px] text-tinta-3">Motivo: {note.trim().length} de 20 caracteres mínimos.</span>}
     </div>
   )
 }

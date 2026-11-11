@@ -328,6 +328,8 @@ export function JobForm() {
     if (!j.title.trim() || !j.area || !j.modality || !j.schedule) return setErr('Completa título, área, modalidad y jornada.')
     if (j.modality !== 'Remota' && (!j.region || !j.comuna.trim())) return setErr('Indica región y comuna.')
     if (j.salary_min && j.salary_max && j.salary_min > j.salary_max) return setErr('La renta "desde" no puede ser mayor que "hasta".')
+    if (status === 'published' && j.title.trim().length < 4) return setErr('Para publicar, escribe el nombre del cargo (al menos 4 caracteres).')
+    if (status === 'published' && (j.description || '').trim().length < 30) return setErr('Para publicar, describe el cargo: funciones, horario o beneficios (al menos 30 caracteres).')
     if (status === 'published' && !ok) return setErr('Confirma que la oferta es real, no cobra a postulantes y no discrimina.')
     setBusy(true)
     const row = { ...j, title: j.title.trim(), comuna: j.comuna.trim(), status, company_id: company.id }
@@ -395,7 +397,7 @@ export function JobForm() {
           </div>
           <span className="hint">Recomendado. Los candidatos ven este rango antes de mostrar interés.</span>
         </div>
-        <Field label="Descripción" hint="Funciones principales, horario, beneficios."><textarea className="textarea h-36" maxLength={3000} value={j.description} onChange={(e) => set('description', e.target.value)} /></Field>
+        <Field label="Descripción" hint={`Funciones principales, horario, beneficios. Mínimo 30 caracteres para publicar${(j.description || "").trim().length < 30 ? ` (llevas ${(j.description || "").trim().length})` : ''}.`}><textarea className="textarea h-36" maxLength={3000} value={j.description} onChange={(e) => set('description', e.target.value)} /></Field>
         <AiAssist task="job_description" title="Descripción de la vacante" current={j.description}
           getContext={() => ({ title: j.title, area: j.area, level: j.level, modality: j.modality, schedule: j.schedule, contract: j.contract, comuna: j.comuna, company: company?.display_name, company_description: company?.description, benefits: company?.benefits })}
           onApply={(t) => set('description', t.slice(0, 3000))} />

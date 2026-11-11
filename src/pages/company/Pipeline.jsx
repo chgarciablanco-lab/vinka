@@ -128,7 +128,7 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
         {selecting && <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${selected ? 'border-rosa-accion bg-rosa-accion text-white' : 'border-linea'}`}>{selected && <Svg name="check" size={15} width={3} />}</span>}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-[15px] font-semibold">{c.name}</span>
-          <span className="truncate text-[13px] text-tinta-3">{c.headline || '—'}{c.comuna ? ` · ${c.comuna}` : ''}</span>
+          <span className="line-clamp-2 text-[13px] leading-snug text-tinta-3">{c.headline || '—'}{c.comuna ? ` · ${c.comuna}` : ''}</span>
           <PresenceLine p={p} />
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
@@ -147,13 +147,14 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
         </div>
       )}
       {canManage && !selecting && (
-        <div className="flex gap-2 border-t border-[#F1E7ED] pt-2.5">
+        <div className="flex flex-wrap gap-2 border-t border-[#F1E7ED] pt-2.5">
           {next && (
-            <button type="button" onClick={onAdvance} className="flex h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl bg-rosa-palido px-2 text-[13px] font-semibold text-rosa-oscuro">
-              <span className="truncate">{c.stage === 'postulante' ? 'Hacer match' : `Avanzar a ${colLabel(next)}`}</span><Svg name="chevron" size={14} />
+            <button type="button" onClick={onAdvance} title={c.stage === 'postulante' ? 'Hacer match' : `Avanzar a ${colLabel(next)}`}
+              className="flex min-h-10 flex-[1_1_10rem] items-center justify-center gap-1 rounded-xl bg-rosa-palido px-2.5 py-1.5 text-center text-[13px] font-semibold leading-tight text-rosa-oscuro">
+              <span>{c.stage === 'postulante' ? 'Hacer match' : <>Avanzar a <b className="font-bold">{colLabel(next)}</b></>}</span><Svg name="chevron" size={14} className="shrink-0" />
             </button>
           )}
-          <button type="button" onClick={onMove} className={`flex h-10 items-center justify-center rounded-xl border border-linea px-3 text-[13px] font-semibold text-tinta-2 ${next ? '' : 'flex-1'}`}>
+          <button type="button" onClick={onMove} className={`flex min-h-10 items-center justify-center rounded-xl border border-linea px-3 py-1.5 text-[13px] font-semibold text-tinta-2 ${next ? 'flex-[0_1_auto]' : 'flex-1'}`}>
             {next ? 'Otra etapa' : 'Cambiar etapa'}
           </button>
         </div>

@@ -97,6 +97,28 @@ export function AdvisorTeam() {
   )
 }
 
+/** Entregar: el botón solo se habilita cuando está listo todo lo que se vendió (lo mismo que valida la base de datos) */
+function DeliverButton({ r, note, setNote, onDeliver }) {
+  const [items, setItems] = useState(null)
+  useEffect(() => {
+    const get = () => supabase.rpc('service_progress', { p_id: r.id }).then(({ data }) => setItems(data || []))
+    get(); const t = setInterval(get, 20000); return () => clearInterval(t)
+  }, [r.id])
+  const missing = (items || []).filter((x) => !x.ok)
+  const ready = items != null && missing.length === 0
+  return (
+    <>
+      {items != null && !ready && (
+        <div className="rounded-xl bg-[#FEF3F2] px-3 py-2.5 text-xs leading-snug text-[#912018]">
+          <b>Aún no puedes entregar.</b> Falta: {missing.map((x) => `${x.label} (${x.have} de ${x.need})`).join(' · ')}.
+        </div>
+      )}
+      <textarea className="textarea h-20" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} disabled={!ready} placeholder="Mensaje final para la persona: qué le entregaste y próximos pasos" />
+      <button className="btn" disabled={!ready} aria-disabled={!ready} onClick={onDeliver}>{items == null ? 'Revisando requisitos…' : ready ? 'Marcar como entregada' : `Marcar como entregada · ${items.length - missing.length} de ${items.length} listo`}</button>
+    </>
+  )
+}
+
 export default function AdvisorHome() {
   const { profile } = useAuth()
   const [list, setList] = useState(null)
@@ -150,8 +172,7 @@ export default function AdvisorHome() {
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
                 <span className="text-[13px] font-semibold">¿Terminaste la asesoría?</span>
                 <span className="text-xs text-tinta-3">Solo puedes entregar cuando arriba esté listo todo lo que se vendió. VINKA revisa la calidad y recién ahí la persona recibe el aviso de «terminada».</span>
-                <textarea className="textarea h-20" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Mensaje final para la persona: qué le entregaste y próximos pasos" />
-                <button className="btn" onClick={() => deliver(r)}>Marcar como entregada</button>
+                <DeliverButton r={r} note={note} setNote={setNote} onDeliver={() => deliver(r)} />
               </div>
             )}
           </>
