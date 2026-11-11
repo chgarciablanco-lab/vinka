@@ -47,6 +47,8 @@ export function SignupCandidate() {
     })
     setBusy(false)
     if (error) return setErr(errMsg(error))
+    // Correo ya registrado: Supabase responde «ok» sin enviar correo (para no revelar cuentas). Se detecta porque no trae identidades.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return setErr('Este correo ya tiene una cuenta en VINKA. Ingresa con tu contraseña o usa «¿Olvidaste tu contraseña?» para recuperarla.')
     if (data.session) nav('/'); else nav('/confirmar', { state: { email: f.email.trim() } })
   }
 
@@ -112,6 +114,8 @@ export function SignupCompany() {
     })
     setBusy(false)
     if (error) return setErr(errMsg(error))
+    // Correo ya registrado: Supabase responde «ok» sin enviar correo (para no revelar cuentas). Se detecta porque no trae identidades.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return setErr('Este correo ya tiene una cuenta en VINKA. Ingresa con tu contraseña o usa «¿Olvidaste tu contraseña?» para recuperarla.')
     if (data.session) nav('/'); else nav('/confirmar', { state: { email: a.email.trim() } })
   }
 

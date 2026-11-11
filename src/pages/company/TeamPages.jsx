@@ -205,10 +205,11 @@ export function JoinTeam() {
     if (f.password.length < 8) return setErr('La contraseña debe tener al menos 8 caracteres.')
     if (!f.terms) return setErr('Debes aceptar los términos y la política de privacidad.')
     setBusy(true)
-    const { error } = await supabase.auth.signUp({ email: inv.email, password: f.password, options: {
+    const { data, error } = await supabase.auth.signUp({ email: inv.email, password: f.password, options: {
       emailRedirectTo: location.origin, data: { role: 'company', first_name: f.first_name.trim(), last_name: f.last_name.trim(), terms_accepted: true, team_invite: token } } })
     setBusy(false)
     if (error) return setErr(errMsg(error))
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return setErr('Este correo ya tiene una cuenta en VINKA. Ingresa con ella y vuelve a abrir el enlace de la invitación.')
     setSent(true)
   }
 
