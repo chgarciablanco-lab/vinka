@@ -23,6 +23,7 @@ const StepPrefs = lz(() => import('./pages/candidate/ProfileSteps'), 'StepPrefs'
 const StepIntro = lz(() => import('./pages/candidate/ProfileSteps'), 'StepIntro')
 const Explore = lz(() => import('./pages/candidate/Explore'))
 const Interests = lz(() => import('./pages/candidate/Interests'))
+const JobView = lz(() => import('./pages/candidate/JobView'))
 const ChatList = lz(() => import('./pages/Chats'), 'ChatList')
 const ChatRoom = lz(() => import('./pages/Chats'), 'ChatRoom')
 const CandidateProfile = lz(() => import('./pages/Account'), 'CandidateProfile')
@@ -252,6 +253,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
+        <Route path="/vacante/:id" element={<JobView />} />
         <Route path="/chats" element={<ChatsSplit items={nav} />} />
         <Route path="/chats/:id" element={<ChatsSplit items={nav} />} />
         <Route path="/chats/:id/agendar" element={<BookInterview />} />

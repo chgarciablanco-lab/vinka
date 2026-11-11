@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
 import { logoUrl } from '../../components/OfferLetter'
@@ -166,6 +166,7 @@ export function CompanyPanel() {
                 ? <Link to={`/vacantes/${j.id}/candidatos`} className={`btn-sm border border-linea bg-white ${canManage ? '' : 'col-span-2'}`}>Buscar candidatos</Link>
                 : <span className={`btn-sm bg-[#F4EEF2] text-tinta-3 ${canManage ? '' : 'col-span-2'}`}>{j.status === 'pending' ? 'Se publica al verificar' : 'No visible'}</span>}
             </div>
+            {canManage && j.status === 'closed' && <Link to={`/vacantes/nueva?desde=${j.id}`} className="btn-sm gap-1.5 border border-rosa-accion bg-white text-rosa-texto">↻ Republicar (nuevo requerimiento)</Link>}
             {j.status === 'review' && (isAdmin
               ? <button className="btn-sm bg-[#6B2E8F] text-white" onClick={() => approve(j)}>Aprobar y publicar</button>
               : <span className="text-xs text-[#6B2E8F]">Un administrador debe aprobarla para publicarla.</span>)}
@@ -292,6 +293,29 @@ export function JobForm() {
   const [ok, setOk] = useState(!!id)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  // Republicar: ?desde=<id> copia una vacante (cerrada o no) como una nueva, con su propio proceso de selección
+  const [sp] = useSearchParams()
+  const from = !id ? sp.get('desde') : null
+  const [fromTitle, setFromTitle] = useState('')
+  const [draftId, setDraftId] = useState(null)
+  const [full, setFull] = useState(null)
+  useEffect(() => {
+    if (!from) return
+    supabase.from('jobs').select('*').eq('id', from).single().then(({ data }) => {
+      if (!data) return
+      const keep = ['title', 'area', 'level', 'description', 'requirements', 'modality', 'schedule', 'contract', 'region', 'comuna', 'salary_min', 'salary_max', 'salary_type', 'questions', 'confidential']
+      setJ({ ...EMPTY_JOB, ...Object.fromEntries(keep.filter((k) => k in data).map((k) => [k, data[k]])), requirements: data.requirements || [], questions: data.questions || [], status: 'draft' })
+      setFromTitle(data.title)
+    })
+  }, [from])
+  const loadPublished = () => supabase.from('jobs').select('id, title, comuna, created_at').eq('company_id', company.id).eq('status', 'published').order('created_at').then(({ data }) => setFull(data || []))
+  const freeUp = async (job, status) => {
+    setErr('')
+    const { error } = await supabase.from('jobs').update({ status }).eq('id', job.id)
+    if (error) return setErr(errMsg(error))
+    setFull(null)
+    save('published')
+  }
   useEffect(() => {
     if (id) supabase.from('jobs').select('*').eq('id', id).single().then(({ data, error }) => { if (error) setErr(errMsg(error)); setJ(data ? { ...EMPTY_JOB, ...data, requirements: data.requirements || [], questions: data.questions || [] } : data) })
   }, [id])
@@ -306,16 +330,44 @@ export function JobForm() {
     setBusy(true)
     const row = { ...j, title: j.title.trim(), comuna: j.comuna.trim(), status, company_id: company.id }
     delete row.id; delete row.created_at; delete row.updated_at
-    const q = id ? supabase.from('jobs').update(row).eq('id', id) : supabase.from('jobs').insert(row)
-    const { error } = await q
+    const target = id || draftId
+    const q = target ? supabase.from('jobs').update(row).eq('id', target) : supabase.from('jobs').insert(row).select('id').single()
+    const { data, error } = await q
     setBusy(false)
-    if (error) return setErr(errMsg(error))
+    if (error) {
+      // Límite del plan: no se pierde lo escrito. Se guarda como borrador y se ofrece cerrar o pausar otra para publicar esta.
+      if (status === 'published' && /a la vez/.test(error.message || '')) {
+        if (!target) {
+          const r = await supabase.from('jobs').insert({ ...row, status: 'draft' }).select('id').single()
+          if (r.data?.id) setDraftId(r.data.id)
+        } else await supabase.from('jobs').update({ ...row, status: 'draft' }).eq('id', target)
+        loadPublished()
+        return setErr(`${errMsg(error)} La guardamos como borrador para que no pierdas nada.`)
+      }
+      return setErr(errMsg(error))
+    }
+    if (!target && data?.id) setDraftId(data.id)
     nav('/')
   }
   const verified = company?.verification_status === 'verified'
   return (
     <Screen>
-      <TopBar back="/" title={id ? 'Editar vacante' : 'Nueva vacante'} />
+      <TopBar back="/" title={id ? 'Editar vacante' : from ? 'Republicar vacante' : 'Nueva vacante'} />
+      {fromTitle && <p className="mx-6 rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-[13px] leading-snug text-[#3D2350]">Copiamos «{fromTitle}». Revisa los datos y publícala: se crea una vacante nueva con su propio proceso de selección. La anterior queda como estaba, con su historial.</p>}
+      <Sheet open={!!full} onClose={() => setFull(null)} title="Libera un cupo para publicar">
+        {full && (
+          <div className="flex flex-col gap-2.5">
+            <p className="text-[13px] leading-snug text-tinta-3">El cupo cuenta solo las vacantes <b>publicadas</b>. Las cerradas, pausadas y borradores no ocupan cupo. Cierra o pausa una de estas y publicamos la nueva de inmediato:</p>
+            {full.map((x) => (
+              <div key={x.id} className="flex flex-col gap-2 rounded-xl border border-linea bg-white p-3 text-sm">
+                <span><b>{x.title}</b>{x.comuna ? ` · ${x.comuna}` : ''} <span className="text-xs text-tinta-3">· desde {new Date(x.created_at).toLocaleDateString('es-CL')}</span></span>
+                <div className="grid grid-cols-2 gap-2"><button className="btn-sm border border-linea bg-white" onClick={() => freeUp(x, 'paused')}>Pausar y publicar la nueva</button><button className="btn-sm border border-linea bg-white" onClick={() => freeUp(x, 'closed')}>Cerrar y publicar la nueva</button></div>
+              </div>
+            ))}
+            <Link to="/plan" className="text-center text-[13px] font-semibold text-rosa-texto">O cambia de plan para publicar más a la vez →</Link>
+          </div>
+        )}
+      </Sheet>
       <div className="flex flex-col gap-4 px-6 pb-6 pt-2">
         <Field label="Título del cargo"><input className="input" maxLength={90} value={j.title} onChange={(e) => set('title', e.target.value)} placeholder="Ej.: Vendedor/a de tienda" /></Field>
         <Field label="Área"><select className="input" value={j.area} onChange={(e) => set('area', e.target.value)}><option value="">Selecciona</option>{AREAS.map((a) => <option key={a}>{a}</option>)}</select></Field>

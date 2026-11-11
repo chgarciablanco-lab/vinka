@@ -70,7 +70,7 @@ export default function Interests() {
 
   const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length)
   const list = tab === 'match'
-    ? matches.map((m) => ({ key: m.match_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage }))
+    ? matches.map((m) => ({ key: m.match_id, job_id: m.job_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage }))
     : (rows || []).filter((r) => r.kind === tab).sort((a, b) => (ORDER[a.status] || 0) - (ORDER[b.status] || 0))
       .map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, status: r.status, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
 
@@ -95,14 +95,15 @@ export default function Interests() {
           <div className="lg:col-span-2"><Empty title="Nada por aquí todavía">{tab === 'invited' ? 'Cuando una empresa se interese en ti, aparecerá aquí.' : <>Sigue explorando en <Link to="/" className="font-semibold text-rosa-texto">Explorar</Link>.</>}</Empty></div>
         ) : list.map((r) => (
           <div key={r.key} className="card flex flex-col gap-2.5 p-3.5">
-            <div className="flex items-center gap-3">
+            <Link to={`/vacante/${r.job_id}`} className="flex items-center gap-3" aria-label={`Ver vacante completa: ${r.title}`}>
               <Avatar text={initials(r.company)} color={colorFor(r.company)} size={44} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-[15px] font-semibold">{r.title}</span>
                 <span className="truncate text-[13px] text-tinta-3">{r.company}</span>
               </div>
               <span className={`pill whitespace-nowrap ${(STAGE_PILL[r.stage] || STATUS_PILL[r.status] || PILL[tab])[1]}`}>{(STAGE_PILL[r.stage] || STATUS_PILL[r.status] || PILL[tab])[0]}</span>
-            </div>
+            </Link>
+            <Link to={`/vacante/${r.job_id}`} className="-mt-1 self-start text-[13px] font-semibold text-rosa-texto">Ver vacante completa →</Link>
             {(STAGE_PILL[r.stage]?.[2] || STATUS_TXT[r.status]) && <span className="text-[13px] leading-snug text-tinta-3">{STAGE_PILL[r.stage]?.[2] || STATUS_TXT[r.status]}</span>}
             {tab === 'invited' && (
               <div className="grid grid-cols-2 gap-2">
