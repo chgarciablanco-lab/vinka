@@ -4,8 +4,9 @@ import { Screen, TopBar } from '../components/ui'
 // Textos legales de VINKA. Marco: Ley 19.628 y Ley 21.719 (protección de datos personales), Ley 19.496 (consumidor)
 // y Código del Trabajo (no discriminación). Antes de lanzar conviene una revisión final de un abogado.
 // Identificación del responsable: completar razón social, RUT y domicilio cuando estén definidos (se muestran solo si tienen valor).
-// Provisorio mientras se constituye la sociedad: reemplazar por los datos reales.
-const OPERADOR = { nombre: 'VINKA', razon: 'VINKA SpA (en constitución)', rut: 'en trámite', domicilio: 'Talca, Región del Maule, Chile' }
+// DATOS FICTICIOS SOLO PARA EL PILOTO: reemplazar por la razón social, RUT y domicilio reales antes del lanzamiento.
+// El dígito verificador del RUT es inválido a propósito, para que no coincida con ninguna empresa o persona real.
+const OPERADOR = { nombre: 'VINKA', razon: 'VINKA Plataforma Laboral SpA', rut: '77.812.345-5', domicilio: '2 Norte 1150, oficina 402, Talca, Región del Maule' }
 const CONTACTO = 'contacto@vinka.cl'
 const ACTUALIZADO = '10 de noviembre de 2026'
 
