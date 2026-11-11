@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
+import { pl } from '../../lib/text'
 
 const PERIODOS = [[30, '30 días'], [90, '90 días'], [365, '12 meses'], [0, 'Todo']]
 const STEPS = [['views', 'Vieron el aviso'], ['applied', 'Interesados («Me interesa»)'], ['matches', 'Match'], ['contacted', 'Contactados'], ['interviewed', 'Entrevistados'], ['offered', 'Con oferta'], ['hired', 'Contratados']]
@@ -91,13 +92,13 @@ export default function Reports() {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{dth != null ? `${dth} días` : '—'}</span><span className="text-xs text-tinta-3">Tiempo promedio a contratar</span></div>
-              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{!job && r.days_to_first_step != null ? `${r.days_to_first_step} días` : tot.offers_sent ? `${pct(tot.offers_accepted, tot.offers_sent)}%` : '—'}</span><span className="text-xs text-tinta-3">{!job && r.days_to_first_step != null ? 'Del match al primer paso' : 'Ofertas aceptadas'}</span></div>
+              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{dth != null ? `${pl(dth, 'día', 'días')}` : '—'}</span><span className="text-xs text-tinta-3">Tiempo promedio a contratar</span></div>
+              <div className="card flex flex-col gap-0.5 p-3"><span className="font-display text-[22px] font-bold">{!job && r.days_to_first_step != null ? `${pl(r.days_to_first_step, 'día', 'días')}` : tot.offers_sent ? `${pct(tot.offers_accepted, tot.offers_sent)}%` : '—'}</span><span className="text-xs text-tinta-3">{!job && r.days_to_first_step != null ? 'Del match al primer paso' : 'Ofertas aceptadas'}</span></div>
             </div>
             <div className="card flex flex-col gap-3 p-4">
               <span className="text-[15px] font-semibold">Embudo</span>
               <Funnel data={tot} />
-              {tot.externals > 0 && <span className="hint">Incluye {tot.externals} postulante(s) importado(s) de otros portales desde "Contactados" en adelante.</span>}
+              {tot.externals > 0 && <span className="hint">Incluye {pl(tot.externals, 'postulante importado', 'postulantes importados')} de otros portales desde "Contactados" en adelante.</span>}
               {tot.views === 0 && <span className="hint">Las vistas se cuentan desde hoy: es un dato nuevo.</span>}
             </div>
             <details className="card p-4 text-[13px] leading-relaxed text-tinta-2">
@@ -114,8 +115,8 @@ export default function Reports() {
                   <span className="text-[15px] font-semibold">Tiempo promedio en cada etapa</span>
                   <ol className="flex flex-col gap-2.5" aria-label="Días promedio por etapa">
                     {STAGE_ORDER.map(([k, l]) => { const t = times.find((x) => x.stage === k); if (!t) return null; const v = Number(t.avg_days); return (
-                      <li key={k} className="flex flex-col gap-1" title={`${l}: ${v} días en promedio (${t.n} personas)`}>
-                        <div className="flex items-baseline justify-between gap-2 text-[13px]"><span className="text-tinta-2">{l}</span><span><b className="text-tinta">{v} días</b><span className="ml-1.5 text-tinta-suave">{t.n} personas</span></span></div>
+                      <li key={k} className="flex flex-col gap-1" title={`${l}: ${pl(v, 'día', 'días')} en promedio (${pl(t.n, 'persona', 'personas')})`}>
+                        <div className="flex items-baseline justify-between gap-2 text-[13px]"><span className="text-tinta-2">{l}</span><span><b className="text-tinta">{pl(v, 'día', 'días')}</b><span className="ml-1.5 text-tinta-suave">{pl(t.n, 'persona', 'personas')}</span></span></div>
                         <div className="h-2.5 rounded-full bg-[#F4EEF2]"><div className={`h-2.5 rounded-full ${t === slow ? 'bg-naranja' : 'bg-morado'}`} style={{ width: `${Math.max(2, (v / max) * 100)}%` }} /></div>
                       </li>) })}
                   </ol>
@@ -136,8 +137,8 @@ export default function Reports() {
                 <span className="text-[15px] font-semibold">Por vacante</span>
                 {jobs.map((j) => (
                   <button key={j.id} onClick={() => setJob(j.id)} className="card flex flex-col gap-1.5 p-3.5 text-left">
-                    <span className="flex justify-between gap-2"><span className="truncate text-sm font-semibold">{j.title}</span><span className="text-xs text-tinta-suave">{j.hired} contratado(s)</span></span>
-                    <span className="text-xs text-tinta-3">{j.applied} interesados · {j.matches} matches · {j.interviewed} entrevistas · {j.offered} ofertas{j.externals ? ` · ${j.externals} externos` : ''}</span>
+                    <span className="flex justify-between gap-2"><span className="truncate text-sm font-semibold">{j.title}</span><span className="text-xs text-tinta-suave">{pl(j.hired, 'contratado', 'contratados')}</span></span>
+                    <span className="text-xs text-tinta-3">{pl(j.applied, 'interesado', 'interesados')} · {pl(j.matches, 'match', 'matches')} · {pl(j.interviewed, 'entrevista', 'entrevistas')} · {pl(j.offered, 'oferta', 'ofertas')}{j.externals ? ` · ${pl(j.externals, 'externo', 'externos')}` : ''}</span>
                   </button>
                 ))}
               </div>

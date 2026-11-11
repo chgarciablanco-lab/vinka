@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
-import { Dossier, TeamNotes } from '../../components/Dossier'
+import { Dossier, NextStep, TeamNotes } from '../../components/Dossier'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
@@ -101,7 +101,10 @@ export default function AdvisorHome() {
   const { profile } = useAuth()
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
-  const [open, setOpen] = useState(null)
+  const caso = new URLSearchParams(window.location.search).get('caso')
+  const [open, setOpen] = useState(caso)
+  const hasData = !!list
+  useEffect(() => { if (caso && hasData) setTimeout(() => document.getElementById(`caso-${caso}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100) }, [caso, hasData])
   const [note, setNote] = useState('')
   const [toast, setToast] = useState('')
   const [q, setQ] = useState('')
@@ -120,7 +123,7 @@ export default function AdvisorHome() {
   }
   const ACTIVE = ['solicitada', 'pago_pendiente', 'en_curso']
   const qn = q.trim().toLowerCase()
-  const shown = (list || []).filter((r) => (fst === 'activas' ? ACTIVE.includes(r.status) : fst ? r.status === fst : true)
+  const shown = (list || []).filter((r) => r.id === caso || (fst === 'activas' ? ACTIVE.includes(r.status) : fst ? r.status === fst : true)
     && (!fsvc || r.service_id === fsvc)
     && (!qn || `${r.name} ${r.service} ${r.goal} ${r.headline || ''} ${r.comuna || ''}`.toLowerCase().includes(qn)))
   const count = (k) => (list || []).filter((r) => (k === 'activas' ? ACTIVE.includes(r.status) : k ? r.status === k : true)).length
@@ -129,11 +132,12 @@ export default function AdvisorHome() {
     const st = SERVICE_STATUS[r.status] || [r.status, 'bg-[#F4EEF2]']
     const isOpen = open === r.id
     return (
-      <div key={r.id} className="card flex flex-col gap-2.5 p-4">
+      <div key={r.id} id={`caso-${r.id}`} className={`card flex flex-col gap-2.5 p-4 ${r.id === caso ? 'ring-2 ring-morado' : ''}`}>
         <button className="flex items-start justify-between gap-2 text-left" onClick={() => setOpen(isOpen ? null : r.id)}>
-          <span className="flex flex-col"><span className="text-[15px] font-semibold">{r.name}</span><span className="text-xs text-tinta-3">{r.service} · asignada el {fmt(r.created_at)}{r.messages ? ` · ${r.messages} mensajes` : ''}</span></span>
+          <span className="flex flex-col"><span className="text-[15px] font-semibold">{r.name}</span><span className="text-xs text-tinta-3">{r.service} · asignada el {fmt(r.created_at)}{r.messages ? ` · ${r.messages} ${r.messages === 1 ? 'mensaje' : 'mensajes'}` : ''}</span></span>
           <span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span>
         </button>
+        <NextStep next={r.next} />
         {isOpen && (
           <>
             {r.goal && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-sm text-[#4A2163]"><b>Lo que busca:</b> {r.goal}</div>}

@@ -7,6 +7,7 @@ import { Calendar } from '../../components/Calendar'
 import { InterviewCard } from '../../components/InterviewCard'
 import { Chips, Empty, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Bell } from '../../components/Bell'
+import { pl, plw } from '../../lib/text'
 
 const DURS = [20, 30, 45, 60]
 const HOURS = Array.from({ length: 29 }, (_, i) => { const m = 7 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }) // 07:00–21:00
@@ -128,7 +129,7 @@ export default function Agenda() {
       </div>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Agregar disponibilidad">
-        {open && <AvailabilityForm company={company} jobs={jobs} onDone={(n) => { setOpen(false); setToast(n ? `Publicaste ${n} horario(s). Tus matches ya pueden reservar.` : 'No se agregaron horarios nuevos (ya existían o eran pasados).'); load(); refresh() }} />}
+        {open && <AvailabilityForm company={company} jobs={jobs} onDone={(n) => { setOpen(false); setToast(n ? `Publicaste ${pl(n, 'horario', 'horarios')}. Tus matches ya pueden reservar.` : 'No se agregaron horarios nuevos (ya existían o eran pasados).'); load(); refresh() }} />}
       </Sheet>
       <Sheet open={!!detail} onClose={() => setDetail(null)} title="Entrevista">
         {detail && (
@@ -230,7 +231,7 @@ function AvailabilityForm({ company, jobs, onDone }) {
       </Field>
       <label className="flex items-center gap-2.5 text-sm"><input type="checkbox" className="h-5 w-5 accent-[#D02E72]" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Recordar {mode === 'online' ? 'este enlace' : 'esta dirección'} para la próxima vez</label>
       <div className="rounded-xl bg-rosa-fondo px-3.5 py-3 text-sm">
-        Se publicarán <b>{slots.length}</b> horario(s) de {dur} min{days.length > 1 ? ` en ${days.length} días` : ''}.
+        {plw(slots.length, 'Se publicará', 'Se publicarán')} <b>{slots.length}</b> {plw(slots.length, 'horario', 'horarios')} de {dur} min{days.length > 1 ? ` en ${days.length} días` : ''}.
       </div>
       <ErrorBox>{err}</ErrorBox>
       <button className="btn" disabled={busy} onClick={save}>{busy ? 'Publicando…' : 'Publicar horarios'}</button>

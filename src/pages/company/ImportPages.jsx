@@ -7,6 +7,7 @@ import { APPLICANT_FIELDS, JOB_FIELDS, cleanEmail, cleanPhone, toContract, toMod
 import { Importer } from '../../components/Importer'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { salaryText } from '../../lib/catalog'
+import { pl } from '../../lib/text'
 
 const n = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const pickArea = (s) => { const v = n(s); return v ? AREAS.find((a) => v.includes(n(a)) || n(a).includes(v)) || 'Otro' : '' }
@@ -125,7 +126,7 @@ export function ExternalApplicants() {
   const invite = async (ids) => {
     const { data, error } = await supabase.rpc('invite_external', { p_ids: ids })
     if (error) return setErr(errMsg(error))
-    setSel([]); setToast(data ? `Enviamos ${data} invitación(es) a VINKA.` : 'No había postulantes con correo válido para invitar.')
+    setSel([]); setToast(data ? `Enviamos ${pl(data, 'invitación', 'invitaciones')} a VINKA.` : 'No había postulantes con correo válido para invitar.')
     setTimeout(load, 2500)
   }
 

@@ -8,6 +8,7 @@ import { Bell } from '../../components/Bell'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
 import { norm, parseQuery } from '../../lib/search'
+import { pl } from '../../lib/text'
 
 const STAGE_TXT = (s) => ({ guardado: 'Guardado', invitado: 'Invitado', postulante: 'Postuló' }[s] || colLabel(s))
 const ACTIVE = ['postulante', 'invitado', 'match', 'contacto', 'entrevista', 'oferta']
@@ -220,7 +221,7 @@ export default function Talent() {
           ) : (
             <>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-tinta-suave" aria-live="polite">{shown.length === list.length ? `${list.length} personas` : `${shown.length} de ${list.length} personas`}</span>
+                <span className="text-xs text-tinta-suave" aria-live="polite">{shown.length === list.length ? `${pl(list.length, 'persona', 'personas')}` : `${shown.length} de ${pl(list.length, 'persona', 'personas')}`}</span>
                 <label className="flex items-center gap-1.5 text-xs text-tinta-3"><span>Ordenar</span>
                   <select className="h-8 rounded-lg border border-linea bg-white px-2 text-xs font-semibold text-tinta-2" value={f.orden || (terms.length ? 'rel' : 'reciente')} onChange={(e) => set({ orden: e.target.value })}>
                     {ORDEN.filter(([k]) => k !== 'rel' || terms.length).map(([k, l]) => <option key={k} value={k}>{l}</option>)}

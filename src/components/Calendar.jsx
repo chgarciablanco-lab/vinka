@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { pad, ymd } from '../lib/dates'
 import { Svg } from './ui'
+import { pl } from '../lib/text'
 
 const DOW = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -52,7 +53,7 @@ export function Calendar({ selected, onSelect, marks = {}, multi = false, onlyMa
           const sel = isSel(day)
           return (
             <button key={day} type="button" disabled={disabled} aria-pressed={sel}
-              aria-label={`${Number(day.slice(8))} de ${MONTHS[view.m]}${mk?.free ? `, ${mk.free} horarios libres` : ''}${mk?.booked ? `, ${mk.booked} reservados` : ''}`}
+              aria-label={`${Number(day.slice(8))} de ${MONTHS[view.m]}${mk?.free ? `, ${pl(mk.free, 'horario', 'horarios')} libres` : ''}${mk?.booked ? `, ${mk.booked} reservados` : ''}`}
               onClick={() => onSelect(day)}
               className={`relative flex h-11 flex-col items-center justify-center rounded-xl text-[15px] font-medium transition
                 ${sel ? 'bg-rosa-accion text-white' : day === today ? 'border border-rosa-accion text-rosa-oscuro' : 'text-tinta'}

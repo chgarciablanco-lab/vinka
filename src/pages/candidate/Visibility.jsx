@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { FeaturedBadge, PROMO_STATUS, SOURCE_TXT, clp, daysLeft } from '../../lib/promo'
+import { pl, plw } from '../../lib/text'
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '—')
 
@@ -54,7 +55,7 @@ export default function Visibility() {
         {open ? (
           <div className="card flex flex-col gap-3 border-2 border-[#E6C66A] p-4">
             <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Tu perfil destacado</span><span className={`pill ${PROMO_STATUS[open.status][1]}`}>{PROMO_STATUS[open.status][0]}</span></div>
-            {open.status === 'activa' && <span className="text-sm">Quedan <b>{daysLeft(open.ends_at)} día(s)</b> · termina el {fmt(open.ends_at)}</span>}
+            {open.status === 'activa' && <span className="text-sm">{plw(daysLeft(open.ends_at), 'Queda', 'Quedan')} <b>{pl(daysLeft(open.ends_at), 'día', 'días')}</b> · termina el {fmt(open.ends_at)}</span>}
             {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} (IVA incluido). VINKA te contactará para el pago; empieza a correr cuando se active.</span>}
             {open.status === 'pausada' && <span className="text-sm text-tinta-2">{open.paused_by === 'profile' ? 'Está en pausa porque ocultaste tu perfil. Al volver a mostrarlo sigue con los días que le quedaban.' : 'VINKA lo pausó. Escríbenos si tienes dudas.'}</span>}
             {open.status !== 'solicitada' && (
@@ -98,7 +99,7 @@ export default function Visibility() {
             <span className="text-[15px] font-semibold">Historial</span>
             {d.items.filter((x) => x !== open).map((x) => (
               <div key={x.id} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] pb-2 text-sm last:border-0">
-                <span className="flex flex-col"><b>{x.days} días · {SOURCE_TXT[x.source]}</b><span className="text-xs text-tinta-3">{x.starts_at ? `${fmt(x.starts_at)} → ${fmt(x.ends_at)} · ${x.results.actions} empresas interesadas` : `Pedido el ${fmt(x.created_at)}`}</span></span>
+                <span className="flex flex-col"><b>{pl(x.days, 'día', 'días')} · {SOURCE_TXT[x.source]}</b><span className="text-xs text-tinta-3">{x.starts_at ? `${fmt(x.starts_at)} → ${fmt(x.ends_at)} · ${pl(x.results.actions, 'empresa', 'empresas')} interesadas` : `Pedido el ${fmt(x.created_at)}`}</span></span>
                 <span className={`pill ${PROMO_STATUS[x.status][1]}`}>{PROMO_STATUS[x.status][0]}</span>
               </div>
             ))}

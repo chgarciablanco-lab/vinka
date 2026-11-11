@@ -3,9 +3,10 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
-import { Dossier, ServiceProgress, TeamNotes } from '../../components/Dossier'
+import { Dossier, NextStep, ServiceProgress, TeamNotes } from '../../components/Dossier'
 import { atLocal, ymd } from '../../lib/dates'
 import { fmtDateTime } from '../../lib/files'
+import { pl } from '../../lib/text'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
@@ -76,7 +77,7 @@ function Revenue({ demo }) {
               {delta != null && <span className={`text-xs font-semibold ${delta >= 0 ? 'text-[#2F7A4F]' : 'text-[#912018]'}`}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs. mismo día del mes anterior</span>}</div>
             <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Mes anterior</span><span className="font-display text-[22px] font-bold">{money(r.prev_month)}</span></div>
             <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Últimos 12 meses</span><span className="font-display text-[22px] font-bold">{money(r.last12)}</span></div>
-            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Ingreso recurrente mensual (planes)</span><span className="font-display text-[22px] font-bold">{money(r.mrr)}</span><span className="text-xs text-tinta-3">{r.paying} empresas pagando</span></div>
+            <div className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">Ingreso recurrente mensual (planes)</span><span className="font-display text-[22px] font-bold">{money(r.mrr)}</span><span className="text-xs text-tinta-3">{pl(r.paying, 'empresa', 'empresas')} pagando</span></div>
           </div>
           {r.total === 0 ? <div className="card p-4 text-sm text-tinta-3">Aún no hay pagos registrados. Se registran al confirmar el pago de una asesoría (pasa a «En curso»), al activar un destacado pagado o con «Registrar pago» en cada empresa.</div> : (
             <div className="card p-4"><RevenueChart series={r.series} /></div>
@@ -89,7 +90,7 @@ function Revenue({ demo }) {
               <span className="flex justify-between text-sm"><span>Destacados ({r.promo_month_count || 0})</span><b>{money(r.month_promos)}</b></span>
               <span className="flex justify-between text-xs text-tinta-3"><span>IVA cobrado este mes (no es ingreso)</span><span>{money(r.month_iva)}</span></span>
               <span className="mt-1 text-[13px] font-semibold">Ingreso recurrente por plan</span>
-              {r.by_plan.map((p) => <span key={p.plan} className="flex justify-between text-sm"><span>{PLAN_NAME[p.plan] || p.plan} · {p.n} empresas</span><b>{money(p.mrr)}</b></span>)}
+              {r.by_plan.map((p) => <span key={p.plan} className="flex justify-between text-sm"><span>{PLAN_NAME[p.plan] || p.plan} · {pl(p.n, 'empresa', 'empresas')}</span><b>{money(p.mrr)}</b></span>)}
             </div>
             <div className="card flex flex-col gap-1.5 p-4">
               <span className="text-[15px] font-semibold">Últimos pagos</span>
@@ -108,6 +109,39 @@ function Revenue({ demo }) {
 }
 
 /** Resumen del negocio y gestión de planes (los cambios quedan registrados en la auditoría). */
+const QUOTE_ST = { nuevo: 'Nueva', contactado: 'Contactada', cotizado: 'Cotizada', cerrado: 'Cerrada (cliente)', descartado: 'Descartada' }
+const QUOTE_REASON = { plan: 'Cotizar plan', consultora: 'Consultora', volumen: 'Volumen / varias sedes', otro: 'Otra consulta' }
+/** Cotizaciones pedidas desde la web (formulario /cotizar) */
+function Quotes() {
+  const [list, setList] = useState(null)
+  const [all, setAll] = useState(false)
+  const [err, setErr] = useState('')
+  const load = useCallback(() => { supabase.from('quote_requests').select('*').order('created_at', { ascending: false }).limit(200).then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
+  useEffect(() => { load() }, [load])
+  const upd = async (q, status) => { const { error } = await supabase.rpc('admin_update_quote', { p_id: q.id, p_status: status, p_note: q.admin_note || '' }); if (error) setErr(errMsg(error)); else load() }
+  if (!list) return null
+  const shown = list.filter((q) => all || ['nuevo', 'contactado', 'cotizado'].includes(q.status))
+  return (
+    <div className="card flex flex-col gap-2 p-4">
+      <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Cotizaciones desde la web ({shown.length})</span>
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Ver cerradas</label></div>
+      {shown.length === 0 && <span className="text-sm text-tinta-3">No hay cotizaciones pendientes.</span>}
+      {shown.map((q) => (
+        <div key={q.id} className="flex flex-col gap-1 border-b border-[#F1E7ED] pb-2.5 text-sm last:border-0">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <span><b>{q.company_name}</b>{q.rut ? ` · RUT ${q.rut}` : ''} · <span className="text-tinta-3">{QUOTE_REASON[q.reason]}{q.plan_id ? ` · plan ${q.plan_id}` : ''}</span></span>
+            <select className="h-8 rounded-lg border border-linea bg-white px-2 text-xs" value={q.status} onChange={(e) => upd(q, e.target.value)}>{Object.entries(QUOTE_ST).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          </div>
+          <span className="text-xs text-tinta-3">{[q.company_size && `${q.company_size} personas`, q.open_jobs != null && `${q.open_jobs} vacantes a la vez`, q.hires_year != null && `${q.hires_year} contrataciones/año`, q.regions].filter(Boolean).join(' · ') || 'Sin antecedentes de tamaño'}</span>
+          <span className="text-xs">{q.contact_name}{q.contact_role ? ` (${q.contact_role})` : ''} · <a className="text-rosa-texto underline" href={`mailto:${q.email}?subject=${encodeURIComponent('Cotización VINKA')}`}>{q.email}</a>{q.phone ? ` · ${q.phone}` : ''} · {new Date(q.created_at).toLocaleDateString('es-CL')}</span>
+          {q.message && <span className="text-xs text-tinta-2">«{q.message}»</span>}
+        </div>
+      ))}
+      <ErrorBox>{err}</ErrorBox>
+    </div>
+  )
+}
+
 function Business() {
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
@@ -146,6 +180,7 @@ function Business() {
         ))}
       </div>
       <ErrorBox>{err}</ErrorBox>
+      <Quotes />
       {d.requests?.length > 0 && (
         <div className="card flex flex-col gap-2 p-4">
           <span className="text-[15px] font-semibold">Solicitudes de plan (60 días)</span>
@@ -167,7 +202,7 @@ function Business() {
               <b className="truncate">{c.name}{c.demo && <span className="ml-2 rounded bg-[#F4EEF2] px-1.5 py-0.5 text-[11px] font-semibold text-tinta-3">Demo</span>}</b>
               <span className="text-xs text-tinta-3">{c.plan || '—'} · {PLAN_STATUS.find(([k]) => k === c.status)?.[1] || '—'}</span>
             </div>
-            <span className="text-tinta-3">{c.jobs} vacantes publicadas · {c.members} en el equipo{c.trial_ends_at ? ` · prueba hasta ${new Date(c.trial_ends_at).toLocaleDateString('es-CL')}` : ''}{c.period_end ? ` · pagado hasta ${new Date(c.period_end).toLocaleDateString('es-CL')}` : ''}</span>
+            <span className="text-tinta-3">{pl(c.jobs, 'vacante', 'vacantes')} publicadas · {c.members} en el equipo{c.trial_ends_at ? ` · prueba hasta ${new Date(c.trial_ends_at).toLocaleDateString('es-CL')}` : ''}{c.period_end ? ` · pagado hasta ${new Date(c.period_end).toLocaleDateString('es-CL')}` : ''}</span>
             {edit?.id === c.id ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <select className="input h-11" value={edit.plan} onChange={(e) => setEdit({ ...edit, plan: e.target.value })}>{['gratis', 'pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x}>{x}</option>)}</select>
@@ -258,7 +293,11 @@ function UpcomingSessions({ showDemo }) {
 function Advisory() {
   const [reqs, setReqs] = useState(null)
   const [services, setServices] = useState([])
-  const [open, setOpen] = useState(null)
+  // ?caso=<id>: viene desde una nota interna o un aviso; muestra y abre ese caso
+  const caso = new URLSearchParams(window.location.search).get('caso')
+  const [open, setOpen] = useState(caso)
+  const hasData = !!reqs
+  useEffect(() => { if (caso && hasData) setTimeout(() => document.getElementById(`caso-${caso}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100) }, [caso, hasData])
   const [edit, setEdit] = useState({})
   const [svc, setSvc] = useState(null)
   const [only, setOnly] = useState(true)
@@ -301,14 +340,14 @@ function Advisory() {
   const toReview = reqs.filter((r) => (showDemo || !r.demo) && r.status === 'entregada').length
   const income = reqs.filter((r) => (showDemo || !r.demo) && ['en_curso', 'entregada', 'aprobada'].includes(r.status)).reduce((a, r) => a + r.price, 0)
   const qn = fq.trim().toLowerCase()
-  const list = reqs.filter((r) => (showDemo || !r.demo) && (fst ? r.status === fst : !only || OPEN.includes(r.status))
+  const list = reqs.filter((r) => r.id === caso || (showDemo || !r.demo) && (fst ? r.status === fst : !only || OPEN.includes(r.status))
     && (!fadv || (fadv === 'none' ? !r.advisor_id : r.advisor_id === fadv))
     && (!qn || `${r.name} ${r.email} ${r.service} ${r.advisor || ''} ${r.goal}`.toLowerCase().includes(qn)))
   return (
     <div className="flex flex-col gap-4">
       <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={showDemo} onChange={(e) => setShowDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir demostración en cifras y lista</label>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[['Por revisar', n(toReview)], ['Abiertas', n(openN)], ['Total', n(reqs.filter((r) => showDemo || !r.demo).length)], ['Vendido (pagadas)', `$${n(income)}`]].map(([l, v]) => (
+        {[['Por revisar', n(toReview)], ['Abiertas', n(openN)], ['Con hito atrasado', n(reqs.filter((r) => (showDemo || !r.demo) && r.next?.late).length)], ['Vendido (pagadas)', `$${n(income)}`]].map(([l, v]) => (
           <div key={l} className="card flex flex-col gap-0.5 p-3"><span className="text-xs text-tinta-3">{l}</span><span className="font-display text-[20px] font-bold">{v}</span></div>
         ))}
       </div>
@@ -326,12 +365,13 @@ function Advisory() {
       {list.slice(0, limit).map((r) => {
         const e = edit[r.id] || {}
         return (
-          <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+          <div key={r.id} id={`caso-${r.id}`} className={`card flex flex-col gap-2 p-3.5 text-sm ${r.id === caso ? 'ring-2 ring-morado' : ''}`}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <span className="flex flex-col"><b>{r.name || 'Sin nombre'}</b><span className="text-xs text-tinta-3">{r.service} · ${n(r.price)} · {new Date(r.created_at).toLocaleDateString('es-CL')}</span></span>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${r.status === 'entregada' ? 'bg-naranja-palido text-naranja-texto' : r.status === 'aprobada' ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2]'}`}>{SRV_LABEL[r.status]}</span>
             </div>
             <span className="text-xs text-tinta-3">Coordinación y asesoría solo por el chat de VINKA (pestaña Conversación).</span>
+            <NextStep next={r.next} />
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
             <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
               <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>
@@ -343,7 +383,7 @@ function Advisory() {
               <button className="text-xs font-semibold text-rosa-texto" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Ocultar perfil' : 'Ver perfil laboral'}</button>
               <button className="text-xs font-semibold text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>{chat === r.id ? 'Cerrar expediente' : 'Abrir expediente'}</button>
             </div>
-            <span className="text-[11px] text-tinta-suave">{r.messages} mensajes · {r.cvs} CV · {r.sessions} sesiones · {r.picks} ofertas · {r.logs} registros · {r.notes} notas internas</span>
+            <span className="text-[11px] text-tinta-suave">{pl(r.messages, 'mensaje', 'mensajes')} · {r.cvs} CV · {pl(r.sessions, 'sesión', 'sesiones')} · {pl(r.picks, 'oferta', 'ofertas')} · {r.logs} registros · {pl(r.notes, 'nota', 'notas')} internas</span>
             {r.status === 'entregada' && <Review r={r} onDone={load} />}
             {chat === r.id && <Dossier r={r} as="admin" counts={r} />}
             {open === r.id && (
@@ -435,7 +475,7 @@ function Candidates() {
       <ErrorBox>{!sel && err}</ErrorBox>
       {d == null ? <Spinner /> : (
         <>
-          <span className="text-xs text-tinta-suave">{n(total)} postulantes{total > PER ? ` · página ${page + 1} de ${Math.ceil(total / PER)}` : ''}</span>
+          <span className="text-xs text-tinta-suave">{pl(n(total), 'postulante', 'postulantes')}{total > PER ? ` · página ${page + 1} de ${Math.ceil(total / PER)}` : ''}</span>
           <div className="card overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[#EEE3EA] text-xs uppercase tracking-wide text-tinta-suave">
@@ -446,7 +486,7 @@ function Candidates() {
                   <tr key={u.id} className="cursor-pointer border-b border-[#F4EEF2] last:border-0 hover:bg-[#FBF7FA]" onClick={() => openUser(u)}>
                     <td className="px-4 py-2.5"><span className="flex flex-col"><b>{u.name || 'Sin nombre'}{u.demo && <span className="ml-1.5 rounded bg-[#F4EEF2] px-1 text-[10px] font-semibold text-tinta-3">demo</span>}</b><span className="text-xs text-tinta-3">{u.email}</span></span></td>
                     <td className="hidden px-3 py-2.5 text-xs text-tinta-2 md:table-cell">{u.headline || '—'}{u.comuna ? ` · ${u.comuna}` : ''}</td>
-                    <td className="hidden px-3 py-2.5 text-xs text-tinta-3 sm:table-cell">{u.matches} matches · {u.interests} intereses{u.requests ? ` · ${u.requests} asesorías` : ''}<br />Registro {dt(u.created_at)}</td>
+                    <td className="hidden px-3 py-2.5 text-xs text-tinta-3 sm:table-cell">{pl(u.matches, 'match', 'matches')} · {pl(u.interests, 'interés', 'intereses')}{u.requests ? ` · ${u.requests} asesorías` : ''}<br />Registro {dt(u.created_at)}</td>
                     <td className="px-3 py-2.5">{u.suspended_at ? <span className="pill bg-[#FEF3F2] text-[#912018]">Suspendida</span> : !u.onboarding_done ? <span className="pill bg-naranja-palido text-naranja-texto">Incompleto</span> : <span className="pill bg-[#EAF6EF] text-[#134A2B]">Activa</span>}</td>
                   </tr>
                 ))}
@@ -852,7 +892,7 @@ export default function Admin({ section }) {
                 </select>
               </div>
             )}
-            {tab === 'all' && <span className="text-xs text-tinta-suave">{list.length} empresas</span>}
+            {tab === 'all' && <span className="text-xs text-tinta-suave">{pl(list.length, 'empresa', 'empresas')}</span>}
             {list.length === 0 ? <Empty title={tab === 'pending' ? 'Nada pendiente' : 'Sin resultados'}>{tab === 'pending' ? 'No hay empresas esperando verificación.' : 'Prueba con otra búsqueda o estado.'}</Empty> : list.slice(0, climit).map((c) => {
               const st = VST[c.verification_status] || [c.verification_status, 'bg-[#F4EEF2]']
               const acts = ACTIONS[c.verification_status] || []
@@ -861,7 +901,7 @@ export default function Admin({ section }) {
                   <div className="flex items-start justify-between gap-2"><b>{c.display_name}</b><span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span></div>
                   {(c.kind === 'consultora' || c.parent_id) && (
                     <span className="flex flex-wrap gap-1.5">
-                      {c.kind === 'consultora' && <span className="pill bg-[#F7F0FB] text-[#4A2163]">Consultora · {(companies || []).filter((k) => k.parent_id === c.id).length} cliente(s)</span>}
+                      {c.kind === 'consultora' && <span className="pill bg-[#F7F0FB] text-[#4A2163]">Consultora · {pl((companies || []).filter((k) => k.parent_id === c.id).length, 'cliente', 'clientes')}</span>}
                       {c.parent_id && <span className="pill bg-[#F7F0FB] text-[#4A2163]">Cliente de {(companies || []).find((k) => k.id === c.parent_id)?.display_name || 'una consultora'}</span>}
                     </span>
                   )}

@@ -4,7 +4,7 @@ import { CV_ACCEPT, fmtDate, fmtDateTime, uploadCv, useSignedUrls } from '../lib
 import { FileLink } from './FileLink'
 import { ErrorBox, Spinner, Svg } from './ui'
 import { ServiceChat } from './ServiceChat'
-import { fromInputLocal, toInputLocal } from '../lib/dates'
+import { fromInputLocal, toInputLocal, ymd } from '../lib/dates'
 
 export const LOG_KIND = { cv: ['CV', '#6B2E8F'], sesion: ['Sesión', '#1F6F78'], busqueda: ['Búsqueda', '#3B5BA9'], oferta: ['Oferta', '#B85F00'], nota: ['Nota', '#6B5F6E'], entrega: ['Entrega', '#2F7A4F'], revision: ['Revisión', '#D02E72'], estado: ['Estado', '#8A8090'], seguimiento: ['Seguimiento', '#1E6B3F'] }
 export const PICK_STATUS = { sugerida: 'Sugerida', postulo: 'Postuló', entrevista: 'En entrevista', descartada: 'Descartada' }
@@ -245,6 +245,49 @@ export function LogTab({ requestId, canEdit, asCandidate = false }) {
 }
 
 /* ---------- Avance de lo vendido (se mide en el expediente) ---------- */
+// Plazos: días entre hoy y la fecha comprometida, en días calendario de Chile
+const daysLeft = (due) => Math.round((new Date(ymd(new Date(due))) - new Date(ymd(new Date()))) / 864e5)
+export function dueText(x) {
+  if (!x) return ''
+  const d = daysLeft(x.due)
+  if (x.late) return d === 0 ? 'Atrasado: vencía hoy' : `Atrasado ${-d} ${-d === 1 ? 'día' : 'días'}`
+  return d <= 0 ? 'Vence hoy' : d === 1 ? 'Vence mañana' : `Vence en ${d} días`
+}
+
+/** Próximo hito en una línea (listas de asesorías): qué toca, quién, para cuándo y si está atrasado */
+export function NextStep({ next }) {
+  if (!next) return null
+  const tone = next.late ? 'border-[#F5C2C0] bg-[#FEF3F2] text-[#912018]' : daysLeft(next.due) <= 1 ? 'border-[#F6D9A8] bg-naranja-palido text-[#4A2A00]' : 'border-[#E4D8EE] bg-[#F7F0FB] text-[#3D2350]'
+  return (
+    <div className={`flex flex-col gap-0.5 rounded-xl border px-3 py-2 text-[13px] leading-snug ${tone}`}>
+      <span><b>Próximo hito:</b> {next.label}</span>
+      <span className="text-xs">Responsable: <b>{next.who}</b> · Fecha comprometida: <b>{fmtDateTime(next.due)}</b> · <b>{dueText(next)}</b></span>
+    </div>
+  )
+}
+
+/** Todos los hitos de la asesoría con su fecha comprometida */
+export function ServiceTimeline({ requestId }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { supabase.rpc('service_deadline', { p_id: requestId }).then(({ data }) => setD(data)) }, [requestId])
+  if (!d || !(d.milestones || []).length) return null
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-linea bg-white p-3">
+      <span className="text-sm font-semibold">Plazos de la asesoría</span>
+      <ol className="flex flex-col gap-1.5">
+        {d.milestones.map((x) => (
+          <li key={x.key} className="flex items-start gap-2 text-[13px] leading-snug">
+            <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${x.done ? 'bg-[#2F7A4F]' : x.late ? 'bg-[#B42318]' : 'bg-[#C9BDC6]'}`}>{x.done ? '✓' : x.late ? '!' : ''}</span>
+            <span className="flex flex-col"><span className={x.done ? 'text-tinta-3 line-through' : 'text-tinta'}>{x.label}</span>
+              <span className="text-xs text-tinta-3">{x.who} · {fmtDateTime(x.due)}{x.done ? ' · listo' : ` · ${dueText(x)}`}</span></span>
+          </li>
+        ))}
+      </ol>
+      <span className="text-[11px] text-tinta-suave">Días hábiles de lunes a viernes, hora de Chile.</span>
+    </div>
+  )
+}
+
 export function ServiceProgress({ requestId, as, onLoad }) {
   const [items, setItems] = useState(null)
   useEffect(() => {
@@ -269,22 +312,24 @@ export function ServiceProgress({ requestId, as, onLoad }) {
 }
 
 /* ---------- Notas internas asesor ↔ VINKA ---------- */
+const CASE_ST = { solicitada: 'solicitada', pago_pendiente: 'pago pendiente', en_curso: 'en curso', entregada: 'entregada', aprobada: 'aprobada', cancelada: 'cancelada' }
+/** Notas internas asesor/a ↔ VINKA. Cada nota indica el caso (persona, servicio, estado) y enlaza a él. */
 export function TeamNotes({ advisorId = null, requestId = null, as }) {
-  const [list, setList] = useState(null)
+  const [d, setD] = useState(null)
   const [body, setBody] = useState('')
+  const [about, setAbout] = useState('')
   const [err, setErr] = useState('')
   const end = useRef()
   const load = useCallback(() => {
-    let q = supabase.from('team_notes').select('id, sender_kind, body, created_at, request_id').order('created_at')
-    if (requestId) q = q.eq('request_id', requestId)
-    else if (advisorId) q = q.eq('advisor_id', advisorId)
-    q.then(({ data, error }) => { if (error) setErr(errMsg(error)); else setList(data || []) })
+    supabase.rpc('team_notes_list', { p_advisor: advisorId, p_request: requestId }).then(({ data, error }) => { if (error) setErr(errMsg(error)); else setD(data) })
   }, [advisorId, requestId])
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t) }, [load])
+  const list = d?.notes
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }) }, [list?.length])
+  const caseLink = (id) => (as === 'admin' ? `/asesorias?caso=${id}` : `/?caso=${id}`)
   const send = async () => {
     setErr('')
-    const { error } = await supabase.rpc('send_team_note', { p_advisor: advisorId, p_request: requestId, p_body: body })
+    const { error } = await supabase.rpc('send_team_note', { p_advisor: advisorId, p_request: requestId || about || null, p_body: body })
     if (error) return setErr(errMsg(error))
     setBody(''); load()
   }
@@ -297,12 +342,25 @@ export function TeamNotes({ advisorId = null, requestId = null, as }) {
           return (
             <div key={m.id} className={`flex max-w-[85%] flex-col gap-0.5 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
               <span className="text-[11px] font-semibold text-tinta-suave">{mine ? 'Tú' : m.sender_kind === 'admin' ? 'VINKA' : 'Asesor/a'} · {fmtDateTime(m.created_at)}</span>
+              {!requestId && (m.case ? (
+                <a href={caseLink(m.request_id)} className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-morado underline-offset-2 hover:underline">
+                  Caso: {m.case.name} · {m.case.service} · {CASE_ST[m.case.status] || m.case.status} →
+                </a>
+              ) : <span className="text-[11px] text-tinta-suave">Nota general (sin caso)</span>)}
               <span className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{m.body}</span>
             </div>
           )
         })}
         <div ref={end} />
       </div>
+      {!requestId && (d?.cases || []).length > 0 && (
+        <label className="flex items-center gap-2 text-[13px]"><span className="shrink-0 font-semibold text-tinta-3">Sobre</span>
+          <select className="h-10 min-w-0 flex-1 rounded-lg border border-linea bg-white px-2 text-[13px]" value={about} onChange={(e) => setAbout(e.target.value)}>
+            <option value="">Tema general (sin caso)</option>
+            {d.cases.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.service} · {CASE_ST[c.status] || c.status}</option>)}
+          </select>
+        </label>
+      )}
       <div className="flex items-end gap-2">
         <textarea className="textarea min-h-[44px] flex-1 py-2.5" rows={1} maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={as === 'admin' ? 'Escribe al asesor/a' : 'Escribe a VINKA (dudas, avances, problemas)'} />
         <button aria-label="Enviar" disabled={!body.trim()} onClick={send} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-morado text-white disabled:opacity-40"><Svg name="send" size={20} /></button>
@@ -323,6 +381,7 @@ export function Dossier({ r, as, counts = {} }) {
   ]
   return (
     <div className="flex flex-col gap-3">
+      <ServiceTimeline requestId={r.id} />
       <ServiceProgress requestId={r.id} as={as} />
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
       {tab === 'chat' && <ServiceChat requestId={r.id} as={as} disabled={r.status === 'cancelada'} advisorName={r.assigned_name || r.advisor || ''} />}
@@ -341,6 +400,7 @@ export function CandidateDossier({ r }) {
   const tabs = [['chat', 'Conversación'], ['cv', 'Mi CV'], ['sesiones', 'Sesiones'], ['ofertas', 'Ofertas sugeridas'], ['historial', 'Avance']]
   return (
     <div className="flex flex-col gap-3">
+      {!['aprobada', 'cancelada'].includes(r.status) && <ServiceTimeline requestId={r.id} />}
       {['en_curso', 'entregada', 'aprobada'].includes(r.status) && <ServiceProgress requestId={r.id} as="candidate" />}
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
       {tab === 'chat' && <ServiceChat requestId={r.id} as="candidate" disabled={r.status === 'cancelada'} advisorName={r.assigned_name || ''} />}

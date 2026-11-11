@@ -270,7 +270,7 @@ export default function Welcome() {
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.promo_credits ? `${p.promo_credits} ${p.promo_credits === 1 ? 'oferta destacada' : 'ofertas destacadas'} de ${p.promo_days} días al mes` : 'Ofertas destacadas sueltas'}</li>
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />Proceso de selección, chat, agenda y reportes</li>
                     </ul>
-                    <button onClick={() => go('/registro/empresa', p.id === 'gratis' ? null : '/plan')} className={`mt-auto ${featured ? 'btn' : 'btn-sec'}`}>
+                    <button onClick={() => (p.price_clp == null ? nav(`/cotizar?plan=${p.id}`) : go('/registro/empresa', p.id === 'gratis' ? null : '/plan'))} className={`mt-auto ${featured ? 'btn' : 'btn-sec'}`}>
                       {p.id === 'gratis' ? 'Comenzar gratis' : p.price_clp == null ? 'Pedir cotización' : featured ? 'Probar 30 días gratis' : `Elegir ${p.name}`}
                     </button>
                   </div>

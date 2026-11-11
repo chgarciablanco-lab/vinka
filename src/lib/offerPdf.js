@@ -1,4 +1,4 @@
-import { DEFAULT_CLOSING, defaultIntro, logoUrl, offerRows } from '../components/OfferLetter'
+import { DEFAULT_CLOSING, defaultIntro, logoUrl, offerRows, signature, traceLine } from '../components/OfferLetter'
 
 const longDate = (d) => (d ? new Date(d.length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }) : '')
 const safe = (s) => String(s || '').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/…/g, '...').replace(/[^\x09\x0A\x0D\x20-\x7E -ÿ•–—"'€]/g, '')
@@ -18,7 +18,7 @@ async function loadLogo(path) {
 }
 
 /** Genera la carta oferta como archivo PDF (A4, texto real, con logo). Devuelve { blob, name }. */
-export async function buildOfferPdf({ offer: o, company: c, candidate }) {
+export async function buildOfferPdf({ offer: o, company: c, candidate, sender = "" }) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const L = o.letter || {}
@@ -94,9 +94,9 @@ export async function buildOfferPdf({ offer: o, company: c, candidate }) {
   need(34)
   y += 2; para('Atentamente,', { gap: 0 }); y += 12
   doc.setDrawColor(...dark); doc.setLineWidth(0.3); doc.line(M, y, M + 62, y); y += 5
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...ink); doc.text(safe(L.signer_name || ''), M, y); y += 4.8
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...ink); doc.text(safe(signature(o, sender).name), M, y); y += 4.8
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(74, 63, 78)
-  ;[L.signer_title, c?.legal_name || c?.display_name].filter(Boolean).forEach((t) => { doc.text(safe(t), M, y); y += 4.4 })
+  ;[signature(o, sender).title, c?.legal_name || c?.display_name].filter(Boolean).forEach((t) => { doc.text(safe(t), M, y); y += 4.4 })
 
   // Pie en cada página
   const pages = doc.getNumberOfPages()
@@ -104,7 +104,7 @@ export async function buildOfferPdf({ offer: o, company: c, candidate }) {
     doc.setPage(p)
     doc.setDrawColor(239, 230, 236); doc.setLineWidth(0.2); doc.line(M, 297 - 13, W - M, 297 - 13)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(138, 128, 144)
-    doc.text('Carta emitida a través de VINKA. No reemplaza al contrato de trabajo. Una oferta real nunca te pide dinero.', M, 297 - 9)
+    doc.text(safe(`${traceLine(o, sender)}. No reemplaza al contrato de trabajo. Una oferta real nunca te pide dinero.`), M, 297 - 9)
     if (pages > 1) doc.text(`${p} / ${pages}`, W - M, 297 - 9, { align: 'right' })
   }
   doc.setProperties({ title: `Carta oferta · ${safe(o.position)}`, author: safe(c?.display_name), creator: 'VINKA' })

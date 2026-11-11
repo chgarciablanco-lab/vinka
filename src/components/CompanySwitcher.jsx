@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { pl } from '../lib/text'
 
 // Nombre en el selector: la matriz y, debajo, sus clientes
 const rank = (c, home) => (c.id === home?.id ? 0 : c.parent_id && c.parent_id === home?.id ? 1 : 2)
@@ -45,7 +46,7 @@ export function CompanyContext({ compact = false }) {
       ) : other ? (
         <span className="text-[12px] leading-snug text-rosa-oscuro"><b>Otra empresa.</b> Estás en el equipo de {company.display_name} como {ROLE_TXT[company.member_role] || 'integrante'}; lo que hagas aquí queda a nombre de {company.display_name}, no de {home.display_name}.</span>
       ) : isMatrix && !compact ? (
-        <span className="flex items-center justify-between gap-2 text-[12px] text-rosa-oscuro"><span><b>Matriz.</b> {company.clients ? `${company.clients} cliente(s) a tu cargo.` : 'Aún no agregas empresas clientes.'}</span><Link to="/clientes" className="font-semibold underline">{company.clients ? 'Ver clientes' : 'Agregar cliente'}</Link></span>
+        <span className="flex items-center justify-between gap-2 text-[12px] text-rosa-oscuro"><span><b>Matriz.</b> {company.clients ? `${pl(company.clients, 'cliente', 'clientes')} a tu cargo.` : 'Aún no agregas empresas clientes.'}</span><Link to="/clientes" className="font-semibold underline">{company.clients ? 'Ver clientes' : 'Agregar cliente'}</Link></span>
       ) : null}
     </div>
   )

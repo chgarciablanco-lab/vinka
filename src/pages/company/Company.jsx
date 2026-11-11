@@ -18,6 +18,7 @@ import { EmailToggle } from '../Notifications'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { CompanyContext, companyOption, homeCompany } from '../../components/CompanySwitcher'
+import { pl } from '../../lib/text'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -56,6 +57,10 @@ export function CompanyPanel() {
   const share = async (url) => setToast((await copyText(url)) ? 'Enlace copiado' : url)
   const approve = async (j) => { const { error } = await supabase.rpc('approve_job', { p_job: j.id }); setToast(error ? errMsg(error) : `«${j.title}» publicada`); setReload((n) => n + 1) }
   const [stats, setStats] = useState({})
+  // Listado de vacantes: búsqueda, filtro por estado y orden (las activas primero)
+  const [jq, setJq] = useState('')
+  const [jst, setJst] = useState('activas')
+  const [jsort, setJsort] = useState('estado')
   const [planInfo, setPlanInfo] = useState(null)
   const [ext, setExt] = useState({})
   const [promos, setPromos] = useState({})
@@ -88,12 +93,12 @@ export function CompanyPanel() {
         <VerificationBanner company={company} />
         <CompanyContext />
         <div className="grid grid-cols-3 gap-2">
-          {[[jobs ? (inGroup ? pubN : `${pubN}${lim ? ` de ${lim}` : ''}`) : '—', 'Publicadas ahora', inGroup ? `Publicadas en esta empresa. El plan permite ${lim ?? 'sin límite de'} entre la matriz y sus clientes (hoy ${groupN})` : 'Vacantes publicadas en este momento y el máximo de tu plan'], [verified ? tot.i : '—', 'Intereses', 'Personas que mostraron interés desde la app, desde que publicaste cada vacante. No incluye postulaciones externas ni importadas'], [verified ? tot.m : '—', 'Matches', 'Interés mutuo desde que publicaste cada vacante']].map(([v, l, t]) => (
+          {[[jobs ? (inGroup ? pubN : `${pubN}${lim ? ` de ${lim}` : ''}`) : '—', 'Publicadas ahora', inGroup ? `Publicadas en esta empresa. El plan permite ${lim ?? 'sin límite de'} entre la matriz y sus clientes (hoy ${groupN})` : 'Vacantes publicadas en este momento y el máximo de tu plan'], [verified ? tot.i : '—', 'Interesados', 'Personas que mostraron interés desde la app, desde que publicaste cada vacante. No incluye postulaciones externas ni importadas'], [verified ? tot.m : '—', 'Matches', 'Interés mutuo desde que publicaste cada vacante']].map(([v, l, t]) => (
             <div key={l} className="card flex flex-col gap-0.5 p-3" title={t}><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
           ))}
         </div>
         <p className="-mt-1.5 text-[11px] leading-snug text-tinta-suave">Intereses y matches: total histórico desde la app. Reportes muestra el período que elijas e incluye otras fuentes, por eso las cifras pueden diferir.</p>
-        {lim != null && groupN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>{inGroup ? `Entre la matriz y sus clientes hay ${groupN} vacantes publicadas` : `Tienes ${groupN} vacantes publicadas`} y el plan permite {lim}.</b> Pausa {groupN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
+        {lim != null && groupN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>{inGroup ? `Entre la matriz y sus clientes hay ${pl(groupN, 'vacante', 'vacantes')} publicadas` : `Tienes ${pl(groupN, 'vacante', 'vacantes')} publicadas`} y el plan permite {lim}.</b> Pausa {groupN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
         <Link to="/reportes" className="card flex items-center gap-3 p-3.5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="chart" /></span>
           <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Reportes</span><span className="text-[13px] text-tinta-3">Embudo, tiempo de contratación y fuentes</span></span>
@@ -115,12 +120,40 @@ export function CompanyPanel() {
           <Empty title="Crea tu primera vacante" action={<Link to="/vacantes/nueva" className="btn-sm mt-1 bg-rosa-accion text-white">Crear vacante</Link>}>
             {verified ? 'Publícala y empieza a recibir intereses.' : 'Puedes dejarla lista mientras verificamos tu empresa.'}
           </Empty>
-        ) : <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:items-start">{jobs.map((j) => (
+        ) : (() => {
+          const groupOf = (st) => (st === 'draft' ? 'borradores' : st === 'closed' ? 'cerradas' : 'activas')
+          const count = (g) => jobs.filter((j) => g === 'todas' || groupOf(j.status) === g).length
+          const RANK = { published: 0, review: 1, pending: 2, paused: 3, draft: 4, closed: 5 }
+          const qn = jq.trim().toLowerCase()
+          const shown = jobs.filter((j) => (jst === 'todas' || groupOf(j.status) === jst) && (!qn || `${j.title} ${j.comuna || ''} ${j.area || ''}`.toLowerCase().includes(qn)))
+            .sort((a, b) => jsort === 'interes' ? (stats[b.id]?.interests || 0) - (stats[a.id]?.interests || 0)
+              : jsort === 'nombre' ? a.title.localeCompare(b.title, 'es')
+              : jsort === 'antiguas' ? new Date(a.created_at) - new Date(b.created_at)
+              : jsort === 'recientes' ? new Date(b.created_at) - new Date(a.created_at)
+              : (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || new Date(b.created_at) - new Date(a.created_at))
+          return (<>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              {[['activas', 'Activas'], ['borradores', 'Borradores'], ['cerradas', 'Cerradas'], ['todas', 'Todas']].map(([k, l]) => (
+                <button key={k} type="button" aria-pressed={jst === k} onClick={() => setJst(k)} className={`chip h-9 shrink-0 text-[13px] ${jst === k ? 'chip-on' : ''}`}>{l} · {count(k)}</button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar vacante</span>
+                <Svg name="search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tinta-suave" />
+                <input className="input h-11 pl-9 text-[15px]" placeholder="Buscar por cargo, comuna o área" value={jq} onChange={(e) => setJq(e.target.value)} /></label>
+              <select className="input h-11 shrink-0 pr-8 text-[14px] sm:w-auto" aria-label="Ordenar vacantes" value={jsort} onChange={(e) => setJsort(e.target.value)}>
+                <option value="estado">Activas primero</option><option value="recientes">Más recientes</option><option value="antiguas">Más antiguas</option><option value="interes">Más interesados</option><option value="nombre">Nombre (A-Z)</option>
+              </select>
+            </div>
+          </div>
+          {shown.length === 0 && <div className="rounded-2xl border border-dashed border-linea px-4 py-8 text-center text-sm text-tinta-suave">{qn ? 'Ninguna vacante coincide con la búsqueda.' : jst === 'activas' ? 'No tienes vacantes activas. Revisa los borradores o crea una nueva.' : 'No hay vacantes en este grupo.'}</div>}
+          <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:items-start">{shown.map((j) => (
           <div key={j.id} className="card flex flex-col gap-2.5 p-3.5">
             <div className="flex items-start justify-between gap-2.5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[15px] font-semibold">{j.title}</span>
-                <span className="text-xs text-tinta-3">{[j.comuna, j.modality, stats[j.id] && `${stats[j.id].interests} intereses · ${stats[j.id].matches} matches`].filter(Boolean).join(' · ')}</span>
+                <span className="text-xs text-tinta-3">{[j.comuna, j.modality, stats[j.id] && `${stats[j.id].interests} ${stats[j.id].interests === 1 ? 'interesado' : 'interesados'} · ${stats[j.id].matches} ${stats[j.id].matches === 1 ? 'match' : 'matches'}`].filter(Boolean).join(' · ')}</span>
               </div>
               <span className={`pill whitespace-nowrap ${STATUS[j.status][1]}`}>{STATUS[j.status][0]}</span>
             </div>
@@ -139,7 +172,7 @@ export function CompanyPanel() {
               const live = pr?.status === 'activa' && new Date(pr.ends_at) > new Date()
               return (
                 <Link to={`/vacantes/${j.id}/destacar`} className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${live ? 'bg-[#FFF4D6] text-[#7A5200]' : 'border border-dashed border-[#E6C66A] text-[#7A5200]'}`}>
-                  <span className="flex items-center gap-1.5">{live ? <FeaturedBadge className="!bg-white" /> : '★'}{live ? `${daysLeft(pr.ends_at)} día(s) más entre los primeros` : pr?.status === 'solicitada' ? 'Destacado pendiente de pago' : pr?.status === 'pausada' ? 'Destacado en pausa' : 'Destacar para aparecer entre los primeros'}</span>
+                  <span className="flex items-center gap-1.5">{live ? <FeaturedBadge className="!bg-white" /> : '★'}{live ? `${pl(daysLeft(pr.ends_at), 'día', 'días')} más entre los primeros` : pr?.status === 'solicitada' ? 'Destacado pendiente de pago' : pr?.status === 'pausada' ? 'Destacado en pausa' : 'Destacar para aparecer entre los primeros'}</span>
                   <span>{live ? 'Ver rendimiento ›' : '›'}</span>
                 </Link>
               )
@@ -149,7 +182,9 @@ export function CompanyPanel() {
               {j.status === 'published' && verified && <button onClick={() => share(`${window.location.origin}/empleo/${j.id}`)} className="flex items-center gap-1 text-xs font-semibold text-[#2C4A8A]"><Svg name="link" size={14} />Copiar enlace</button>}
             </div>
           </div>
-        ))}</div>}
+        ))}</div>
+          </>)
+        })()}
       </div>
       <Toast msg={toast} onDone={() => setToast('')} />
     </div>
@@ -422,7 +457,7 @@ export function JobCandidates() {
       const a = new Date(x.from + '-01'), b = x.current || !x.to ? new Date() : new Date(x.to + '-01')
       months += Math.max(0, (b - a) / 2.63e9)
     }
-    return months >= 12 ? `${Math.round(months / 12)} año(s)` : months > 0 ? `${Math.round(months)} mes(es)` : 'Sin datos'
+    return months >= 12 ? pl(Math.round(months / 12), 'año', 'años') : months > 0 ? pl(Math.round(months), 'mes', 'meses') : 'Sin datos'
   }
   const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
   const ym = (v) => { if (!v) return '?'; const [y, m] = v.split('-'); return m ? `${MES[Number(m) - 1]} ${y}` : y }
@@ -634,7 +669,7 @@ export function CompanyAccount() {
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <div className="card px-4">
           {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan'],
-            ...(company?.parent_id ? [] : [['/clientes', 'building', company?.kind === 'consultora' ? 'Clientes de la consultora' : 'Somos consultora', company?.kind === 'consultora' ? `${company?.clients || 0} cliente(s) · agrega y cambia de cliente` : 'Recluta para otras empresas desde una cuenta matriz']])].map(([to, icon, t, sub]) => (
+            ...(company?.parent_id ? [] : [['/clientes', 'building', company?.kind === 'consultora' ? 'Clientes de la consultora' : 'Somos consultora', company?.kind === 'consultora' ? `${pl(company?.clients || 0, 'cliente', 'clientes')} · agrega y cambia de cliente` : 'Recluta para otras empresas desde una cuenta matriz']])].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
               <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />
             </Link>

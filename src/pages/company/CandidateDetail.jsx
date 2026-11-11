@@ -10,6 +10,7 @@ import { DEFAULT_CLOSING, OfferLetter, defaultIntro } from '../../components/Off
 import { BulkSheet, StagePicker } from './Pipeline'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
+import { pl } from '../../lib/text'
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtDT = (d) => `${new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · ${fmtTime(d)}`
@@ -137,7 +138,7 @@ function Notes({ d, subject, onSaved }) {
     const used = mentions.filter((uid) => { const t = d.team.find((x) => x.id === uid); return t && body.includes(`@${t.name.split(' ')[0]}`) })
     const { error } = await supabase.from('candidate_notes').insert({ ...subject, body: body.trim(), mentions: used })
     if (error) return setErr(errMsg(error))
-    setBody(''); setMentions([]); onSaved(used.length ? `Nota guardada · avisamos a ${used.length} persona(s)` : 'Nota guardada')
+    setBody(''); setMentions([]); onSaved(used.length ? `Nota guardada · avisamos a ${pl(used.length, 'persona', 'personas')}` : 'Nota guardada')
   }
   const del = async (id) => { const { error } = await supabase.from('candidate_notes').delete().eq('id', id); if (error) setErr(errMsg(error)); else onSaved('Nota eliminada') }
   return (

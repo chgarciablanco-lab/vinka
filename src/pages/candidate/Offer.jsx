@@ -61,7 +61,7 @@ export default function Offer() {
       <div className="print:hidden"><TopBar back={() => nav(isCand ? `/chats/${o.match_id}` : `/vacantes/${o.job_id}/candidato/${o.candidate_id}`)} title="Carta oferta"
         right={<button aria-label="Descargar PDF" disabled={pdfBusy} onClick={pdf} className="flex h-11 w-11 items-center justify-center disabled:opacity-40"><Svg name="download" /></button>} /></div>
       <div className="flex flex-col gap-4 px-4 pb-10 pt-2 lg:flex-row lg:items-start lg:px-8 print:block print:p-0">
-        <div className="min-w-0 flex-1 print:w-full"><OfferLetter offer={o} company={d.company} candidate={d.candidate} /></div>
+        <div className="min-w-0 flex-1 print:w-full"><OfferLetter offer={o} company={d.company} candidate={d.candidate} sender={d.sender || ''} /></div>
 
         <aside className="flex flex-col gap-3 lg:sticky lg:top-4 lg:w-80 print:hidden">
           <ErrorBox>{err}</ErrorBox>

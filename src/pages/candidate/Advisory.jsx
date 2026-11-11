@@ -4,8 +4,10 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { CandidateDossier } from '../../components/Dossier'
 
+// Texto del botón cuando ya hay una solicitud abierta de ese servicio
+const PENDING_TXT = { solicitada: 'Ya la solicitaste', pago_pendiente: 'Pago pendiente', en_curso: 'Asesoría en curso', entregada: 'En revisión de VINKA' }
 export const SERVICE_STATUS = {
-  solicitada: ['Solicitada', 'bg-[#F4EEF2] text-tinta-2', 'Te contactaremos pronto para coordinar.'],
+  solicitada: ['Solicitada', 'bg-[#F4EEF2] text-tinta-2', 'VINKA te escribirá por el chat de la asesoría para coordinar el pago.'],
   pago_pendiente: ['Pago pendiente', 'bg-naranja-palido text-naranja-texto', 'Te enviamos los datos para pagar. Al confirmar el pago comenzamos.'],
   en_curso: ['En curso', 'bg-[#F7F0FB] text-[#6B2E8F]', 'Tu asesor/a está trabajando contigo. Abajo ves lo que incluye tu asesoría y cuánto va listo.'],
   entregada: ['En revisión de VINKA', 'bg-[#EAF6EF] text-[#134A2B]', 'Tu asesor/a terminó. VINKA está revisando que esté todo lo que incluye tu asesoría; te avisaremos.'],
@@ -108,7 +110,7 @@ export default function Advisory() {
                     {s.includes.map((x) => <li key={x} className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{x}</li>)}
                   </ul>
                   <div className="mt-auto pt-1">
-                    {pending ? <span className="block rounded-xl bg-[#F4EEF2] px-3 py-3 text-center text-sm font-semibold text-tinta-2">Solicitud {SERVICE_STATUS[pending.status][0].toLowerCase()}</span>
+                    {pending ? <span className="block rounded-xl bg-[#F4EEF2] px-3 py-3 text-center text-sm font-semibold text-tinta-2">{PENDING_TXT[pending.status] || SERVICE_STATUS[pending.status][0]}</span>
                       : <button className={featured ? 'btn w-full' : 'btn-sec w-full'} onClick={() => open(s)}>Solicitar</button>}
                   </div>
                 </div>

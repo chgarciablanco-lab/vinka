@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { FeaturedBadge, PROMO_STATUS, SOURCE_TXT, clp, daysLeft, iva } from '../../lib/promo'
+import { pl, plw } from '../../lib/text'
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '—')
 
@@ -73,7 +74,7 @@ export default function Promote() {
                 <span className="text-[15px] font-semibold">Destacado actual</span>
                 <span className={`pill ${PROMO_STATUS[open.status][1]}`}>{PROMO_STATUS[open.status][0]}</span>
               </div>
-              {open.status === 'activa' && <span className="text-sm">Quedan <b>{daysLeft(open.ends_at)} día(s)</b> · termina el {fmt(open.ends_at)} · {SOURCE_TXT[open.source]}</span>}
+              {open.status === 'activa' && <span className="text-sm">{plw(daysLeft(open.ends_at), 'Queda', 'Quedan')} <b>{pl(daysLeft(open.ends_at), 'día', 'días')}</b> · termina el {fmt(open.ends_at)} · {SOURCE_TXT[open.source]}</span>}
               {open.status === 'pausada' && <span className="text-sm text-tinta-2">{open.paused_by === 'job' ? 'Está en pausa porque la vacante no está publicada. Al volver a publicarla, sigue con los días que le quedaban.' : 'VINKA lo pausó. Escríbenos si tienes dudas.'}</span>}
               {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} ({clp(open.net)} + IVA {clp(open.iva)}). VINKA te contactará para el pago; se activa apenas se confirme.</span>}
               {open.status !== 'solicitada' && <Results r={open.results} days={Math.max(1, open.days - (open.status === 'activa' ? daysLeft(open.ends_at) : 0))} baseline={d.baseline?.actions_per_day} />}
@@ -87,7 +88,7 @@ export default function Promote() {
                 {d.plan.credits > 0 && (
                   <div className="card flex flex-col gap-2 p-4">
                     <span className="text-[15px] font-semibold">Incluido en tu plan {d.plan.name}</span>
-                    <span className="text-sm text-tinta-2">Te {left === 1 ? 'queda' : 'quedan'} <b>{left} de {d.plan.credits}</b> destacado(s) de {d.plan.days} días este mes.</span>
+                    <span className="text-sm text-tinta-2">Te {left === 1 ? 'queda' : 'quedan'} <b>{left} de {d.plan.credits}</b> {plw(d.plan.credits, 'destacado', 'destacados')} de {d.plan.days} días este mes.</span>
                     <button className="btn self-start" disabled={busy || left === 0} onClick={() => ask(true)}>{left === 0 ? 'Ya usaste los de este mes' : `Destacar ${d.plan.days} días sin costo`}</button>
                   </div>
                 )}

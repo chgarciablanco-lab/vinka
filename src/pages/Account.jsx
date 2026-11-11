@@ -11,6 +11,7 @@ import { EmailToggle } from './Notifications'
 import { CalendarSync } from '../components/CalendarSync'
 import { OnlineToggle, StatusPill } from '../components/Presence'
 import { MyCv } from '../components/MyCv'
+import { pl } from '../lib/text'
 
 function Row({ to, title, sub }) {
   return (
@@ -116,7 +117,7 @@ export function CandidateProfile() {
         </Link>
         <MyCv />
         <div className="card px-4">
-          <Row to="/perfil/laboral" title="Perfil laboral" sub={[c.has_experience ? `${c.experiences?.length || 0} experiencia(s)` : 'Primer empleo', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : null].filter(Boolean).join(' · ')} />
+          <Row to="/perfil/laboral" title="Perfil laboral" sub={[c.has_experience ? pl(c.experiences?.length || 0, 'experiencia', 'experiencias') : 'Primer empleo', c.salary_expectation ? `${clp(c.salary_expectation)} líquido` : null].filter(Boolean).join(' · ')} />
           <Row to="/perfil/preferencias" title="Preferencias" sub={[...(c.modalities || []), ...(c.schedules || [])].join(' · ') || 'Sin definir'} />
           <Row to="/perfil/presentacion" title="Presentación" sub={c.video_path ? 'Video publicado' : c.bio ? 'Texto escrito' : 'Sin presentación'} />
         </div>

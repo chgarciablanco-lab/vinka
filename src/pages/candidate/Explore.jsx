@@ -10,6 +10,7 @@ import { usePresence } from '../../lib/presence'
 import { PresenceLine } from '../../components/Presence'
 import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 import { FeaturedBadge, trackPromo } from '../../lib/promo'
+import { pl } from '../../lib/text'
 
 function JobCard({ job, onDetail, p }) {
   return (
@@ -111,7 +112,7 @@ export default function Explore() {
       <div className="safe-t flex items-center justify-between px-5 pb-3">
         <div className="flex flex-col">
           <h1 className="text-[22px] font-bold">Explorar</h1>
-          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : job ? `${i + 1} de ${jobs.length} vacantes para ti` : 'Sin vacantes nuevas'}</span>
+          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : job ? `${i + 1} de ${pl(jobs.length, 'vacante', 'vacantes')} para ti` : 'Sin vacantes nuevas'}</span>
         </div>
         <div className="flex items-center gap-2"><button onClick={() => load(broad)} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
       </div>

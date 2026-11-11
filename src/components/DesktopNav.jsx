@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 import { Svg } from './ui'
 import { StatusPill } from './Presence'
 import { companyOption } from './CompanySwitcher'
+import { pl } from '../lib/text'
 
 /** Barra lateral fija para computadores (desde 1024 px). En móvil no se muestra y se usa la barra inferior. */
 export function DesktopNav({ items }) {
@@ -19,7 +20,7 @@ export function DesktopNav({ items }) {
             </select></label>
         ) : <span className="truncate text-[13px] text-tinta-3" title={company.display_name}>{company.display_name}</span>)}
         {company?.parent_id && <span className="text-[11px] font-semibold text-[#6B2E8F]">Cliente de {company.managed_by}</span>}
-        {company?.kind === 'consultora' && !company.parent_id && <span className="text-[11px] font-semibold text-rosa-oscuro">Matriz · {company.clients || 0} cliente(s)</span>}
+        {company?.kind === 'consultora' && !company.parent_id && <span className="text-[11px] font-semibold text-rosa-oscuro">Matriz · {pl(company.clients || 0, 'cliente', 'clientes')}</span>}
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
         {items.map((it) => it.section ? (

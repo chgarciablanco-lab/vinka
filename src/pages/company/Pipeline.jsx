@@ -7,6 +7,7 @@ import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { ErrorBox, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine } from '../../components/Presence'
+import { pl, plw } from '../../lib/text'
 
 const CandidateDetail = lazy(() => import('./CandidateDetail'))
 
@@ -70,7 +71,7 @@ export function BulkSheet({ open, onClose, items, job, onDone, stage: initialSta
           {msg.trim() && sample && (
             <div className="rounded-xl bg-rosa-fondo p-3 text-[13px] leading-relaxed text-tinta-2"><b className="text-tinta">Vista previa:</b> {fillVars(msg, { nombre: (sample.name || '').split(' ')[0], cargo: job.title, empresa: company?.display_name })}</div>
           )}
-          {msg.trim() && silent > 0 && <span className="hint">{silent} persona(s) no recibirán el mensaje: aún no tienen chat (postulantes sin match o de otros portales).</span>}
+          {msg.trim() && silent > 0 && <span className="hint">{pl(silent, 'persona', 'personas')} no {plw(silent, 'recibirá', 'recibirán')} el mensaje: aún no tienen chat (postulantes sin match o de otros portales).</span>}
         </div>
         <ErrorBox>{err}</ErrorBox>
         <button className="btn" disabled={busy} onClick={run}>{busy ? 'Aplicando…' : stage ? `Mover${msg.trim() ? ' y enviar' : ''}` : 'Enviar mensaje'}</button>
@@ -175,6 +176,10 @@ export default function Pipeline() {
   const [toast, setToast] = useState('')
   const [col, setCol] = useState(null)
   const [peek, setPeek] = useState(null)
+  // Computador: tablero o lista; las etapas vacías se contraen salvo que la persona las abra
+  const [view, setView] = useState(() => { try { return localStorage.getItem('vinka-pipeline-view') || 'tablero' } catch { return 'tablero' } })
+  const [opened, setOpened] = useState([])
+  const pickView = (v) => { setView(v); try { localStorage.setItem('vinka-pipeline-view', v) } catch { /* sin almacenamiento */ } }
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('job_pipeline', { p_job: id })
@@ -229,7 +234,7 @@ export default function Pipeline() {
       <div className="safe-t sticky top-0 z-20 border-b border-[#EEE3EA] bg-white px-4 pb-3 lg:px-6">
         <div className="-ml-2 flex items-center gap-1">
           <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 shrink-0 items-center justify-center"><Svg name="back" /></button>
-          <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {d.cards.length} personas</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
+          <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')}</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
           {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]) }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : 'Seleccionar'}</button>}
         </div>
         {/* Etapas: cuadrícula de 4 × 2 que cabe completa en la pantalla (solo celular) */}
@@ -276,15 +281,50 @@ export default function Pipeline() {
         {list.map((c) => <Card key={key(c)} {...cardProps(c)} showStage={col === 'todas'} />)}
       </div>
 
-      {/* Computador: tablero con columnas y arrastrar y soltar */}
-      <div className="hidden flex-1 gap-3 overflow-x-auto px-6 py-4 lg:flex">
-        {COLUMNAS.map(([k, l, color]) => (
-          <section key={k} aria-label={l} onDragOver={(e) => canManage && e.preventDefault()} onDrop={(e) => onDrop(e, k)} className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl bg-[#F4EEF2]/60 p-2">
-            <div className="flex items-center gap-2 px-1 py-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} /><span className="text-sm font-bold">{l}</span><span className="text-xs text-tinta-suave">{byCol[k].length}</span></div>
-            {byCol[k].map((c) => <Card key={key(c)} {...cardProps(c)} />)}
-          </section>
-        ))}
+      {/* Computador: tablero (etapas vacías contraídas) o lista */}
+      <div className="hidden items-center justify-between gap-3 px-6 pt-4 lg:flex">
+        <div className="flex rounded-xl bg-[#F4EEF2] p-[3px]" role="tablist" aria-label="Vista">
+          {[['tablero', 'Tablero'], ['lista', 'Lista']].map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={view === k} onClick={() => pickView(k)} className={`h-9 rounded-[9px] px-4 text-[13px] font-semibold ${view === k ? 'bg-white text-tinta shadow-sm' : 'text-tinta-3'}`}>{l}</button>
+          ))}
+        </div>
+        {view === 'tablero' && <span className="text-xs text-tinta-suave">Las etapas sin personas se muestran contraídas. Haz clic en una para abrirla o arrastra a alguien sobre ella.</span>}
       </div>
+      {view === 'tablero' ? (
+        <div className="hidden flex-1 gap-2 overflow-x-auto px-6 py-4 lg:flex">
+          {COLUMNAS.map(([k, l, color]) => {
+            const n = byCol[k].length
+            const small = n === 0 && !opened.includes(k)
+            return small ? (
+              <button key={k} type="button" aria-label={`${l}: sin personas. Abrir etapa`} title={`${l} · 0`} onClick={() => setOpened((o) => [...o, k])}
+                onDragOver={(e) => canManage && e.preventDefault()} onDrop={(e) => onDrop(e, k)}
+                className="flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl bg-[#F4EEF2]/60 py-3 hover:bg-[#F4EEF2]">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                <span className="text-xs text-tinta-suave">0</span>
+                <span className="text-[13px] font-bold text-tinta-3 [writing-mode:vertical-rl]">{l}</span>
+              </button>
+            ) : (
+              <section key={k} aria-label={l} onDragOver={(e) => canManage && e.preventDefault()} onDrop={(e) => onDrop(e, k)} className="flex min-w-[16rem] max-w-[22rem] flex-1 flex-col gap-2 rounded-2xl bg-[#F4EEF2]/60 p-2">
+                <div className="flex items-center gap-2 px-1 py-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} /><span className="text-sm font-bold">{l}</span><span className="text-xs text-tinta-suave">{n}</span>
+                  {n === 0 && <button type="button" className="ml-auto text-xs font-semibold text-tinta-3" onClick={() => setOpened((o) => o.filter((x) => x !== k))}>Contraer</button>}</div>
+                {byCol[k].map((c) => <Card key={key(c)} {...cardProps(c)} />)}
+                {n === 0 && <span className="rounded-xl border border-dashed border-linea px-3 py-6 text-center text-xs text-tinta-suave">Arrastra aquí para mover a esta etapa</span>}
+              </section>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="hidden flex-col gap-4 px-6 py-4 lg:flex">
+          {cards.length === 0 && <div className="rounded-2xl border border-dashed border-linea px-4 py-8 text-center text-sm text-tinta-suave">{q || hideKo ? 'Nadie coincide con la búsqueda.' : 'Aún no hay personas en este proceso.'}</div>}
+          {COLUMNAS.filter(([k]) => byCol[k].length).map(([k, l, color]) => (
+            <section key={k} aria-label={l} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} /><span className="text-sm font-bold">{l}</span><span className="text-xs text-tinta-suave">{byCol[k].length}</span>
+                {selecting && <button className="ml-auto text-[13px] font-semibold text-rosa-texto" onClick={() => setSel((s) => [...new Set([...s, ...byCol[k].map(key)])])}>Seleccionar todos</button>}</div>
+              <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">{byCol[k].map((c) => <Card key={key(c)} {...cardProps(c)} />)}</div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {selecting && (
         <div className="safe-b fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 lg:left-[calc(50%+8rem)] lg:max-w-2xl lg:rounded-t-2xl lg:border-x items-center gap-2 border-t border-[#EEE3EA] bg-white px-4 pt-3">
@@ -294,7 +334,7 @@ export default function Pipeline() {
         </div>
       )}
       <BulkSheet open={bulk} onClose={() => setBulk(false)} items={selected} job={d.job}
-        onDone={(r) => { setBulk(false); setSelecting(false); setSel([]); setToast(`Listo: ${r.moved} movido(s), ${r.sent} mensaje(s) enviado(s).`); load() }} />
+        onDone={(r) => { setBulk(false); setSelecting(false); setSel([]); setToast(`Listo: ${pl(r.moved, 'persona movida', 'personas movidas')}, ${pl(r.sent, 'mensaje enviado', 'mensajes enviados')}.`); load() }} />
       <Sheet open={!!moving} onClose={() => setMoving(null)} title={moving ? `Mover a ${moving.name}` : ''}>
         {moving && (
           <div className="flex flex-col gap-3">

@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { REGIONES, TAMANOS, AREAS, colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Toast, TopBar } from '../../components/ui'
+import { pl } from '../../lib/text'
 
 const VER = {
   verified: ['Verificada', 'bg-[#EAF6EF] text-[#134A2B]'],
@@ -111,7 +112,7 @@ export default function Clients() {
                       <div key={l} className="flex flex-col rounded-xl bg-[#F6F1F4] px-1 py-2"><span className="font-display text-lg font-bold">{n}</span><span className="text-[11px] leading-tight text-tinta-3">{l}</span></div>
                     ))}
                   </div>
-                  {c.confidential > 0 && <span className="text-xs text-tinta-3">{c.confidential} vacante(s) confidencial(es)</span>}
+                  {c.confidential > 0 && <span className="text-xs text-tinta-3">{pl(c.confidential, 'vacante confidencial', 'vacantes confidenciales')}</span>}
                   <button className="btn-sm self-start bg-rosa-accion text-white" onClick={() => work(c.id)}>Trabajar en este cliente</button>
                 </div>
               )

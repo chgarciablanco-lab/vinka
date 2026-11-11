@@ -7,6 +7,16 @@ const longDate = (d) => (d ? new Date(d.length === 10 ? d + 'T12:00:00' : d).toL
 export const defaultIntro = (position, company) => `Nos complace ofrecerte el cargo de ${position || '…'} en ${company || 'nuestra empresa'}. Después de conocerte durante el proceso de selección, creemos que tu experiencia y tu forma de trabajar aportarán mucho a nuestro equipo. Estas son las condiciones de la oferta:`
 export const DEFAULT_CLOSING = 'Esta carta expresa nuestra intención de contratarte y no reemplaza al contrato de trabajo, que firmaremos una vez que aceptes. Si tienes cualquier duda sobre estas condiciones, conversémoslo.\n\nEsperamos contar contigo.'
 
+/** Firma de la carta: quien firma (nombre y cargo) o, en cartas antiguas sin firmante, quien la emitió en VINKA */
+export function signature(o, sender) {
+  const L = o.letter || {}
+  return { name: L.signer_name || sender || '', title: L.signer_title || (!L.signer_name && sender ? 'Emitida por' : '') }
+}
+/** Trazabilidad: quién la emitió, cuándo y número de oferta */
+export function traceLine(o, sender) {
+  return ['Emitida en VINKA', sender && `por ${sender}`, o.created_at && `el ${longDate(o.created_at)}`, o.id && `· Oferta N.° ${String(o.id).slice(0, 8).toUpperCase()}`].filter(Boolean).join(' ')
+}
+
 export function offerRows(o) {
   return [
     ['Cargo', o.position], ['Renta mensual', o.salary ? `${clp(o.salary)} ${o.salary_type === 'bruto' ? 'bruto' : 'líquido'}` : 'A conversar'],
@@ -15,15 +25,16 @@ export function offerRows(o) {
 }
 
 /** Texto plano de la carta (para el correo de la empresa) */
-export function letterText({ offer: o, company: c, candidate }) {
+export function letterText({ offer: o, company: c, candidate, sender }) {
   const L = o.letter || {}
+  const sg = signature(o, sender)
   const lines = [
     `${c.legal_name || c.display_name}${c.rut ? ` · RUT ${c.rut}` : ''}`, `${L.city || c.comuna || ''}${L.city || c.comuna ? ', ' : ''}${longDate(o.created_at || new Date().toISOString())}`, '',
     'CARTA OFERTA', o.position, '', `Estimado/a ${candidate?.name || ''}:`, '', L.intro || defaultIntro(o.position, c.display_name), '',
     ...offerRows(o).map(([k, v]) => `• ${k}: ${v}`), '',
     ...(o.benefits ? [`Beneficios: ${o.benefits}`, ''] : []), ...(o.message ? [o.message, ''] : []),
     L.closing || DEFAULT_CLOSING, '', ...(o.expires_on ? [`Te pedimos responder antes del ${longDate(o.expires_on)}.`, ''] : []),
-    'Atentamente,', ...[L.signer_name, L.signer_title].filter(Boolean), c.legal_name || c.display_name,
+    'Atentamente,', ...[sg.name, sg.title].filter(Boolean), c.legal_name || c.display_name, '', traceLine(o, sender),
   ]
   return lines.join('\n').replace(/\n{3,}/g, '\n\n')
 }
@@ -31,8 +42,9 @@ export function letterText({ offer: o, company: c, candidate }) {
 const Paras = ({ text }) => String(text || '').split(/\n{2,}/).map((t, i) => <p key={i} className="mb-3 whitespace-pre-line">{t}</p>)
 
 /** Carta oferta con formato de documento: logo, membrete, condiciones y firma. Se imprime o guarda como PDF tal cual. */
-export function OfferLetter({ offer: o, company: c, candidate }) {
+export function OfferLetter({ offer: o, company: c, candidate, sender = '' }) {
   const L = o.letter || {}
+  const sg = signature(o, sender)
   const logo = logoUrl(c?.logo_path)
   const place = L.city || c?.comuna || ''
   return (
@@ -58,12 +70,12 @@ export function OfferLetter({ offer: o, company: c, candidate }) {
       <div className="mt-6 break-inside-avoid print:mt-4">
         <p className="mb-8 print:mb-6">Atentamente,</p>
         <div className="w-60 border-t border-[#302538] pt-2">
-          {L.signer_name && <b className="block">{L.signer_name}</b>}
-          {L.signer_title && <span className="block text-[13px] text-[#4A3F4E]">{L.signer_title}</span>}
+          {sg.name ? <b className="block">{sg.name}</b> : <b className="block text-[#B42318]">Falta el nombre de quien firma</b>}
+          {sg.title ? <span className="block text-[13px] text-[#4A3F4E]">{sg.title}</span> : <span className="block text-[13px] text-[#B42318]">Falta el cargo</span>}
           <span className="block text-[13px] text-[#4A3F4E]">{c?.legal_name || c?.display_name}</span>
         </div>
       </div>
-      <p className="mt-8 border-t border-[#EFE6EC] pt-3 text-[11px] text-[#8A8090] print:mt-5">Carta emitida a través de VINKA. No reemplaza al contrato de trabajo. Una oferta real nunca te pide dinero.</p>
+      <p className="mt-8 border-t border-[#EFE6EC] pt-3 text-[11px] text-[#8A8090] print:mt-5">{traceLine(o, sender)}. No reemplaza al contrato de trabajo. Una oferta real nunca te pide dinero.</p>
     </article>
   )
 }

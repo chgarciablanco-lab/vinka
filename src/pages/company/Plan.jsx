@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
+import { pl, plw } from '../../lib/text'
 
 const STATUS = { trial: 'Prueba gratuita', active: 'Activo', past_due: 'Pago pendiente', canceled: 'Cancelado' }
 const money = (n) => (n == null ? 'Cotización' : n === 0 ? 'Gratis' : `$${n.toLocaleString('es-CL')} + IVA / mes`)
@@ -61,9 +62,9 @@ export default function Plan() {
           </div>
           <div className="card flex flex-col gap-4 p-4">
             <span className="text-[15px] font-semibold">Uso de este mes</span>
-            {(d.managed_by || d.clients > 0) && <p className="rounded-xl bg-[#F7F0FB] px-3 py-2 text-sm leading-snug text-[#4A2163]">El uso suma {d.managed_by ? `${d.managed_by} (matriz) y todas sus empresas clientes` : `tu consultora y sus ${d.clients} empresa(s) cliente(s)`}: el plan es uno solo para todo el grupo.</p>}
+            {(d.managed_by || d.clients > 0) && <p className="rounded-xl bg-[#F7F0FB] px-3 py-2 text-sm leading-snug text-[#4A2163]">El uso suma {d.managed_by ? `${d.managed_by} (matriz) y todas sus empresas clientes` : `tu consultora y ${plw(d.clients, 'su', 'sus')} ${pl(d.clients, 'empresa cliente', 'empresas clientes')}`}: el plan es uno solo para todo el grupo.</p>}
             <Meter label="Vacantes publicadas a la vez" used={d.usage.jobs} max={p.max_active_jobs} />
-            {p.max_active_jobs != null && d.usage.jobs > p.max_active_jobs && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-sm text-[#4A2A00]">Tienes {d.usage.jobs - p.max_active_jobs} vacante(s) más de las que permite tu plan. Pausa alguna o cambia de plan; mientras tanto no podrás publicar nuevas.</p>}
+            {p.max_active_jobs != null && d.usage.jobs > p.max_active_jobs && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-sm text-[#4A2A00]">Tienes {pl(d.usage.jobs - p.max_active_jobs, 'vacante', 'vacantes')} más de las que permite tu plan. Pausa alguna o cambia de plan; mientras tanto no podrás publicar nuevas.</p>}
             <Meter label="Personas en el equipo" used={d.usage.members} max={p.max_members} />
             <Meter label="Consultas de IA del mes" used={d.usage.ai} max={p.ai_monthly} />
             {p.promo_credits > 0 && <Meter label={`Destacados incluidos (${p.promo_days} días c/u)`} used={d.usage.promos || 0} max={p.promo_credits} />}
