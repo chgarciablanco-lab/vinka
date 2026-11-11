@@ -73,8 +73,12 @@ export function CompanyPanel() {
     supabase.from('external_applicants').select('job_id').eq('company_id', company.id).then(({ data }) => { const c = {}; (data || []).forEach((r) => { c[r.job_id] = (c[r.job_id] || 0) + 1 }); setExt(c) })
     supabase.rpc('company_stats', { p_company: company.id }).then(({ data }) => setStats(Object.fromEntries((data || []).map((s) => [s.job_id, s]))))
     supabase.rpc('company_plan', { p_company: company.id }).then(({ data }) => setPlanInfo(data || null))
-    supabase.from('promotions').select('job_id, status, ends_at').eq('company_id', company.id).in('status', ['solicitada', 'activa', 'pausada'])
-      .then(({ data }) => setPromos(Object.fromEntries((data || []).map((p) => [p.job_id, p]))))
+    supabase.from('promotions').select('job_id, status, ends_at, renews_id').eq('company_id', company.id).in('status', ['solicitada', 'activa', 'pausada'])
+      .then(({ data }) => {
+        const m = Object.fromEntries((data || []).filter((p) => !p.renews_id).map((p) => [p.job_id, p]))
+        ;(data || []).filter((p) => p.renews_id && m[p.job_id]).forEach((p) => { m[p.job_id] = { ...m[p.job_id], renewal: true } })
+        setPromos(m)
+      })
   }, [company, reload])
   const pubN = jobs?.filter((j) => j.status === 'published').length ?? 0
   // El límite del plan es del grupo (matriz + clientes)
@@ -94,6 +98,21 @@ export function CompanyPanel() {
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
         {isAdmin && <BillingBanner billing={planInfo?.billing} />}
+        {canManage && verified && (() => {
+          const due = (jobs || []).filter((j) => { const pr = promos[j.id]; return j.status === 'published' && pr?.status === 'activa' && !pr.renewal && new Date(pr.ends_at) - Date.now() <= 3 * 86400000 && new Date(pr.ends_at) > Date.now() })
+          if (!due.length) return null
+          return (
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-[#E6C66A] bg-[#FFF8E6] p-3.5 text-[#5C3D00]">
+              <span className="text-[15px] font-bold">{due.length === 1 ? 'Un destacado termina pronto' : `${due.length} destacados terminan pronto`}</span>
+              <span className="text-[13px] leading-snug">Renuévalos ahora y los días nuevos se suman al final: no pierdes ninguno.</span>
+              {due.map((j) => (
+                <Link key={j.id} to={`/vacantes/${j.id}/destacar`} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-[13px] font-semibold">
+                  <span className="min-w-0">{j.title} · termina {new Date(promos[j.id].ends_at).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' })}</span><span className="shrink-0 text-rosa-texto">Renovar ›</span>
+                </Link>
+              ))}
+            </div>
+          )
+        })()}
         <VerificationBanner company={company} />
         <CompanyContext />
         <div className="grid grid-cols-3 gap-2">
@@ -175,10 +194,11 @@ export function CompanyPanel() {
             {j.status === 'published' && verified && canManage && (() => {
               const pr = promos[j.id]
               const live = pr?.status === 'activa' && new Date(pr.ends_at) > new Date()
+              const soon = live && !pr.renewal && new Date(pr.ends_at) - Date.now() <= 3 * 86400000
               return (
                 <Link to={`/vacantes/${j.id}/destacar`} className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${live ? 'bg-[#FFF4D6] text-[#7A5200]' : 'border border-dashed border-[#E6C66A] text-[#7A5200]'}`}>
                   <span className="flex items-center gap-1.5">{live ? <FeaturedBadge className="!bg-white" /> : '★'}{live ? `${pl(daysLeft(pr.ends_at), 'día', 'días')} más entre los primeros` : pr?.status === 'solicitada' ? 'Destacado pendiente de pago' : pr?.status === 'pausada' ? 'Destacado en pausa' : 'Destacar para aparecer entre los primeros'}</span>
-                  <span>{live ? 'Ver rendimiento ›' : '›'}</span>
+                  <span className={soon ? 'text-rosa-texto' : ''}>{soon ? 'Renovar ›' : pr?.renewal ? 'Renovación pedida ›' : live ? 'Ver rendimiento ›' : '›'}</span>
                 </Link>
               )
             })()}

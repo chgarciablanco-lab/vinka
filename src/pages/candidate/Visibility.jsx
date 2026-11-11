@@ -21,10 +21,11 @@ export default function Visibility() {
 
   const ask = async () => {
     setErr(''); setBusy(true)
-    const { error } = await supabase.rpc('request_promotion', { p_product: pick, p_job: null, p_use_credit: false, p_consent: ok })
+    const { data, error } = await supabase.rpc('request_promotion', { p_product: pick, p_job: null, p_use_credit: false, p_consent: ok })
     setBusy(false)
     if (error) return setErr(errMsg(error))
-    setPick(''); setOk(false); setToast('Solicitud enviada. VINKA te contactará para el pago y lo activará apenas se confirme.'); load()
+    setPick(''); setOk(false)
+    setToast(data?.renewal ? 'Renovación solicitada. Al confirmarse el pago, los días se suman al final de tu destacado actual.' : 'Solicitud enviada. VINKA te contactará para el pago y lo activará apenas se confirme.'); load()
   }
   const stop = async (id, pending) => {
     setErr('')
@@ -34,7 +35,30 @@ export default function Visibility() {
   }
 
   if (!d) return <Screen><TopBar back="/perfil" title="Perfil destacado" />{err ? <div className="px-6"><ErrorBox>{err}</ErrorBox></div> : <Spinner />}</Screen>
-  const open = d.items.find((x) => ['solicitada', 'activa', 'pausada'].includes(x.status))
+  const open = d.items.find((x) => ['solicitada', 'activa', 'pausada'].includes(x.status) && !x.renews_id)
+  const renewal = d.items.find((x) => x.status === 'solicitada' && x.renews_id)
+  const msLeft = open?.status === 'activa' ? new Date(open.ends_at) - Date.now() : Infinity
+  const canRenew = open?.status === 'activa' && msLeft <= 3 * 86400000 && !renewal && d.is_public
+  const chooser = (title, label) => (
+    <>
+      <span className="text-[15px] font-semibold">{title}</span>
+      <div className="grid grid-cols-3 gap-2">
+        {(d.products || []).map((x) => (
+          <button key={x.id} onClick={() => setPick(x.id)} className={`flex flex-col items-start gap-0.5 rounded-xl border-2 p-3 text-left ${pick === x.id ? 'border-rosa-accion bg-rosa-palido' : 'border-linea bg-white'}`}>
+            <span className="text-[15px] font-bold">{canRenew ? '+' : ''}{x.days} días</span>
+            <span className="text-sm font-semibold">{clp(x.price_clp)}</span>
+            <span className="text-[11px] text-tinta-3">IVA incluido</span>
+          </button>
+        ))}
+      </div>
+      <label className="flex items-start gap-2.5 text-sm leading-snug">
+        <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" checked={ok} onChange={(e) => setOk(e.target.checked)} />
+        <span>Acepto que VINKA muestre mi perfil con más frecuencia a empresas verificadas durante este período. Puedo desactivarlo cuando quiera.</span>
+      </label>
+      {product && <p className="text-sm text-tinta-2">{product.name}: <b>{clp(product.price_clp)}</b>, pago único con IVA incluido. Por ahora el pago se coordina con VINKA.</p>}
+      <button className="btn" disabled={!pick || !ok || busy} onClick={ask}>{label}</button>
+    </>
+  )
   const product = d.products?.find((x) => x.id === pick)
   return (
     <Screen className="bg-[#FAF7F9]" wide>
@@ -66,6 +90,7 @@ export default function Visibility() {
               </div>
             )}
             <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(open.id, open.status === 'solicitada')}>{open.status === 'solicitada' ? 'Cancelar solicitud' : 'Desactivar ahora'}</button>
+            {open.status === 'activa' && !canRenew && !renewal && <span className="text-xs text-tinta-3">Podrás renovarlo desde el {fmt(new Date(new Date(open.ends_at) - 3 * 86400000))}; los días se suman al final.</span>}
           </div>
         ) : !d.is_public ? (
           <div className="card flex flex-col gap-2 p-4 text-sm text-tinta-2">
@@ -74,30 +99,28 @@ export default function Visibility() {
           </div>
         ) : (
           <div className="card flex flex-col gap-3 p-4">
-            <span className="text-[15px] font-semibold">Elige cuántos días</span>
-            <div className="grid grid-cols-3 gap-2">
-              {(d.products || []).map((x) => (
-                <button key={x.id} onClick={() => setPick(x.id)} className={`flex flex-col items-start gap-0.5 rounded-xl border-2 p-3 text-left ${pick === x.id ? 'border-rosa-accion bg-rosa-palido' : 'border-linea bg-white'}`}>
-                  <span className="text-[15px] font-bold">{x.days} días</span>
-                  <span className="text-sm font-semibold">{clp(x.price_clp)}</span>
-                  <span className="text-[11px] text-tinta-3">IVA incluido</span>
-                </button>
-              ))}
-            </div>
-            <label className="flex items-start gap-2.5 text-sm leading-snug">
-              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" checked={ok} onChange={(e) => setOk(e.target.checked)} />
-              <span>Acepto que VINKA muestre mi perfil con más frecuencia a empresas verificadas durante este período. Puedo desactivarlo cuando quiera.</span>
-            </label>
-            {product && <p className="text-sm text-tinta-2">{product.name}: <b>{clp(product.price_clp)}</b>, pago único con IVA incluido. Por ahora el pago se coordina con VINKA.</p>}
-            <button className="btn" disabled={!pick || !ok || busy} onClick={ask}>Solicitar perfil destacado</button>
+            {chooser('Elige cuántos días', 'Solicitar perfil destacado')}
+          </div>
+        )}
+        {renewal && (
+          <div className="card flex flex-col gap-2 border-2 border-[#F5C892] p-4">
+            <span className="text-[15px] font-semibold">Renovación solicitada</span>
+            <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} (IVA incluido). Apenas VINKA confirme el pago, se suman al final de tu destacado actual.</span>
+            <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(renewal.id, true)}>Cancelar renovación</button>
+          </div>
+        )}
+        {canRenew && (
+          <div className="card flex flex-col gap-3 border-2 border-rosa-accion p-4">
+            <span className="text-sm text-tinta-2">Tu destacado termina el <b>{fmt(open.ends_at)}</b>. Si lo renuevas ahora, los días nuevos se suman al final: no pierdes ninguno.</span>
+            {chooser('Renueva tu perfil destacado', 'Solicitar renovación')}
           </div>
         )}
         <ErrorBox>{err}</ErrorBox>
 
-        {d.items.filter((x) => x !== open).length > 0 && (
+        {d.items.filter((x) => x !== open && x !== renewal).length > 0 && (
           <div className="card flex flex-col gap-2 p-4">
             <span className="text-[15px] font-semibold">Historial</span>
-            {d.items.filter((x) => x !== open).map((x) => (
+            {d.items.filter((x) => x !== open && x !== renewal).map((x) => (
               <div key={x.id} className="flex items-center justify-between gap-2 border-b border-[#F1E7ED] pb-2 text-sm last:border-0">
                 <span className="flex flex-col"><b>{pl(x.days, 'día', 'días')} · {SOURCE_TXT[x.source]}</b><span className="text-xs text-tinta-3">{x.starts_at ? `${fmt(x.starts_at)} → ${fmt(x.ends_at)} · ${pl(x.results.actions, 'empresa', 'empresas')} interesadas` : `Pedido el ${fmt(x.created_at)}`}</span></span>
                 <span className={`pill ${PROMO_STATUS[x.status][1]}`}>{PROMO_STATUS[x.status][0]}</span>

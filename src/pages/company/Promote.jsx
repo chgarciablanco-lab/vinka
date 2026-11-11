@@ -42,7 +42,8 @@ export default function Promote() {
     setBusy(false)
     if (error) return setErr(errMsg(error))
     setPick('')
-    setToast(data?.status === 'activa' ? `¡Listo! Tu vacante está destacada por ${data.days} días.` : 'Solicitud enviada. VINKA te contactará para el pago y la activará apenas se confirme.')
+    setToast(data?.renewed ? `¡Renovado! Ahora termina el ${fmt(data.ends_at)}.` : data?.renewal ? 'Renovación solicitada. Al confirmarse el pago, los días se suman al final del destacado actual.'
+      : data?.status === 'activa' ? `¡Listo! Tu vacante está destacada por ${data.days} días.` : 'Solicitud enviada. VINKA te contactará para el pago y la activará apenas se confirme.')
     load()
   }
   const stop = async (pid, pending) => {
@@ -53,10 +54,14 @@ export default function Promote() {
   }
 
   if (!d) return <Screen><TopBar back="/" title="Destacar vacante" />{err ? <div className="px-6"><ErrorBox>{err}</ErrorBox></div> : <Spinner />}</Screen>
-  const open = d.items.find((x) => ['solicitada', 'activa', 'pausada'].includes(x.status))
+  const open = d.items.find((x) => ['solicitada', 'activa', 'pausada'].includes(x.status) && !x.renews_id)
   const left = Math.max(0, d.plan.credits - d.plan.used)
   const published = d.job.status === 'published'
   const product = d.products?.find((x) => x.id === pick)
+  const renewal = d.items.find((x) => x.status === 'solicitada' && x.renews_id)
+  const msLeft = open?.status === 'activa' ? new Date(open.ends_at) - Date.now() : Infinity
+  const canRenew = canManage && published && open?.status === 'activa' && msLeft <= 3 * 86400000 && !renewal
+  const lastEnded = !open ? d.items.find((x) => x.status === 'finalizada' && !x.renews_id && x.ends_at && Date.now() - new Date(x.ends_at) < 14 * 86400000) : null
   return (
     <Screen className="bg-[#FAF7F9]" wide>
       <TopBar back="/" title="Destacar vacante" />
@@ -80,6 +85,38 @@ export default function Promote() {
               {open.status !== 'solicitada' && <Results r={open.results} days={Math.max(1, open.days - (open.status === 'activa' ? daysLeft(open.ends_at) : 0))} baseline={d.baseline?.actions_per_day} />}
               {canManage && <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(open.id, open.status === 'solicitada')}>{open.status === 'solicitada' ? 'Cancelar solicitud' : 'Detener destacado'}</button>}
             </div>
+          )}
+
+          {open?.status === 'activa' && canManage && !canRenew && !renewal && published && (
+            <p className="text-[13px] text-tinta-3">Podrás renovarlo desde el {fmt(new Date(new Date(open.ends_at) - 3 * 86400000))}; los días se suman al final.</p>
+          )}
+          {renewal && (
+            <div className="card flex flex-col gap-2 border-2 border-[#F5C892] bg-naranja-palido/40 p-4">
+              <span className="text-[15px] font-semibold">Renovación solicitada</span>
+              <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} con IVA. Apenas VINKA confirme el pago, se suman al final del destacado actual: no pierdes días.</span>
+              {canManage && <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(renewal.id, true)}>Cancelar renovación</button>}
+            </div>
+          )}
+          {canRenew && (
+            <div className="card flex flex-col gap-3 border-2 border-rosa-accion p-4">
+              <span className="text-[15px] font-semibold">Renueva tu destacado</span>
+              <span className="text-sm text-tinta-2">Termina {msLeft < 86400000 ? 'en menos de un día' : `en ${pl(daysLeft(open.ends_at), 'día', 'días')}`} ({fmt(open.ends_at)}). Si lo renuevas ahora, los días nuevos se suman al final: no pierdes ninguno.</span>
+              {d.plan.credits > 0 && left > 0 && <button className="btn self-start" disabled={busy} onClick={() => ask(true)}>Renovar {d.plan.days} días sin costo</button>}
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(d.products || []).map((x) => (
+                  <button key={x.id} onClick={() => setPick(x.id)} className={`flex flex-col items-start gap-0.5 rounded-xl border-2 p-3 text-left ${pick === x.id ? 'border-rosa-accion bg-rosa-palido' : 'border-linea bg-white'}`}>
+                    <span className="text-[15px] font-bold">+{x.days} días</span>
+                    <span className="text-sm font-semibold">{clp(x.price_clp)} + IVA</span>
+                    <span className="text-[11px] text-tinta-3">Total {clp(x.price_clp + iva(x.price_clp))}</span>
+                  </button>
+                ))}
+              </div>
+              <button className={d.plan.credits > 0 && left > 0 ? 'btn-sec' : 'btn'} disabled={!pick || busy} onClick={() => ask(false)}>Solicitar renovación pagada</button>
+              <span className="text-xs text-tinta-3">El pago se coordina con VINKA (transferencia). Al confirmarse, se suma al final.</span>
+            </div>
+          )}
+          {lastEnded && canManage && published && (
+            <p className="rounded-xl bg-naranja-palido px-3 py-2.5 text-[13px] text-[#4A2A00]">Tu destacado terminó el {fmt(lastEnded.ends_at)}. Puedes volver a destacarla aquí abajo.</p>
           )}
 
           {!open && canManage && (
@@ -119,6 +156,7 @@ export default function Promote() {
             <div key={x.id} className="flex flex-col gap-1 border-b border-[#F1E7ED] pb-2 text-sm last:border-0">
               <div className="flex items-center justify-between gap-2"><b>{x.days} días · {SOURCE_TXT[x.source]}</b><span className={`pill ${PROMO_STATUS[x.status][1]}`}>{PROMO_STATUS[x.status][0]}</span></div>
               <span className="text-xs text-tinta-3">{x.starts_at ? `${fmt(x.starts_at)} → ${fmt(x.ends_at)}` : `Pedido el ${fmt(x.created_at)}`}{x.total ? ` · ${clp(x.total)} con IVA` : ''}</span>
+              {x.note && <span className="text-xs text-tinta-3">{x.note}</span>}
               {x.starts_at && <span className="text-xs text-tinta-2">{x.results.impressions} apariciones · {x.results.clicks} clics · {x.results.actions} postulaciones</span>}
             </div>
           ))}
