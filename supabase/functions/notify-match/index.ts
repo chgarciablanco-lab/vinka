@@ -213,10 +213,10 @@ async function render(n: any, name: string, app: string): Promise<string> {
   return shell(body(hello + h1(esc(n.title)) + p(esc(n.body)) + btn(link, cta)), FOOT(prefs), company ? 'VINKA Company' : 'VINKA Talent', n.body)
 }
 
-async function sendEmail(cfg: any, key: string, to: string, subject: string, html: string, text: string) {
+async function sendEmail(cfg: any, key: string, to: string, subject: string, html: string, text: string, replyTo = '') {
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: cfg.email_from, to: [to], subject, html, text }),
+    body: JSON.stringify({ from: cfg.email_from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
   })
   if (!r.ok) console.error('resend', r.status, await r.text())
   return r.ok ? 'enviado' : `error_${r.status}`
@@ -275,6 +275,17 @@ Deno.serve(async (req) => {
       const status = i.email.endsWith('@example.com') ? 'cuenta_de_prueba' : !RESEND ? 'sin_configurar'
         : await sendEmail(cfg, RESEND, i.email, `${inviter} te invitó al equipo de ${company} en VINKA`, html, `${inviter} te invitó al equipo de ${company} en VINKA: ${link}`)
       return Response.json({ member_invite: status })
+    }
+    /* Respuesta de VINKA a una cotización pedida desde la web */
+    if (payload.kind === 'quote_reply') {
+      const { data: q } = await sb.from('quote_requests').select('*').eq('id', payload.id).single()
+      if (!q) return new Response('not found', { status: 404 })
+      const paras = String(q.reply_body || '').split(/\n{2,}/).map((t: string) => p(esc(t).replace(/\n/g, '<br>'), 'margin-bottom:12px')).join('')
+      const html = shell(body(paras), `Puedes responder directamente a este correo o escribir a <a href="mailto:contacto@vinka.cl" style="color:#B0245F">contacto@vinka.cl</a>.<br>Recibes este mensaje porque pediste una cotización en VINKA.`, 'VINKA Company', q.reply_subject)
+      const status = q.email.endsWith('@example.com') ? 'cuenta_de_prueba' : !RESEND ? 'sin_configurar'
+        : await sendEmail(cfg, RESEND, q.email, q.reply_subject, html, q.reply_body, 'contacto@vinka.cl')
+      await sb.from('quote_requests').update({ reply_status: status }).eq('id', q.id)
+      return Response.json({ quote_reply: status })
     }
     if (payload.kind !== 'notification') return Response.json({ skipped: payload.kind })
 

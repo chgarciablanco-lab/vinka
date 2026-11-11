@@ -111,33 +111,104 @@ function Revenue({ demo }) {
 /** Resumen del negocio y gestión de planes (los cambios quedan registrados en la auditoría). */
 const QUOTE_ST = { nuevo: 'Nueva', contactado: 'Contactada', cotizado: 'Cotizada', cerrado: 'Cerrada (cliente)', descartado: 'Descartada' }
 const QUOTE_REASON = { plan: 'Cotizar plan', consultora: 'Consultora', volumen: 'Volumen / varias sedes', otro: 'Otra consulta' }
+// Respuesta predeterminada a una cotización: se completa con los datos de la solicitud y del plan; se puede editar antes de enviar
+const APP = 'https://vinka-alpha.vercel.app'
+function quoteDraft(q, plans, me) {
+  const plan = plans.find((x) => x.id === q.plan_id)
+  const first = (q.contact_name || '').trim().split(/\s+/)[0] || ''
+  const volume = [q.open_jobs != null && pl(q.open_jobs, 'vacante abierta a la vez', 'vacantes abiertas a la vez'), q.hires_year != null && pl(q.hires_year, 'contratación al año', 'contrataciones al año')].filter(Boolean).join(' y ')
+  const proposal = plan?.price_clp
+    ? `Para lo que nos cuentas, el plan ${plan.name} cuesta $${plan.price_clp.toLocaleString('es-CL')} + IVA al mes e incluye ${plan.max_active_jobs == null ? 'vacantes sin límite' : pl(plan.max_active_jobs, 'vacante publicada', 'vacantes publicadas')} a la vez, ${plan.max_members == null ? 'equipo sin límite' : pl(plan.max_members, 'persona', 'personas')} en el equipo y ${Number(plan.ai_monthly || 0).toLocaleString('es-CL')} consultas de IA al mes.`
+    : '[Escribe aquí la propuesta: plan recomendado, precio mensual + IVA y condiciones]'
+  return {
+    subject: `Cotización VINKA para ${q.company_name}`,
+    body: `Hola ${first}:
+
+Gracias por tu interés en VINKA. Recibimos tu solicitud de cotización${plan ? ` del plan ${plan.name}` : ''} para ${q.company_name}${volume ? `, con ${volume}` : ''}.
+
+${proposal}
+
+Todas las funciones de VINKA vienen en todos los planes: publicación de vacantes, personas que calzan con cada cargo, chat, agenda de entrevistas, proceso de selección por etapas, carta oferta y reportes. El pago es mensual por transferencia o tarjeta, con factura.
+
+Puedes partir hoy con 30 días gratis del plan Pyme creando la cuenta de tu empresa en ${APP}/registro/empresa, y cambiar de plan cuando quieras.
+
+Si te sirve, coordinamos una videollamada de 20 minutos para mostrarte la plataforma. Responde este correo y te escribimos.
+
+Saludos,
+${me || 'Equipo VINKA'}
+Equipo VINKA · contacto@vinka.cl`,
+  }
+}
+const SEND_ST = { enviando: ['Enviando…', 'text-tinta-3'], enviado: ['Correo enviado', 'text-[#2F7A4F]'], cuenta_de_prueba: ['No se envía a cuentas de prueba (@example.com)', 'text-tinta-3'], sin_configurar: ['Falta configurar el envío de correos', 'text-[#912018]'] }
+const sendSt = (st) => SEND_ST[st] || (st?.startsWith('error_403') || st === 'error_403' ? ['No se pudo enviar: hay que verificar el dominio vinka.cl en Resend', 'text-[#912018]'] : st ? [`No se pudo enviar (${st})`, 'text-[#912018]'] : null)
+
 /** Cotizaciones pedidas desde la web (formulario /cotizar) */
 function Quotes() {
+  const { profile } = useAuth()
   const [list, setList] = useState(null)
+  const [plans, setPlans] = useState([])
   const [all, setAll] = useState(false)
   const [err, setErr] = useState('')
+  const [reply, setReply] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [toast, setToast] = useState('')
   const load = useCallback(() => { supabase.from('quote_requests').select('*').order('created_at', { ascending: false }).limit(200).then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); supabase.from('plans').select('*').order('sort').then(({ data }) => setPlans(data || [])) }, [load])
   const upd = async (q, status) => { const { error } = await supabase.rpc('admin_update_quote', { p_id: q.id, p_status: status, p_note: q.admin_note || '' }); if (error) setErr(errMsg(error)); else load() }
+  const me = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+  const openReply = (q) => { setErr(''); setReply({ q, ...(q.reply_body ? { subject: q.reply_subject, body: q.reply_body } : quoteDraft(q, plans, me)) }) }
+  const send = async () => {
+    setErr(''); setBusy(true)
+    const { error } = await supabase.rpc('admin_reply_quote', { p_id: reply.q.id, p_subject: reply.subject, p_body: reply.body })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setReply(null); setToast('Respuesta en camino. El estado del envío aparece en la cotización.')
+    load(); setTimeout(load, 4000)
+  }
   if (!list) return null
   const shown = list.filter((q) => all || ['nuevo', 'contactado', 'cotizado'].includes(q.status))
+  const mailto = reply ? `mailto:${reply.q.email}?subject=${encodeURIComponent(reply.subject)}&body=${encodeURIComponent(reply.body)}` : ''
   return (
     <div className="card flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Cotizaciones desde la web ({shown.length})</span>
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Ver cerradas</label></div>
       {shown.length === 0 && <span className="text-sm text-tinta-3">No hay cotizaciones pendientes.</span>}
-      {shown.map((q) => (
-        <div key={q.id} className="flex flex-col gap-1 border-b border-[#F1E7ED] pb-2.5 text-sm last:border-0">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <span><b>{q.company_name}</b>{q.rut ? ` · RUT ${q.rut}` : ''} · <span className="text-tinta-3">{QUOTE_REASON[q.reason]}{q.plan_id ? ` · plan ${q.plan_id}` : ''}</span></span>
-            <select className="h-8 rounded-lg border border-linea bg-white px-2 text-xs" value={q.status} onChange={(e) => upd(q, e.target.value)}>{Object.entries(QUOTE_ST).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+      {shown.map((q) => {
+        const st = sendSt(q.reply_status)
+        return (
+          <div key={q.id} className="flex flex-col gap-1 border-b border-[#F1E7ED] pb-2.5 text-sm last:border-0">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span><b>{q.company_name}</b>{q.rut ? ` · RUT ${q.rut}` : ''} · <span className="text-tinta-3">{QUOTE_REASON[q.reason]}{q.plan_id ? ` · plan ${q.plan_id}` : ''}</span></span>
+              <select className="h-8 rounded-lg border border-linea bg-white px-2 text-xs" value={q.status} onChange={(e) => upd(q, e.target.value)}>{Object.entries(QUOTE_ST).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+            </div>
+            <span className="text-xs text-tinta-3">{[q.company_size && `${q.company_size} personas`, q.open_jobs != null && pl(q.open_jobs, 'vacante a la vez', 'vacantes a la vez'), q.hires_year != null && pl(q.hires_year, 'contratación al año', 'contrataciones al año'), q.regions].filter(Boolean).join(' · ') || 'Sin antecedentes de tamaño'}</span>
+            <span className="text-xs">{q.contact_name}{q.contact_role ? ` (${q.contact_role})` : ''} · {q.email}{q.phone ? ` · ${q.phone}` : ''} · {new Date(q.created_at).toLocaleDateString('es-CL')}</span>
+            {q.message && <span className="text-xs text-tinta-2">«{q.message}»</span>}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <button className="btn-sm bg-rosa-accion text-white" onClick={() => openReply(q)}>{q.replied_at ? 'Responder de nuevo' : 'Responder por correo'}</button>
+              {q.replied_at && <span className="text-xs text-tinta-3">Respondida el {fmtDateTime(q.replied_at)}{st && <> · <b className={st[1]}>{st[0]}</b></>}</span>}
+            </div>
           </div>
-          <span className="text-xs text-tinta-3">{[q.company_size && `${q.company_size} personas`, q.open_jobs != null && `${q.open_jobs} vacantes a la vez`, q.hires_year != null && `${q.hires_year} contrataciones/año`, q.regions].filter(Boolean).join(' · ') || 'Sin antecedentes de tamaño'}</span>
-          <span className="text-xs">{q.contact_name}{q.contact_role ? ` (${q.contact_role})` : ''} · <a className="text-rosa-texto underline" href={`mailto:${q.email}?subject=${encodeURIComponent('Cotización VINKA')}`}>{q.email}</a>{q.phone ? ` · ${q.phone}` : ''} · {new Date(q.created_at).toLocaleDateString('es-CL')}</span>
-          {q.message && <span className="text-xs text-tinta-2">«{q.message}»</span>}
-        </div>
-      ))}
-      <ErrorBox>{err}</ErrorBox>
+        )
+      })}
+      <ErrorBox>{!reply && err}</ErrorBox>
+      <Sheet open={!!reply} onClose={() => setReply(null)} title={reply ? `Responder a ${reply.q.company_name}` : ''}>
+        {reply && (
+          <div className="flex flex-col gap-3">
+            <span className="text-[13px] text-tinta-3">Para: <b>{reply.q.contact_name}</b> &lt;{reply.q.email}&gt; · Si responde, le llega a contacto@vinka.cl.</span>
+            <label className="flex flex-col gap-1"><span className="label">Asunto</span><input className="input" maxLength={200} value={reply.subject} onChange={(e) => setReply({ ...reply, subject: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="label">Mensaje</span><textarea className="textarea h-80 text-[14px] leading-relaxed" maxLength={8000} value={reply.body} onChange={(e) => setReply({ ...reply, body: e.target.value })} /></label>
+            {/\[[^\]]+\]/.test(reply.body) && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-[13px] text-[#4A2A00]">Completa o borra las partes entre corchetes antes de enviar.</p>}
+            <button className="text-left text-xs font-semibold text-tinta-3 underline" onClick={() => setReply({ ...reply, ...quoteDraft(reply.q, plans, me) })}>Volver al mensaje predeterminado</button>
+            <ErrorBox>{err}</ErrorBox>
+            <div className="grid grid-cols-2 gap-2">
+              <a className="btn-sec" href={mailto}>Abrir en mi correo</a>
+              <button className="btn" disabled={busy || /\[[^\]]+\]/.test(reply.body)} onClick={send}>{busy ? 'Enviando…' : 'Enviar desde VINKA'}</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
+      <Toast msg={toast} onDone={() => setToast('')} />
     </div>
   )
 }
