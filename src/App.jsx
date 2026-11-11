@@ -194,7 +194,7 @@ export default function App() {
       { section: 'Asesorías' },
       { to: '/asesorias', label: 'Solicitudes', icon: 'chat' }, { to: '/asesores', label: 'Asesores', icon: 'star' },
       { section: 'Usuarios' },
-      { to: '/postulantes', label: 'Postulantes', icon: 'people' },
+      { to: '/postulantes', label: 'Postulantes', icon: 'people' }, { to: '/usuarios-empresas', label: 'Usuarios de empresas', icon: 'building' },
       { section: 'Empresas' },
       { to: '/verificar', label: 'Por verificar', icon: 'shield' }, { to: '/empresas', label: 'Todas las empresas', icon: 'building' }, { to: '/denuncias', label: 'Denuncias', icon: 'doc' }, { to: '/sugerencias', label: 'Errores y sugerencias', icon: 'chat' },
       { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Mi cuenta', icon: 'user' },
@@ -208,6 +208,7 @@ export default function App() {
         <Route path="/" element={<WithNav items={nav}><Admin section="business" /></WithNav>} />
         <Route path="/asesorias" element={<WithNav items={nav}><Admin section="advisory" /></WithNav>} />
         <Route path="/postulantes" element={<WithNav items={nav}><Admin section="candidates" /></WithNav>} />
+        <Route path="/usuarios-empresas" element={<WithNav items={nav}><Admin section="companyusers" /></WithNav>} />
         <Route path="/asesores" element={<WithNav items={nav}><Admin section="advisors" /></WithNav>} />
         <Route path="/promociones" element={<WithNav items={nav}><Admin section="promos" /></WithNav>} />
         <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />

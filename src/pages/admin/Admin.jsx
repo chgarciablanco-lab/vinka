@@ -553,6 +553,7 @@ function Candidates() {
   const total = d?.total || 0
   return (
     <div className="flex flex-col gap-3">
+      <Link to="/usuarios-empresas" className="self-end text-[13px] font-semibold text-rosa-texto lg:hidden">Ver usuarios de empresas →</Link>
       <div className="flex flex-col gap-2 sm:flex-row">
         <label className="relative flex-1"><span className="sr-only">Buscar</span><Svg name="search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tinta-suave" />
           <input className="input pl-9" placeholder="Nombre, correo, teléfono, cargo o comuna" value={q} onChange={(e) => setQ(e.target.value)} /></label>
@@ -818,7 +819,105 @@ function Promos() {
   )
 }
 
-const TITLES = { promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias', feedback: 'Errores y sugerencias' }
+
+const TEAM_ROLES = { owner: 'Dueño/a', admin: 'Administrador/a', recruiter: 'Reclutador/a', viewer: 'Evaluador/a', client: 'Cliente' }
+const ago = (d) => { if (!d) return 'nunca'; const m = (Date.now() - new Date(d)) / 6e4; return m < 60 ? 'hace minutos' : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${pl(Math.round(m / 1440), 'día', 'días')}` }
+
+/** Equipo de una empresa, gestionado por VINKA: ver, invitar, cambiar rol, quitar y cancelar invitaciones */
+function CompanyTeam({ company: c, onClose }) {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [inv, setInv] = useState({ email: '', role: c.parent_id ? 'client' : 'recruiter' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const roles = c.parent_id ? ['client'] : ['admin', 'recruiter', 'viewer']
+  const load = useCallback(() => { supabase.rpc('admin_company_team', { p_company: c.id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [c.id])
+  useEffect(() => { load() }, [load])
+  const run = async (fn, args, ok) => { setErr(''); setMsg(''); setBusy(true); const { error } = await supabase.rpc(fn, args); setBusy(false); if (error) return setErr(errMsg(error)); setMsg(ok); load() }
+  const remove = (m) => { if (window.confirm(`¿Quitar a ${m.name || m.email} del equipo de ${c.display_name}? Su cuenta sigue existiendo, pero deja de ver esta empresa.`)) run('remove_member', { p_company: c.id, p_user: m.user_id }, `${m.name || m.email} ya no está en el equipo.`) }
+  return (
+    <Sheet open onClose={onClose} title={`Equipo de ${c.display_name}`}>
+      <div className="flex flex-col gap-3">
+        {d == null ? <Spinner /> : (<>
+          <span className="text-xs text-tinta-3">Los cambios que hagas como VINKA quedan registrados. El equipo de la empresa ve los mismos datos en su pantalla «Equipo».</span>
+          {d.members.map((m) => (
+            <div key={m.user_id} className="flex flex-col gap-1.5 rounded-xl border border-linea bg-white p-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <span className="flex min-w-0 flex-col"><b className="truncate">{m.name || 'Sin nombre'}</b><span className="truncate text-xs text-tinta-3">{m.email}{m.phone ? ` · ${m.phone}` : ''}</span></span>
+                {m.role === 'owner' ? <span className="pill shrink-0 bg-[#F7F0FB] text-[#4A2163]">Dueño/a</span> : (
+                  <select aria-label="Rol" disabled={busy} className="h-8 shrink-0 rounded-lg border border-linea bg-white px-2 text-xs" value={m.role} onChange={(e) => run('set_member_role', { p_company: c.id, p_user: m.user_id, p_role: e.target.value }, 'Rol actualizado.')}>
+                    {[...new Set([m.role, ...roles])].map((r) => <option key={r} value={r}>{TEAM_ROLES[r] || r}</option>)}
+                  </select>
+                )}
+              </div>
+              <span className="text-xs text-tinta-3">En el equipo desde {new Date(m.since).toLocaleDateString('es-CL')} · última vez {ago(m.last_seen_at)}{m.confirmed ? '' : ' · correo sin confirmar'}{m.suspended ? ' · cuenta suspendida' : ''}</span>
+              {m.role !== 'owner' && <button className="self-start text-xs font-semibold text-[#912018]" disabled={busy} onClick={() => remove(m)}>Quitar del equipo</button>}
+            </div>
+          ))}
+          {d.inherited.length > 0 && <span className="text-xs text-tinta-3">Además trabajan en esta empresa, desde la consultora: {d.inherited.map((m) => `${m.name} (${TEAM_ROLES[m.role] || m.role})`).join(', ')}.</span>}
+          {d.invites.length > 0 && (
+            <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold">Invitaciones pendientes</span>
+              {d.invites.map((i) => (
+                <div key={i.id} className="flex items-center justify-between gap-2 rounded-xl bg-[#F6F1F4] px-3 py-2 text-xs">
+                  <span className="min-w-0 truncate">{i.email} · {TEAM_ROLES[i.role] || i.role} · {new Date(i.created_at).toLocaleDateString('es-CL')}</span>
+                  <button className="shrink-0 font-semibold text-[#912018]" disabled={busy} onClick={() => run('cancel_member_invite', { p_id: i.id }, 'Invitación cancelada.')}>Cancelar</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-col gap-2 rounded-xl border border-dashed border-linea p-3">
+            <span className="text-[13px] font-semibold">Agregar a alguien al equipo</span>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input className="input h-11 flex-1" type="email" placeholder="correo@empresa.cl" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
+              <select className="input h-11 sm:w-44" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value })}>{roles.map((r) => <option key={r} value={r}>{TEAM_ROLES[r]}</option>)}</select>
+            </div>
+            <button className="btn-sm self-start bg-rosa-accion text-white" disabled={busy || !inv.email.includes('@')} onClick={() => run('invite_member', { p_company: c.id, p_email: inv.email, p_role: inv.role }, `Invitación enviada a ${inv.email}. Se une al abrir el enlace del correo.`).then(() => setInv({ ...inv, email: '' }))}>Enviar invitación</button>
+            <span className="text-[11px] text-tinta-suave">La persona recibe un enlace para crear su cuenta o unirse con la que tiene. Una cuenta solo puede estar en una empresa.</span>
+          </div>
+        </>)}
+        {msg && <p className="rounded-xl bg-[#EAF6EF] px-3 py-2 text-[13px] text-[#134A2B]">{msg}</p>}
+        <ErrorBox>{err}</ErrorBox>
+      </div>
+    </Sheet>
+  )
+}
+
+/** Registro de usuarios de empresas (todas las empresas, sin demostración) */
+function CompanyUsers() {
+  const [q, setQ] = useState('')
+  const [qd, setQd] = useState('')
+  const [d, setD] = useState(null)
+  const [team, setTeam] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => { const t = setTimeout(() => setQd(q), 300); return () => clearTimeout(t) }, [q])
+  const load = useCallback(() => { supabase.rpc('admin_company_users', { p_q: qd, p_limit: 200 }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [qd])
+  useEffect(() => { load() }, [load])
+  const groups = (d?.users || []).reduce((a, u) => { (a[u.company_id] ||= { id: u.company_id, name: u.company, managed_by: u.managed_by, users: [] }).users.push(u); return a }, {})
+  return (
+    <div className="flex flex-col gap-3">
+      <input className="input h-11" placeholder="Buscar por nombre, correo o empresa" value={q} onChange={(e) => setQ(e.target.value)} />
+      {d && <span className="text-xs text-tinta-suave">{pl(d.total, 'usuario de empresa', 'usuarios de empresas')} (sin datos de demostración). Toca «Gestionar equipo» para agregar, cambiar el rol o quitar personas.</span>}
+      <ErrorBox>{err}</ErrorBox>
+      {d == null ? <Spinner /> : Object.values(groups).length === 0 ? <Empty title="Sin resultados">Prueba con otra búsqueda.</Empty> : Object.values(groups).map((g) => (
+        <div key={g.id} className="card flex flex-col gap-2 p-3.5 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span><b>{g.name}</b>{g.managed_by && <span className="text-xs text-tinta-3"> · cliente de {g.managed_by}</span>}</span>
+            <button className="btn-sm border border-linea bg-white" onClick={() => setTeam({ id: g.id, display_name: g.name, parent_id: g.managed_by ? 'x' : null })}>Gestionar equipo</button>
+          </div>
+          {g.users.map((u) => (
+            <div key={u.user_id} className="flex flex-wrap items-baseline justify-between gap-x-3 border-t border-[#F1E7ED] pt-1.5 text-xs">
+              <span className="min-w-0"><b className="text-[13px]">{u.name || 'Sin nombre'}</b> · {u.email}</span>
+              <span className="text-tinta-3">{TEAM_ROLES[u.role] || u.role} · {ago(u.last_seen_at)}{u.confirmed ? '' : ' · sin confirmar'}{u.suspended ? ' · suspendida' : ''}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+      {team && <CompanyTeam company={team} onClose={() => { setTeam(null); load() }} />}
+    </div>
+  )
+}
+
+const TITLES = { companyusers: 'Usuarios de empresas', promos: 'Destacados', business: 'Negocio y planes', advisory: 'Asesorías', candidates: 'Postulantes', advisors: 'Asesores', pending: 'Empresas por verificar', all: 'Todas las empresas', reports: 'Denuncias', feedback: 'Errores y sugerencias' }
 
 const FB_KIND = { error: ['Error', 'bg-[#FEF3F2] text-[#912018]'], mejora: ['Mejora', 'bg-[#EAF6EF] text-[#134A2B]'], consulta: ['Consulta', 'bg-[#E7F1FB] text-[#1F4E86]'] }
 const FB_ST = [['nuevo', 'Nuevo'], ['revisando', 'En revisión'], ['resuelto', 'Resuelto'], ['descartado', 'Descartado']]
@@ -936,6 +1035,7 @@ export default function Admin({ section }) {
   }, [])
   useEffect(() => { load() }, [load])
 
+  const [teamOf, setTeamOf] = useState(null)
   const authorizeRut = async (id) => {
     const { error } = await supabase.rpc('admin_authorize_rut', { p_company: id })
     if (error) return setErr(errMsg(error))
@@ -964,7 +1064,7 @@ export default function Admin({ section }) {
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? <Promos /> : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'companyusers' ? <CompanyUsers /> : tab === 'advisors' ? <Advisors /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>
@@ -1004,6 +1104,7 @@ export default function Admin({ section }) {
                     </div>
                   )}
                   <span className="text-tinta-3">{[c.sector, c.size, c.comuna, c.region].filter(Boolean).join(' · ')}</span>
+                  <button className="self-start text-[13px] font-semibold text-rosa-texto" onClick={() => setTeamOf(c)}>Ver y gestionar el equipo de la empresa →</button>
                   {c.verification_status === 'pending' && <a className="text-rosa-texto underline" href={`https://www.google.com/search?q=${encodeURIComponent(c.rut + ' ' + c.legal_name)}`} target="_blank" rel="noreferrer">Buscar RUT en la web</a>}
                   {acts.length > 0 && <input className="input h-11" placeholder="Nota para la empresa (opcional)" value={notes[c.id] || ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />}
                   {acts.length > 0 && (
@@ -1014,6 +1115,7 @@ export default function Admin({ section }) {
                 </div>
               )
             })}
+            {teamOf && <CompanyTeam company={teamOf} onClose={() => setTeamOf(null)} />}
             {list.length > climit && <button className="btn-sec" onClick={() => setClimit(climit + 40)}>Ver más ({list.length - climit} restantes)</button>}
           </>
         )}
