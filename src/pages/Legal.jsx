@@ -6,7 +6,7 @@ import { Screen, TopBar } from '../components/ui'
 // Identificación del responsable: completar razón social, RUT y domicilio cuando estén definidos (se muestran solo si tienen valor).
 // DATOS FICTICIOS SOLO PARA EL PILOTO: reemplazar por la razón social, RUT y domicilio reales antes del lanzamiento.
 // El dígito verificador del RUT es inválido a propósito, para que no coincida con ninguna empresa o persona real.
-const OPERADOR = { nombre: 'VINKA', razon: 'VINKA Plataforma Laboral SpA', rut: '77.812.345-5', domicilio: '2 Norte 1150, oficina 402, Talca, Región del Maule' }
+const OPERADOR = { nombre: 'VINKA', razon: 'VINKA Plataforma Laboral SpA', rut: '77.854.185-8', domicilio: '2 Norte 1150, oficina 402, Talca, Región del Maule' }
 const CONTACTO = 'contacto@vinka.cl'
 const ACTUALIZADO = '10 de noviembre de 2026'
 
