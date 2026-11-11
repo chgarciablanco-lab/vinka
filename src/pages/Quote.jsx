@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { REGIONES, TAMANOS } from '../lib/catalog'
 import { ErrorBox, Field, Screen, Svg, TopBar } from '../components/ui'
+import { formatRut, validRut } from '../lib/rut'
 
 const REASONS = [['plan', 'Cotizar un plan'], ['consultora', 'Somos consultora'], ['volumen', 'Muchas vacantes o varias sedes'], ['otro', 'Otra consulta']]
 const EMPTY = { company_name: '', rut: '', contact_name: '', contact_role: '', email: '', phone: '', company_size: '', open_jobs: '', hires_year: '', regions: '', message: '', consent: false }
@@ -18,11 +19,13 @@ export default function Quote() {
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
   useEffect(() => { supabase.from('plans').select('id, name, price_clp, sort').order('sort').then(({ data }) => setPlans((data || []).filter((p) => p.price_clp !== 0))) }, [])
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : k === 'rut' ? formatRut(e.target.value) : e.target.value })
   const planName = plans.find((p) => p.id === plan)?.name
 
   const send = async (e) => {
-    e.preventDefault(); setErr(''); setBusy(true)
+    e.preventDefault(); setErr('')
+    if (f.rut && !validRut(f.rut)) return setErr('El RUT no es válido. Revisa el dígito verificador o déjalo en blanco.')
+    setBusy(true)
     const { error } = await supabase.rpc('submit_quote', { p: { ...f, reason, plan_id: reason === 'plan' ? plan : '', path: window.location.pathname + window.location.search } })
     setBusy(false)
     if (error) return setErr(errMsg(error))
@@ -60,7 +63,7 @@ export default function Quote() {
         <span className="mt-1 text-[15px] font-semibold">Empresa</span>
         <Field label="Nombre de la empresa"><input className="input" required maxLength={160} value={f.company_name} onChange={set('company_name')} autoComplete="organization" /></Field>
         <div className="grid grid-cols-2 gap-2.5">
-          <Field label="RUT (opcional)"><input className="input" maxLength={12} value={f.rut} onChange={set('rut')} placeholder="76.123.456-7" /></Field>
+          <Field label="RUT (opcional)" error={f.rut.length > 8 && !validRut(f.rut) ? 'Dígito verificador incorrecto' : ''}><input className="input" maxLength={12} value={f.rut} onChange={set('rut')} placeholder="76.123.456-7" /></Field>
           <Field label="Personas en la empresa"><select className="input" value={f.company_size} onChange={set('company_size')}><option value="">Selecciona</option>{TAMANOS.map((t) => <option key={t}>{t}</option>)}</select></Field>
           <Field label="Vacantes abiertas a la vez"><input className="input" inputMode="numeric" maxLength={4} value={f.open_jobs} onChange={set('open_jobs')} placeholder="Ej.: 10" /></Field>
           <Field label="Contrataciones al año"><input className="input" inputMode="numeric" maxLength={5} value={f.hires_year} onChange={set('hires_year')} placeholder="Ej.: 40" /></Field>

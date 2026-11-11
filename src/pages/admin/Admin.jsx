@@ -936,6 +936,11 @@ export default function Admin({ section }) {
   }, [])
   useEffect(() => { load() }, [load])
 
+  const authorizeRut = async (id) => {
+    const { error } = await supabase.rpc('admin_authorize_rut', { p_company: id })
+    if (error) return setErr(errMsg(error))
+    load()
+  }
   const decide = async (id, status) => {
     const { error } = await supabase.from('companies').update({ verification_status: status, verification_note: notes[id] || '' }).eq('id', id)
     if (error) return setErr(errMsg(error))
@@ -992,6 +997,12 @@ export default function Admin({ section }) {
                     </span>
                   )}
                   <span>{c.legal_name} · RUT {c.rut}</span>
+                  {c.rut_duplicate_of && (
+                    <div className={`flex flex-col gap-1.5 rounded-xl px-3 py-2 text-[13px] ${c.rut_dup_ok ? 'bg-[#F4EEF2] text-tinta-2' : 'bg-[#FEF3F2] text-[#912018]'}`}>
+                      <span><b>RUT repetido:</b> también lo usa {(companies || []).find((k) => k.id === c.rut_duplicate_of)?.display_name || 'otra empresa'}.{c.rut_dup_ok ? ' VINKA lo autorizó.' : ' Revisa si es la misma empresa (sucursal, consultora o cuenta duplicada) antes de verificar.'}</span>
+                      {!c.rut_dup_ok && <button className="btn-sm self-start border border-[#912018] bg-white text-[#912018]" onClick={() => authorizeRut(c.id)}>Autorizar RUT repetido</button>}
+                    </div>
+                  )}
                   <span className="text-tinta-3">{[c.sector, c.size, c.comuna, c.region].filter(Boolean).join(' · ')}</span>
                   {c.verification_status === 'pending' && <a className="text-rosa-texto underline" href={`https://www.google.com/search?q=${encodeURIComponent(c.rut + ' ' + c.legal_name)}`} target="_blank" rel="noreferrer">Buscar RUT en la web</a>}
                   {acts.length > 0 && <input className="input h-11" placeholder="Nota para la empresa (opcional)" value={notes[c.id] || ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />}

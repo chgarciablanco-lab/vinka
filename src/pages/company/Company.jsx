@@ -35,6 +35,7 @@ export function VerificationBanner({ company }) {
     <div className="flex flex-col gap-2 rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5">
       <span className="text-[15px] font-bold text-[#6B3800]">Verificación en revisión</span>
       <span className="text-[13px] leading-snug text-[#4A2A00]">Puedes preparar vacantes. Se publicarán automáticamente cuando aprobemos tu empresa. Te avisaremos por correo.</span>
+      {company.rut_duplicate_of && !company.rut_dup_ok && <span className="text-[13px] leading-snug text-[#4A2A00]"><b>Tu RUT ya está registrado en otra cuenta de VINKA.</b> Revisaremos el caso antes de aprobar. Si tu empresa ya usa VINKA, pide a su administrador que te invite al equipo.</span>}
     </div>
   )
   return (

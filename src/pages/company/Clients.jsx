@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { REGIONES, TAMANOS, AREAS, colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Toast, TopBar } from '../../components/ui'
 import { pl } from '../../lib/text'
+import { formatRut, validRut } from '../../lib/rut'
 
 const VER = {
   verified: ['Verificada', 'bg-[#EAF6EF] text-[#134A2B]'],
@@ -45,7 +46,9 @@ export default function Clients() {
     setToast('Listo: tu empresa ahora es una consultora (cuenta matriz).')
   }
   const add = async () => {
-    setErr(''); setBusy(true)
+    setErr('')
+    if (!validRut(f.rut)) return setErr('El RUT no es válido. Revisa el dígito verificador.')
+    setBusy(true)
     const { error } = await supabase.rpc('create_client_company', { p_parent: company.id, p: f })
     setBusy(false)
     if (error) return setErr(errMsg(error))
@@ -57,7 +60,7 @@ export default function Clients() {
     if (!companies.some((c) => c.id === id)) return setErr('Vuelve a cargar la página para ver este cliente en tu lista.')
     switchCompany(id); nav('/')
   }
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const set = (k) => (e) => setF({ ...f, [k]: k === 'rut' ? formatRut(e.target.value) : e.target.value })
 
   if (company?.parent_id) return (
     <Screen><TopBar back="/vitrina" title="Clientes" />
@@ -125,7 +128,7 @@ export default function Clients() {
         <div className="flex flex-col gap-3">
           <Field label="Nombre comercial"><input className="input" maxLength={120} value={f.display_name} onChange={set('display_name')} placeholder="Ej.: Ferretería Los Andes" /></Field>
           <Field label="Razón social"><input className="input" maxLength={160} value={f.legal_name} onChange={set('legal_name')} /></Field>
-          <Field label="RUT de la empresa"><input className="input" maxLength={12} value={f.rut} onChange={set('rut')} placeholder="76.123.456-7" /></Field>
+          <Field label="RUT de la empresa" error={f.rut.length > 8 && !validRut(f.rut) ? 'Dígito verificador incorrecto' : ''}><input className="input" maxLength={12} value={f.rut} onChange={set('rut')} placeholder="76.123.456-7" /></Field>
           <div className="grid grid-cols-2 gap-2.5">
             <Field label="Rubro"><select className="input" value={f.sector} onChange={set('sector')}><option value="">Selecciona</option>{AREAS.map((a) => <option key={a}>{a}</option>)}</select></Field>
             <Field label="Personas"><select className="input" value={f.size} onChange={set('size')}><option value="">Selecciona</option>{TAMANOS.map((a) => <option key={a}>{a}</option>)}</select></Field>
