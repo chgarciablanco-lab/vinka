@@ -132,6 +132,12 @@ export function ChatRoom() {
     if (error) { setDraft(body); return setErr(errMsg(error)) }
     setMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data]))
   }
+  const inviteSchedule = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('invite_to_schedule', { p_match: id })
+    if (error) return setErr(errMsg(error))
+    setToast('Listo: le avisamos que puede elegir un horario.'); loadMatch()
+  }
   const action = async (a, stage) => {
     const { error } = await supabase.rpc('match_update', { p_match: id, p_action: a, p_stage: stage || null })
     if (error) return setErr(errMsg(error))
@@ -183,17 +189,29 @@ export function ChatRoom() {
             <span className="text-sm font-semibold text-rosa-texto">Ver</span>
           </button>
         )
-        return isCompany ? (
+        if (isCompany) return m.can_schedule ? (
           <Link to="/agenda" className="flex items-center gap-3 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
-            <Svg name="calendar" size={22} className="text-tinta-suave" />
-            <span className="flex-1 text-[13px] leading-snug text-tinta-3">Sin entrevista agendada. Publica horarios en tu <b className="text-rosa-texto">Agenda</b> y esta persona podrá elegir uno.</span>
+            <Svg name="calendar" size={22} className="text-[#2F7A4F]" />
+            <span className="flex-1 text-[13px] leading-snug text-tinta-3"><b className="text-[#134A2B]">Agenda habilitada.</b> Esta persona puede elegir un horario de tu <b className="text-rosa-texto">Agenda</b>.</span>
           </Link>
         ) : (
+          <div className="flex items-center gap-3 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
+            <Svg name="calendar" size={22} className="text-tinta-suave" />
+            <span className="flex-1 text-[13px] leading-snug text-tinta-3">Esta persona aún no ve tus horarios. Invítala cuando quieras entrevistarla.</span>
+            <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={inviteSchedule}>Invitar a agendar</button>
+          </div>
+        )
+        return m.can_schedule ? (
           <Link to={`/chats/${id}/agendar`} className="flex items-center gap-3 border-b border-rosa-borde bg-rosa-palido px-4 py-2.5">
             <Svg name="calendar" size={22} className="text-rosa-accion" />
-            <span className="flex flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Agendar entrevista</span><span className="text-xs text-tinta-3">Elige un horario disponible de {m.company_name}</span></span>
+            <span className="flex flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Agendar entrevista</span><span className="text-xs text-tinta-3">{m.company_name} te invitó a elegir un horario</span></span>
             <Svg name="chevron" size={18} className="text-rosa-accion" />
           </Link>
+        ) : (
+          <div className="flex items-center gap-3 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
+            <Svg name="calendar" size={22} className="text-tinta-suave" />
+            <span className="flex-1 text-[13px] leading-snug text-tinta-3">La empresa te avisará cuando puedas agendar tu entrevista.</span>
+          </div>
         )
       })()}
       {offer && offer.status !== 'retirada' && (

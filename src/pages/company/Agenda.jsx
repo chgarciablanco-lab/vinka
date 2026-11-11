@@ -129,7 +129,7 @@ export default function Agenda() {
       </div>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Agregar disponibilidad">
-        {open && <AvailabilityForm company={company} jobs={jobs} onDone={(n) => { setOpen(false); setToast(n ? `Publicaste ${pl(n, 'horario', 'horarios')}. Tus matches ya pueden reservar.` : 'No se agregaron horarios nuevos (ya existían o eran pasados).'); load(); refresh() }} />}
+        {open && <AvailabilityForm company={company} jobs={jobs} onDone={(n) => { setOpen(false); setToast(n ? `Publicaste ${pl(n, 'horario', 'horarios')}. Invita a agendar desde el chat de cada persona: solo ve tus horarios cuando la invitas.` : 'No se agregaron horarios nuevos (ya existían o eran pasados).'); load(); refresh() }} />}
       </Sheet>
       <Sheet open={!!detail} onClose={() => setDetail(null)} title="Entrevista">
         {detail && (

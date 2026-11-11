@@ -46,6 +46,7 @@ export default function BookInterview() {
 
   if (match === null || slots === null) return <Spinner />
   if (match === false) return <Screen><TopBar back title="Agendar" /><div className="p-6"><Empty title="Chat no disponible">No encontramos este match.</Empty></div></Screen>
+  if (!match.can_schedule) return <Screen><TopBar back={`/chats/${id}`} title="Agendar entrevista" /><div className="p-6"><Empty title="Aún no puedes agendar">{match.company_name} te avisará por el chat cuando puedas elegir un horario para tu entrevista.</Empty></div></Screen>
 
   if (booked) return (
     <Screen>

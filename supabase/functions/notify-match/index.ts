@@ -99,15 +99,15 @@ async function render(n: any, name: string, app: string): Promise<string> {
     const forCompany = n.title.startsWith('¡Nuevo')
     if (forCompany) {
       return shell(`<tr><td style="background:${DARK};padding:28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${circle(initials(shortName(c.cand)), PINK)}<td style="padding-left:16px;${B}"><div style="font-size:12px;font-weight:700;letter-spacing:3px;color:#FFC2DD">NUEVO MATCH</div><div style="${F};font-size:26px;font-weight:700;line-height:1.2;color:#ffffff">${esc(shortName(c.cand))} también se interesó</div></td></tr></table></td></tr>` +
-        body(hello + p(`${esc(shortName(c.cand))} aceptó tu interés para <b>${esc(c.job?.title)}</b>. Ya pueden conversar. Si tienes horarios publicados en tu Agenda, podrá reservar su entrevista directamente.`) +
+        body(hello + p(`${esc(shortName(c.cand))} aceptó tu interés para <b>${esc(c.job?.title)}</b>. Ya pueden conversar. Cuando quieras entrevistar a esta persona, toca «Invitar a agendar» en el chat: recién ahí verá los horarios de tu Agenda.`) +
           rows([['Candidato/a', shortName(c.cand)], ['Busca', c.cp?.headline || '—'], ['Comuna', c.cp?.comuna || '—'], ['Disponibilidad', c.cp?.availability || '—']]) +
           btn(link, 'Escribirle ahora') + note(`<b>¿Aún no publicas horarios?</b> <a href="${app}/agenda" style="color:#7A4100;font-weight:700">Abre tu Agenda</a> para que tus matches agenden sin ir y venir de mensajes.`, '#FFF4E8', '#4A2A00')),
         'El teléfono y correo del candidato se muestran solo si decide compartirlos.<br>' + `Recibes este correo como parte del equipo de ${esc(c.company)} en VINKA. <a href="${prefs}" style="color:#B0245F">Preferencias de avisos</a>`, 'VINKA Company', n.body)
     }
     return shell(heroMatch(initials(name), initials(c.company), '#3B5BA9') +
-      body(hello + p(`<b>${esc(c.company)}</b> también se interesó en ti. Ahora pueden conversar en VINKA y, cuando quieras, elegir un horario para la entrevista.`) +
+      body(hello + p(`<b>${esc(c.company)}</b> también se interesó en ti. Ahora pueden conversar en VINKA. La empresa te escribirá por el chat y, cuando te invite, podrás elegir un horario para la entrevista.`) +
         rows([['Vacante', c.job?.title], ['Empresa', `${c.company} · verificada`], ['Lugar', c.job?.modality === 'Remota' ? 'Remoto · Chile' : `${c.job?.comuna || ''} · ${c.job?.modality || ''}`], ['Renta', salary(c.job)]]) +
-        btn(link, 'Abrir el chat') + p(`o <a href="${app}/chats/${matchId}/agendar" style="color:#B0245F;font-weight:600">agenda tu entrevista</a> directamente`, 'text-align:center;font-size:14px') +
+        btn(link, 'Abrir el chat') +
         note('<b>Tip:</b> responde dentro de las primeras 24 horas. Tu teléfono y correo siguen privados hasta que decidas compartirlos.', '#FFF4E8', '#4A2A00')),
       FOOT(prefs), 'VINKA Talent', n.body)
   }
