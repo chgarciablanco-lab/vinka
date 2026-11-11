@@ -11,6 +11,7 @@ import { PresenceLine } from '../../components/Presence'
 import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 import { FeaturedBadge, trackPromo } from '../../lib/promo'
 import { pl } from '../../lib/text'
+import { PhotoGallery } from '../../components/CompanyPhotos'
 
 function JobCard({ job, onDetail, p }) {
   return (
@@ -152,6 +153,7 @@ export default function Explore() {
               {job.managed_by && <p className="text-[13px] text-tinta-3">Proceso gestionado por la consultora <b>{job.managed_by}</b>{job.company_name === 'Empresa confidencial' ? '. La empresa prefiere mantener su nombre en reserva por ahora.' : '.'}</p>}
               {job.company_description && <p className="text-sm">{job.company_description}</p>}
               {job.company_benefits && <p className="text-sm"><b>Beneficios:</b> {job.company_benefits}</p>}
+              <PhotoGallery jobId={job.id} companyName={job.company_name} />
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <button className="btn-sec" onClick={() => { setDetail(false); card.current?.swipe('up') }}>Guardar</button>

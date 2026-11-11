@@ -19,6 +19,7 @@ import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { CompanyContext, companyOption, homeCompany } from '../../components/CompanySwitcher'
 import { pl } from '../../lib/text'
+import { CompanyPhotosEditor } from '../../components/CompanyPhotos'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -657,6 +658,7 @@ export function CompanyAccount() {
           </>}
         </div>
         {isAdmin && <p className="hint -mt-2">El logo aparece en tus cartas oferta y en los correos. PNG, JPG o WEBP de hasta 2 MB; ideal fondo transparente.</p>}
+        <CompanyPhotosEditor company={company} canEdit={isAdmin} onSaved={refresh} />
         <Field label="Nombre visible"><input className="input" value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
         <Field label="Quiénes somos" hint="Propósito, cultura y qué hace tu equipo."><textarea className="textarea h-32" maxLength={1500} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <AiAssist task="company_description" title="Quiénes somos" current={f.description}

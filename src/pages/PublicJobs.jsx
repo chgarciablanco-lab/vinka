@@ -6,6 +6,7 @@ import { salaryText } from '../lib/catalog'
 import { ErrorBox, Field, Spinner, Svg } from '../components/ui'
 import { FeaturedBadge, trackPromo } from '../lib/promo'
 import { HelpBubble } from '../components/HelpChat'
+import { PhotoGallery } from '../components/CompanyPhotos'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
 
@@ -117,6 +118,7 @@ export function PublicJob() {
             <ul className="list-disc pl-5 text-[15px] text-tinta-2">{reqs.map((r, i) => <li key={i}>{typeof r === 'string' ? r : r.text || r.label || ''}</li>)}</ul></div>
         )}
         {c.benefits && <p className="text-sm text-tinta-2"><b>Beneficios:</b> {c.benefits}</p>}
+        <PhotoGallery jobId={j.id} companyName={c.display_name} />
         <span className="text-xs text-tinta-suave">Publicada el {fmt(j.created_at)}</span>
       </section>
 
