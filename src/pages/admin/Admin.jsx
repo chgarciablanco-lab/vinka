@@ -58,8 +58,7 @@ function RevenueChart({ series }) {
 }
 
 /** Ingresos de VINKA según los pagos registrados (planes y asesorías) */
-function Revenue() {
-  const [demo, setDemo] = useState(true)
+function Revenue({ demo }) {
   const [r, setR] = useState(null)
   const [err, setErr] = useState('')
   useEffect(() => { setR(null); supabase.rpc('admin_revenue', { p_include_demo: demo }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setR(data) }) }, [demo])
@@ -68,7 +67,6 @@ function Revenue() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-col"><span className="text-[17px] font-bold">Ingresos</span><span className="text-xs text-tinta-3">Montos netos, sin IVA</span></span>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración</label>
       </div>
       <ErrorBox>{err}</ErrorBox>
       {!r ? <Spinner /> : (
@@ -132,14 +130,15 @@ function Business() {
     if (error) return setErr(errMsg(error))
     setPay(null); load()
   }
-  const PRICES = { pyme: 29990, equipo: 69990, empresa: 149990, gratis: 0 }
+  const PRICES = { pyme: 29990, equipo: 69990, consultora: 129990, empresa: 149990, gratis: 0 }
   if (!d) return err ? <ErrorBox>{err}</ErrorBox> : <Spinner />
-  const m = d.metrics
+  const m = demo ? (d.metrics_all || d.metrics) : d.metrics
   const names = Object.fromEntries((d.companies || []).map((c) => [c.id, c.name]))
   const list = (d.companies || []).filter((c) => (demo || !c.demo) && (!q.trim() || `${c.name} ${c.legal_name} ${c.rut}`.toLowerCase().includes(q.trim().toLowerCase())))
   return (
     <div className="flex flex-col gap-4">
-      <Revenue />
+      <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración (ingresos, actividad y empresas)</label>
+      <Revenue demo={demo} />
       <span className="mt-2 text-[17px] font-bold">Actividad</span>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[['Empresas verificadas', n(m.companies)], ['Por verificar', n(m.pending)], ['Candidatos activos', n(m.candidates)], ['Vacantes abiertas', n(m.jobs_open)], ['Contrataciones 30 días', n(m.hires_30d)], ['Usos de IA 30 días', n(m.ai_30d)]].map(([l, v]) => (
@@ -161,7 +160,6 @@ function Business() {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <input className="input h-11 flex-1" placeholder="Buscar empresa o RUT" value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Ver demostración</label>
         </div>
         {list.slice(0, 200).map((c) => (
           <div key={c.id} className="card flex flex-col gap-2 p-3.5 text-sm">
@@ -172,7 +170,7 @@ function Business() {
             <span className="text-tinta-3">{c.jobs} vacantes publicadas · {c.members} en el equipo{c.trial_ends_at ? ` · prueba hasta ${new Date(c.trial_ends_at).toLocaleDateString('es-CL')}` : ''}{c.period_end ? ` · pagado hasta ${new Date(c.period_end).toLocaleDateString('es-CL')}` : ''}</span>
             {edit?.id === c.id ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                <select className="input h-11" value={edit.plan} onChange={(e) => setEdit({ ...edit, plan: e.target.value })}>{['gratis', 'pyme', 'equipo', 'empresa'].map((x) => <option key={x}>{x}</option>)}</select>
+                <select className="input h-11" value={edit.plan} onChange={(e) => setEdit({ ...edit, plan: e.target.value })}>{['gratis', 'pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x}>{x}</option>)}</select>
                 <select className="input h-11" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>{PLAN_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Pagado hasta</span><input type="date" className="input h-11" value={edit.period_end || ''} onChange={(e) => setEdit({ ...edit, period_end: e.target.value })} /></label>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Nota (factura, medio de pago)</span><input className="input h-11" value={edit.note || ''} onChange={(e) => setEdit({ ...edit, note: e.target.value })} /></label>
@@ -180,7 +178,7 @@ function Business() {
               </div>
             ) : pay?.id === c.id ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                <select className="input h-11" value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value, amount: PRICES[e.target.value] * Number(pay.months) })}>{['pyme', 'equipo', 'empresa'].map((x) => <option key={x} value={x}>{PLAN_NAME[x]}</option>)}</select>
+                <select className="input h-11" value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value, amount: PRICES[e.target.value] * Number(pay.months) })}>{['pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x} value={x}>{PLAN_NAME[x]}</option>)}</select>
                 <select className="input h-11" value={pay.months} onChange={(e) => setPay({ ...pay, months: e.target.value, amount: PRICES[pay.plan] * Number(e.target.value) })}>{[1, 3, 6, 12].map((x) => <option key={x} value={x}>{x} {x === 1 ? 'mes' : 'meses'}</option>)}</select>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Monto recibido (CLP)</span><input className="input h-11" inputMode="numeric" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></label>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Medio de pago</span><select className="input h-11" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((x) => <option key={x}>{x}</option>)}</select></label>
@@ -190,7 +188,7 @@ function Business() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 <button className="btn-sm border border-linea bg-white" onClick={() => setEdit({ id: c.id, plan: c.plan || 'gratis', status: c.status || 'active', period_end: c.period_end ? c.period_end.slice(0, 10) : '', note: c.note || '' })}>Cambiar plan</button>
-                <button className="btn-sm bg-morado text-white" onClick={() => { const pl = ['pyme', 'equipo', 'empresa'].includes(c.plan) ? c.plan : 'pyme'; setPay({ id: c.id, plan: pl, months: 1, amount: PRICES[pl], method: 'transferencia', note: '' }) }}>Registrar pago</button>
+                <button className="btn-sm bg-morado text-white" onClick={() => { const pl = ['pyme', 'equipo', 'consultora', 'empresa'].includes(c.plan) ? c.plan : 'pyme'; setPay({ id: c.id, plan: pl, months: 1, amount: PRICES[pl], method: 'transferencia', note: '' }) }}>Registrar pago</button>
               </div>
             )}
           </div>
@@ -235,8 +233,9 @@ function Review({ r, onDone }) {
 }
 
 /** Próximas sesiones de todos los asesores */
-function UpcomingSessions() {
-  const [list, setList] = useState(null)
+function UpcomingSessions({ showDemo }) {
+  const [all, setList] = useState(null)
+  const list = all && all.filter((s) => showDemo || !s.demo)
   useEffect(() => {
     const from = atLocal(ymd(new Date()), '00:00')
     supabase.rpc('admin_sessions', { p_from: from.toISOString(), p_to: new Date(Date.now() + 30 * 864e5).toISOString() }).then(({ data }) => setList(data || []))
@@ -314,7 +313,7 @@ function Advisory() {
         ))}
       </div>
       <ErrorBox>{err}</ErrorBox>
-      <UpcomingSessions />
+      <UpcomingSessions showDemo={showDemo} />
       <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">Solicitudes</span>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} disabled={!!fst} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_190px_190px]">
@@ -337,7 +336,7 @@ function Advisory() {
             <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
               <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>
                 <option value="">Sin asignar</option>
-                {advisors.filter((a) => a.active).map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open} abiertas)</option>)}
+                {advisors.filter((a) => a.active).map((a) => <option key={a.id} value={a.id}>{a.name} ({showDemo ? a.open : a.open - (a.open_demo || 0)} abiertas)</option>)}
                 {r.advisor_id && !advisors.some((a) => a.active && a.id === r.advisor_id) && <option value={r.advisor_id}>{r.advisor} (inactivo)</option>}
               </select></label>
             <div className="flex flex-wrap gap-3">
@@ -399,7 +398,7 @@ const dt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric',
 function Candidates() {
   const [q, setQ] = useState('')
   const [qd, setQd] = useState('')
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState('reales')
   const [page, setPage] = useState(0)
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
@@ -543,7 +542,7 @@ function Advisors() {
             <span className="flex flex-col"><b>{a.name}</b><span className="text-xs text-tinta-3">{a.email}{a.phone ? ` · ${a.phone}` : ''}{a.specialty ? ` · ${a.specialty}` : ''}</span></span>
             <span className={`pill ${a.active ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#FEF3F2] text-[#912018]'}`}>{a.active ? 'Activo/a' : 'Suspendido/a'}</span>
           </div>
-          <span className="text-xs text-tinta-3">{a.open} abiertas · {a.delivered} entregadas · {a.terms_accepted_at ? `aceptó el acuerdo el ${dt(a.terms_accepted_at)}` : 'aún no acepta el acuerdo'}{a.pending_password ? ' · no ha creado su contraseña' : ''} · última conexión {dt(a.last_seen_at)}</span>
+          <span className="text-xs text-tinta-3">{a.open - (a.open_demo || 0)} abiertas · {a.delivered - (a.delivered_demo || 0)} entregadas{a.open_demo || a.delivered_demo ? ` (más ${a.open_demo + a.delivered_demo} de demostración)` : ''} · {a.terms_accepted_at ? `aceptó el acuerdo el ${dt(a.terms_accepted_at)}` : 'aún no acepta el acuerdo'}{a.pending_password ? ' · no ha creado su contraseña' : ''} · última conexión {dt(a.last_seen_at)}</span>
           <div className="flex flex-wrap gap-2">
             <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>
             <button className={`btn-sm border ${a.active ? 'border-[#C0362C] text-[#912018]' : 'border-linea'} bg-white`} onClick={() => toggle(a)}>{a.active ? 'Suspender' : 'Reactivar'}</button>
@@ -580,7 +579,7 @@ const P_SOURCE = { compra: 'Compra', plan: 'Incluido en plan', cortesia: 'Cortes
 /** Destacados: solicitudes, activos, precios, reglas de espacios e indicadores (empresas y personas por separado) */
 function Promos() {
   const [target, setTarget] = useState('job')
-  const [demo, setDemo] = useState(true)
+  const [demo, setDemo] = useState(false)
   const [st, setSt] = useState('abiertas')
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
