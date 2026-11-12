@@ -24,7 +24,7 @@ export function useTemplates() {
 }
 
 /** Mensaje con plantilla y, opcionalmente, cambio de etapa para varios candidatos */
-export function BulkSheet({ open, onClose, items, job, onDone, stage: initialStage = '' }) {
+export function BulkSheet({ open, onClose, items, job, onDone, stage: initialStage = '', mode = 'move' }) {
   const { company } = useAuth()
   const { templates } = useTemplates()
   const [stage, setStage] = useState(initialStage)
@@ -48,9 +48,9 @@ export function BulkSheet({ open, onClose, items, job, onDone, stage: initialSta
   }
   const sample = items.find((x) => x.kind !== 'externo')
   return (
-    <Sheet open={open} onClose={onClose} title={`${items.length} seleccionado${items.length === 1 ? '' : 's'}`}>
+    <Sheet open={open} onClose={onClose} title={mode === 'message' ? `Mensaje a ${pl(items.length, 'persona', 'personas')}` : `Mover ${pl(items.length, 'persona', 'personas')}`}>
       <div className="flex flex-col gap-4">
-        <fieldset className="flex flex-col gap-2">
+        {mode !== 'message' && <fieldset className="flex flex-col gap-2">
           <legend className="label mb-2">Mover a</legend>
           <div className="grid grid-cols-2 gap-2">
             {[['', 'No mover', '#CFC3CB'], ...COLUMNAS.slice(1)].map(([k, l, color]) => (
@@ -61,9 +61,9 @@ export function BulkSheet({ open, onClose, items, job, onDone, stage: initialSta
             ))}
           </div>
           {stage === 'descartado' && <span className="hint">Las personas con match reciben un aviso amable de cierre. Te recomendamos sumar un mensaje.</span>}
-        </fieldset>
+        </fieldset>}
         <div className="flex flex-col gap-2">
-          <span className="label">Mensaje por chat (opcional)</span>
+          <span className="label">{mode === 'message' ? 'Mensaje por chat' : 'Mensaje por chat (opcional)'}</span>
           <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
             {templates.map((t) => <button key={t.id} type="button" onClick={() => pick(t)} className="chip h-9 shrink-0 text-[13px]">{t.name}</button>)}
           </div>
@@ -172,6 +172,7 @@ export default function Pipeline() {
   const [q, setQ] = useState('')
   const [hideKo, setHideKo] = useState(false)
   const [selecting, setSelecting] = useState(false)
+  const [tipSeen, setTipSeen] = useState(() => { try { return localStorage.getItem('vinka-tip-bulk') === '1' } catch { return false } })
   const [sel, setSel] = useState([])
   const [bulk, setBulk] = useState(false)
   const [moving, setMoving] = useState(null)
@@ -237,8 +238,14 @@ export default function Pipeline() {
         <div className="-ml-2 flex items-center gap-1">
           <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 shrink-0 items-center justify-center"><Svg name="back" /></button>
           <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')}</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
-          {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]) }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : 'Seleccionar'}</button>}
+          {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]); setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : <><Svg name="check" size={16} className="mr-1" />Seleccionar varios</>}</button>}
         </div>
+        {canManage && !selecting && !tipSeen && d.cards.length >= 3 && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl bg-[#F7F0FB] px-3 py-2 text-[12px] leading-snug text-[#4A2163]">
+            <span className="flex-1">¿Varias personas a la vez? Con <b>Seleccionar varios</b> las mueves de etapa o les envías un mensaje común.</span>
+            <button aria-label="Entendido, ocultar" className="flex h-8 w-8 shrink-0 items-center justify-center" onClick={() => { setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }}><Svg name="x" size={16} /></button>
+          </div>
+        )}
         {/* Etapas: cuadrícula de 4 × 2 que cabe completa en la pantalla (solo celular) */}
         <div className="mt-2 grid grid-cols-4 gap-1.5 lg:hidden" role="tablist" aria-label="Etapas">
           {tiles.map(([k, l, color]) => {
@@ -329,13 +336,14 @@ export default function Pipeline() {
       )}
 
       {selecting && (
-        <div className="safe-b fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 lg:left-[calc(50%+8rem)] lg:max-w-2xl lg:rounded-t-2xl lg:border-x items-center gap-2 border-t border-[#EEE3EA] bg-white px-4 pt-3">
-          <span className="flex-1 text-sm font-semibold">{sel.length ? `${sel.length} seleccionado${sel.length === 1 ? '' : 's'}` : 'Toca las personas'}{selected.length > 4 ? ' · máx. 4 para comparar' : ''}</span>
+        <div className="safe-b fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 lg:left-[calc(50%+8rem)] lg:max-w-2xl lg:rounded-t-2xl lg:border-x flex-wrap items-center gap-2 border-t border-[#EEE3EA] bg-white px-4 pt-3">
+          <span className="w-full text-sm font-semibold sm:w-auto sm:flex-1">{sel.length ? `${sel.length} seleccionado${sel.length === 1 ? '' : 's'}` : 'Toca las personas'}{selected.length > 4 ? ' · máx. 4 para comparar' : ''}</span>
           {selected.length >= 2 && selected.length <= 4 && <button className="btn-sm border border-linea bg-white" onClick={() => nav(`/vacantes/${id}/comparar?c=${selected.map((c) => (c.kind === 'externo' ? `externo:${c.id}` : `vinka:${c.candidate_id || c.id}`)).join(',')}`)}>Comparar</button>}
-          <button className="btn-sm bg-rosa-accion text-white" disabled={!sel.length} onClick={() => setBulk(true)}>Mover o escribir</button>
+          <button className="btn-sm border border-rosa-accion bg-white text-rosa-texto" disabled={!sel.length} onClick={() => setBulk('message')}>Enviar mensaje</button>
+          <button className="btn-sm bg-rosa-accion text-white" disabled={!sel.length} onClick={() => setBulk('move')}>Mover de etapa</button>
         </div>
       )}
-      <BulkSheet open={bulk} onClose={() => setBulk(false)} items={selected} job={d.job}
+      <BulkSheet open={!!bulk} mode={bulk || 'move'} onClose={() => setBulk(false)} items={selected} job={d.job}
         onDone={(r) => { setBulk(false); setSelecting(false); setSel([]); setToast(`Listo: ${pl(r.moved, 'persona movida', 'personas movidas')}, ${pl(r.sent, 'mensaje enviado', 'mensajes enviados')}.`); load() }} />
       <Sheet open={!!moving} onClose={() => setMoving(null)} title={moving ? `Mover a ${moving.name}` : ''}>
         {moving && (
