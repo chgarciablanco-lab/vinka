@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials, salaryText } from '../../lib/catalog'
-import { Avatar, Empty, ErrorBox, Sheet, Spinner, Toast, Verified } from '../../components/ui'
+import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg, Toast, Verified } from '../../components/ui'
 import { SwipeButtons, SwipeCard, SwipeHint } from '../../components/SwipeCard'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
@@ -53,6 +53,60 @@ function JobCard({ job, onDetail, p }) {
   )
 }
 
+/** Fila compacta para la vista de lista: lo esencial y las tres decisiones a la mano */
+function JobRow({ job, onOpen, onAct }) {
+  return (
+    <article className="card flex flex-col gap-2.5 p-3.5">
+      <button className="flex items-start gap-3 text-left" onClick={onOpen} aria-label={`Ver detalle: ${job.title}`}>
+        <Avatar text={initials(job.company_name)} color={colorFor(job.company_name)} size={42} />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-[15px] font-semibold leading-snug">{job.title}</span>
+          <span className="truncate text-[13px] text-tinta-3">{job.company_name} · {job.modality === 'Remota' ? 'Remoto' : job.comuna || job.region}{job.schedule ? ` · ${job.schedule.toLowerCase()}` : ''}</span>
+          <span className="text-[13px] font-semibold text-naranja-texto">{salaryText(job)}</span>
+          {job.invited && <span className="text-xs font-bold text-naranja-texto">Ya se interesó en ti · si te interesa, es match</span>}
+          {job.featured && <FeaturedBadge className="mt-0.5 self-start" />}
+        </span>
+      </button>
+      <div className="grid grid-cols-[auto_auto_1fr] gap-2">
+        <button className="btn-sm border border-linea bg-white px-3" aria-label={`Pasar: ${job.title}`} onClick={() => onAct(job, 'pass')}><Svg name="x" size={16} /></button>
+        <button className="btn-sm border border-linea bg-white px-3 text-naranja-texto" aria-label={`Guardar: ${job.title}`} onClick={() => onAct(job, 'save')}><Svg name="bookmark" size={16} /></button>
+        <button className="btn-sm bg-rosa-accion text-white" onClick={() => onAct(job, 'interest')}>Me interesa</button>
+      </div>
+    </article>
+  )
+}
+
+/** Detalle de la vacante (desde la tarjeta o desde la lista) */
+function DetailSheet({ job, onClose, onSave, onLike }) {
+  return (
+    <Sheet open={!!job} onClose={onClose} title={job?.title || ''}>
+      {job && (
+          <div className="flex flex-col gap-4 text-[15px] leading-relaxed">
+            <p><b>Renta:</b> {salaryText(job)}</p>
+            {job.level && <p><b>Nivel:</b> {job.level}</p>}
+            {job.description && <p className="whitespace-pre-line">{job.description}</p>}
+            {job.requirements?.length > 0 && (
+              <div className="flex flex-col gap-2"><b>Requisitos</b>
+                {job.requirements.map((r, k) => <div key={k} className="flex items-center gap-2 text-sm"><span className={`pill ${r.essential ? 'bg-morado text-white' : 'bg-[#F1EDF0] text-[#3D2F4A]'}`}>{r.essential ? 'ESENCIAL' : 'DESEABLE'}</span>{r.text}</div>)}
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 rounded-2xl bg-rosa-fondo p-3.5">
+              <p className="flex items-center gap-1.5 font-semibold">{job.company_name} <Verified /></p>
+              {job.managed_by && <p className="text-[13px] text-tinta-3">Proceso gestionado por la consultora <b>{job.managed_by}</b>{job.company_name === 'Empresa confidencial' ? '. La empresa prefiere mantener su nombre en reserva por ahora.' : '.'}</p>}
+              {job.company_description && <p className="text-sm">{job.company_description}</p>}
+              {job.company_benefits && <p className="text-sm"><b>Beneficios:</b> {job.company_benefits}</p>}
+              <PhotoGallery jobId={job.id} companyName={job.company_name} />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button className="btn-sec" onClick={onSave}>Guardar</button>
+              <button className="btn" onClick={onLike}>Me interesa</button>
+            </div>
+          </div>
+        )}
+    </Sheet>
+  )
+}
+
 export default function Explore() {
   const { user, profile } = useAuth()
   const [jobs, setJobs] = useState(null)
@@ -60,6 +114,11 @@ export default function Explore() {
   const [toast, setToast] = useState('')
   const [err, setErr] = useState('')
   const [detail, setDetail] = useState(false)
+  // Vista: tarjetas (principal) o lista (segunda opción, más rápida para revisar). Se recuerda en este dispositivo.
+  const [view, setView] = useState(() => { try { return localStorage.getItem('vinka-explore-view') === 'lista' ? 'lista' : 'tarjetas' } catch { return 'tarjetas' } })
+  const pickView = (v) => { setView(v); setDetail(false); try { localStorage.setItem('vinka-explore-view', v) } catch { /* sin almacenamiento */ } }
+  const [listJob, setListJob] = useState(null) // vacante abierta desde la lista
+  const [shown, setShown] = useState(20)
   const [match, setMatch] = useState(null)
   const card = useRef()
   const [ask, setAsk] = useState(null)
@@ -81,6 +140,26 @@ export default function Explore() {
   useEffect(() => { if (job?.promotion_id) trackPromo([job.promotion_id]) }, [job?.promotion_id])
   const ACTION = { right: 'interest', left: 'pass', up: 'save' }
 
+  // Lista: la vacante sale de la lista de inmediato; si no se guarda, vuelve (ver commit)
+  const act = async (j, action) => {
+    setErr(''); setListJob(null)
+    setJobs((js) => js.filter((x) => x.id !== j.id))
+    if (action === 'interest') {
+      const qs = await jobQuestions(j.id)
+      if (qs.length) return setAsk({ job: j, questions: qs, fromList: true })
+    }
+    await commit(j, action, null, true)
+  }
+  const rest = view === 'lista' && jobs ? jobs.slice(i) : []
+  // Vistas del aviso y apariciones de destacados también en la lista
+  const restKey = rest.slice(0, shown).map((x) => x.id).join(',')
+  useEffect(() => {
+    if (!restKey) return
+    const vis = rest.slice(0, shown)
+    supabase.rpc('log_views', { p_jobs: vis.map((x) => x.id) }).then(() => {})
+    trackPromo(vis.map((x) => x.promotion_id).filter(Boolean))
+  }, [restKey]) // eslint-disable-line
+
   // Se llama cuando la tarjeta terminó de salir de la pantalla
   const onSwipe = async (dir) => {
     const j = jobs[i]
@@ -93,13 +172,16 @@ export default function Explore() {
     }
     await commit(j, action)
   }
-  const commit = async (j, action, answers = null) => {
+  const commit = async (j, action, answers = null, fromList = false) => {
     // Se reintenta si falla la red; si igual no se guarda, la vacante vuelve a la pantalla para decidir de nuevo
     const { error } = await withRetry(() => supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id: j.id, action, ...(answers ? { answers } : {}) }))
     if (error) {
-      const back = jobs.findIndex((x) => x.id === j.id)
-      if (back >= 0) setI(back)
-      return setErr(error.code ? errMsg(error) : 'No se guardó tu decisión por un problema de conexión. La vacante volvió a la pantalla: inténtalo de nuevo.')
+      if (fromList) setJobs((js) => (js && !js.some((x) => x.id === j.id) ? [...js.slice(0, i), j, ...js.slice(i)] : js)) // vuelve a la lista
+      else {
+        const back = jobs.findIndex((x) => x.id === j.id)
+        if (back >= 0) setI(back)
+      }
+      return setErr(error.code ? errMsg(error) : `No se guardó tu decisión por un problema de conexión. La vacante volvió a ${fromList ? 'la lista' : 'la pantalla'}: inténtalo de nuevo.`)
     }
     if (action === 'interest') {
       const { data: m } = await supabase.from('matches').select('id').eq('job_id', j.id).eq('candidate_id', user.id).maybeSingle()
@@ -118,11 +200,17 @@ export default function Explore() {
       <div className="safe-t flex items-center justify-between px-5 pb-3">
         <div className="flex flex-col">
           <h1 className="text-[22px] font-bold">Explorar</h1>
-          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : job ? `${i + 1} de ${pl(jobs.length, 'vacante', 'vacantes')} para ti` : 'Sin vacantes nuevas'}</span>
+          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : !job ? 'Sin vacantes nuevas' : view === 'lista' ? `${pl(rest.length, 'vacante', 'vacantes')} para ti` : `${i + 1} de ${pl(jobs.length, 'vacante', 'vacantes')} para ti`}</span>
         </div>
         <div className="flex items-center gap-2"><button onClick={() => load(broad)} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
       </div>
       <div className="flex flex-1 flex-col gap-4 px-5">
+        <div className="flex gap-1 rounded-xl bg-white p-[3px] shadow-sm" role="group" aria-label="Forma de ver las vacantes">
+          {[['tarjetas', 'Tarjetas', 'card'], ['lista', 'Lista', 'grid']].map(([k, l, ic]) => (
+            <button key={k} type="button" aria-pressed={view === k} onClick={() => pickView(k)}
+              className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[9px] text-[13px] font-semibold ${view === k ? 'bg-rosa-palido text-rosa-oscuro' : 'text-tinta-3'}`}><Svg name={ic} size={16} />{l}</button>
+          ))}
+        </div>
         <ErrorBox>{err}</ErrorBox>
         {jobs == null ? <Spinner /> : !job ? (
           <Empty title={broad ? 'Viste todas las vacantes' : jobs.length ? 'Viste todas las vacantes para tu perfil' : 'Aún no hay vacantes para tu perfil'}
@@ -132,6 +220,11 @@ export default function Explore() {
             </div>}>
             {broad ? 'Te avisaremos en Intereses si una empresa se interesa en ti.' : 'Te mostramos solo vacantes acordes a tu tipo de cargo y nivel. "Ver otras vacantes" muestra el resto, aunque no calcen tanto con tu perfil.'}
           </Empty>
+        ) : view === 'lista' ? (
+          <div className="flex flex-col gap-2.5">
+            {rest.slice(0, shown).map((x) => <JobRow key={x.id} job={x} onOpen={() => { if (x.promotion_id) trackPromo([x.promotion_id], 'click'); setListJob(x) }} onAct={act} />)}
+            {rest.length > shown && <button className="btn-sec" onClick={() => setShown(shown + 20)}>Ver más ({rest.length - shown})</button>}
+          </div>
         ) : (
           <>
             <SwipeCard key={job.id} ref={card} onSwipe={onSwipe} behind={next ? <JobCard job={next} p={pres[next.company_id]} /> : null}>
@@ -142,33 +235,11 @@ export default function Explore() {
           </>
         )}
       </div>
-      <Sheet open={detail && !!job} onClose={() => setDetail(false)} title={job?.title || ''}>
-        {job && (
-          <div className="flex flex-col gap-4 text-[15px] leading-relaxed">
-            <p><b>Renta:</b> {salaryText(job)}</p>
-            {job.level && <p><b>Nivel:</b> {job.level}</p>}
-            {job.description && <p className="whitespace-pre-line">{job.description}</p>}
-            {job.requirements?.length > 0 && (
-              <div className="flex flex-col gap-2"><b>Requisitos</b>
-                {job.requirements.map((r, k) => <div key={k} className="flex items-center gap-2 text-sm"><span className={`pill ${r.essential ? 'bg-morado text-white' : 'bg-[#F1EDF0] text-[#3D2F4A]'}`}>{r.essential ? 'ESENCIAL' : 'DESEABLE'}</span>{r.text}</div>)}
-              </div>
-            )}
-            <div className="flex flex-col gap-1.5 rounded-2xl bg-rosa-fondo p-3.5">
-              <p className="flex items-center gap-1.5 font-semibold">{job.company_name} <Verified /></p>
-              {job.managed_by && <p className="text-[13px] text-tinta-3">Proceso gestionado por la consultora <b>{job.managed_by}</b>{job.company_name === 'Empresa confidencial' ? '. La empresa prefiere mantener su nombre en reserva por ahora.' : '.'}</p>}
-              {job.company_description && <p className="text-sm">{job.company_description}</p>}
-              {job.company_benefits && <p className="text-sm"><b>Beneficios:</b> {job.company_benefits}</p>}
-              <PhotoGallery jobId={job.id} companyName={job.company_name} />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button className="btn-sec" onClick={() => { setDetail(false); card.current?.swipe('up') }}>Guardar</button>
-              <button className="btn" onClick={() => { setDetail(false); card.current?.swipe('right') }}>Me interesa</button>
-            </div>
-          </div>
-        )}
-      </Sheet>
-      <ScreeningSheet open={!!ask} title={ask?.job.title} questions={ask?.questions} onClose={() => { setAsk(null); setToast('No enviamos tu interés. La vacante volverá a aparecer más adelante.') }}
-        onSubmit={async (answers) => { const j = ask.job; setAsk(null); await commit(j, 'interest', answers) }} />
+      <DetailSheet job={listJob || (detail ? job : null)} onClose={() => { setDetail(false); setListJob(null) }}
+        onSave={() => { if (listJob) act(listJob, 'save'); else { setDetail(false); card.current?.swipe('up') } }}
+        onLike={() => { if (listJob) act(listJob, 'interest'); else { setDetail(false); card.current?.swipe('right') } }} />
+      <ScreeningSheet open={!!ask} title={ask?.job.title} questions={ask?.questions} onClose={() => { const a = ask; setAsk(null); if (a?.fromList) { setJobs((js) => (js && !js.some((x) => x.id === a.job.id) ? [...js.slice(0, i), a.job, ...js.slice(i)] : js)); setToast('No enviamos tu interés. La vacante sigue en la lista.') } else setToast('No enviamos tu interés. La vacante volverá a aparecer más adelante.') }}
+        onSubmit={async (answers) => { const a = ask; setAsk(null); await commit(a.job, 'interest', answers, !!a.fromList) }} />
       <Toast msg={toast} onDone={() => setToast('')} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
     </div>
