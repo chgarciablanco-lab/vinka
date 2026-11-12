@@ -1,3 +1,6 @@
+// La animación sale solo al abrir la app; al moverse dentro (cambiar de empresa, recargar) no se repite.
+// (Antes estaba dentro del HTML; aquí cumple la política de seguridad que no permite código en línea.)
+try { if (sessionStorage.getItem('vinka-splash-seen')) { var s0 = document.getElementById('splash'); s0 && s0.remove() } else sessionStorage.setItem('vinka-splash-seen', '1') } catch (e) {}
 // Pantalla de carga de VINKA: una persona con maletín cruza la pantalla y va dejando las letras.
 (function () {
   var G = {"letters": [{"d": "M72.10000000000001 -70.2 47.2 0.0H25.8L0.9 -70.2H19.1L36.5 -17.2L54.0 -70.2Z", "cx": 36.5}, {"d": "M104.3 -70.2V0.0H87.2V-70.2Z", "cx": 95.75}, {"d": "M187.5 0.0H170.4L141.8 -43.300000000000004V0.0H124.7V-70.2H141.8L170.4 -26.700000000000003V-70.2H187.5Z", "cx": 156.1}, {"d": "M248.6 0.0 225.0 -31.0V0.0H207.89999999999998V-70.2H225.0V-39.400000000000006L248.39999999999998 -70.2H268.5L241.29999999999998 -35.800000000000004L269.5 0.0Z", "cx": 236.55}, {"d": "M329.29999999999995 -12.4H303.09999999999997L298.9 0.0H281.0L306.4 -70.2H326.2L351.59999999999997 0.0H333.5ZM324.9 -25.6 316.2 -51.300000000000004 307.59999999999997 -25.6Z", "cx": 316.25}], "width": 353.1, "cap": 70.5};

@@ -23,10 +23,6 @@
   <body>
     <!-- Pantalla de carga: persona con maletín que cruza la pantalla y va dejando las letras de VINKA -->
     <div id="splash" role="status" aria-label="Cargando VINKA"></div>
-    <script>
-      // La animación sale solo al abrir la app; al moverse dentro (cambiar de empresa, recargar) no se repite
-      try { if (sessionStorage.getItem('vinka-splash-seen')) { var s = document.getElementById('splash'); s && s.remove() } else sessionStorage.setItem('vinka-splash-seen', '1') } catch (e) {}
-    </script>
     <script src="/splash.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

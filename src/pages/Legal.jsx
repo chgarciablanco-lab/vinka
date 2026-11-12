@@ -4,11 +4,11 @@ import { Screen, TopBar } from '../components/ui'
 // Textos legales de VINKA. Marco: Ley 19.628 y Ley 21.719 (protección de datos personales), Ley 19.496 (consumidor)
 // y Código del Trabajo (no discriminación). Antes de lanzar conviene una revisión final de un abogado.
 // Identificación del responsable: completar razón social, RUT y domicilio cuando estén definidos (se muestran solo si tienen valor).
-// DATOS FICTICIOS SOLO PARA EL PILOTO: reemplazar por la razón social, RUT y domicilio reales antes del lanzamiento.
-// El dígito verificador del RUT es inválido a propósito, para que no coincida con ninguna empresa o persona real.
+// RUT indicado por el titular el 11-11-2026 (dígito verificador válido). La razón social y el domicilio están
+// pendientes de confirmar con los datos inscritos en el SII antes del lanzamiento.
 const OPERADOR = { nombre: 'VINKA', razon: 'VINKA Plataforma Laboral SpA', rut: '77.854.185-8', domicilio: '2 Norte 1150, oficina 402, Talca, Región del Maule' }
 const CONTACTO = 'contacto@vinka.cl'
-const ACTUALIZADO = '10 de noviembre de 2026'
+const ACTUALIZADO = '12 de noviembre de 2026'
 
 const mail = <a href={`mailto:${CONTACTO}`} className="font-semibold text-rosa-texto underline">{CONTACTO}</a>
 const quien = [OPERADOR.razon, OPERADOR.rut && `RUT ${OPERADOR.rut}`, OPERADOR.domicilio && `con domicilio en ${OPERADOR.domicilio}`].filter(Boolean).join(', ')
@@ -79,8 +79,9 @@ const DOCS = {
         'Cuenta: nombre, apellido, correo, teléfono y contraseña (cifrada).',
         'Perfil laboral: cargo buscado, comuna y región, experiencia, estudios, habilidades, disponibilidad, presentación, renta esperada, video de presentación, CV si decides guardarlo y respuestas a preguntas de filtro.',
         'Empresas: razón social, RUT, rubro, ubicación, logo, datos de quienes integran el equipo y antecedentes de verificación.',
-        'Uso de la app: postulaciones, intereses, matches, mensajes, entrevistas, ofertas, notificaciones, estado en línea y reportes que nos envías.',
+        'Uso de la app: postulaciones, intereses, matches, mensajes, entrevistas, ofertas, notificaciones, estado en línea y reportes que nos envías. También registramos hasta qué mensaje leíste cada conversación, solo para mostrarte los no leídos en tus dispositivos; la otra persona no ve si leíste sus mensajes.',
         'Datos técnicos: dispositivo, navegador y registros de errores para mantener la app funcionando y segura.',
+        'En tu dispositivo guardamos tu sesión y algunas preferencias (por ejemplo, si ves las vacantes como tarjetas o lista). No usamos cookies de publicidad ni de seguimiento.',
         'No pedimos ni guardamos tu RUT de persona, edad, foto, estado civil, religión ni otros datos sensibles. Si los incluyes por tu cuenta (por ejemplo, en tu CV), no los usamos para mostrarte a empresas.',
       ]],
       ['2. Para qué los usamos', [
@@ -135,7 +136,7 @@ const DOCS = {
       ['11. Tus derechos', [
         'Tienes derecho a acceder a tus datos, rectificarlos, pedir su supresión, oponerte a ciertos tratamientos, solicitar su portabilidad y pedir el bloqueo temporal mientras se resuelve una solicitud. También puedes retirar tu consentimiento cuando quieras, sin efecto retroactivo.',
         'Desde Perfil puedes editar tus datos, descargar una copia, ocultar tu perfil o eliminar tu cuenta. Para cualquier otra solicitud, escríbenos.',
-        <>Responderemos dentro de 30 días corridos. Escribe a {mail} desde el correo de tu cuenta, indicando qué necesitas. Si no quedas conforme con nuestra respuesta, puedes recurrir a la autoridad de protección de datos personales que corresponda según la ley.</>,
+        <>Responderemos dentro de 30 días corridos. Escribe a {mail} desde el correo de tu cuenta, indicando qué necesitas. Si no quedas conforme con nuestra respuesta, puedes recurrir a la Agencia de Protección de Datos Personales, conforme a la Ley 21.719.</>,
       ]],
       ['12. Menores de edad', ['VINKA es solo para mayores de 18 años. Si detectamos una cuenta de un menor, la eliminaremos.']],
       ['13. Cambios', ['Podemos actualizar esta política. Si el cambio es importante, te avisaremos en la app antes de que rija.']],
