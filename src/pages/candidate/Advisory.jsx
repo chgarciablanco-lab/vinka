@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { CandidateDossier, ServiceProgress, ServiceTimeline } from '../../components/Dossier'
+import { AdvisorCard, AdvisorChooser, AdvisorPhoto, AdvisorSheet, useAdvisorDirectory } from '../../components/AdvisorProfile'
 
 // Texto del botón cuando ya hay una solicitud abierta de ese servicio
 const PENDING_TXT = { solicitada: 'Ya la solicitaste', pago_pendiente: 'Pago pendiente', en_curso: 'Asesoría en curso', entregada: 'En revisión de VINKA' }
@@ -27,6 +28,9 @@ export default function Advisory() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
   const [chat, setChat] = useState(null)
+  const [dir, reloadDir] = useAdvisorDirectory() // asesores con perfil publicado
+  const [change, setChange] = useState(null) // solicitud a la que se le cambia el asesor elegido
+  const [view, setView] = useState(null)
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -38,14 +42,14 @@ export default function Advisory() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const open = (s) => { setPick(s); setErr(''); setForm({ goal: '', consent: false }) }
+  const open = (s) => { setPick(s); setErr(''); setForm({ goal: '', consent: false, advisor: null }) }
   const request = async () => {
     setErr('')
     if (!form.consent) return setErr('Para continuar, autoriza que un reclutador vea tu perfil y te contacte.')
     setBusy(true)
-    const { error } = await supabase.rpc('request_career_service', { p_service: pick.id, p_goal: form.goal, p_contact: 'chat', p_consent: form.consent })
+    const { error } = await supabase.rpc('request_career_service', { p_service: pick.id, p_goal: form.goal, p_contact: 'chat', p_consent: form.consent, p_advisor: form.advisor || null })
     setBusy(false)
-    if (error) return setErr(errMsg(error))
+    if (error) { reloadDir(); return setErr(errMsg(error)) }
     setPick(null); setToast('¡Solicitud enviada! Te escribiremos por el chat de tu asesoría.'); load()
   }
   const cancel = async (r) => {
@@ -53,6 +57,13 @@ export default function Advisory() {
     if (error) return setErr(errMsg(error))
     setToast('Solicitud cancelada'); load()
   }
+  const changeTo = async (r, advisorId) => {
+    setErr('')
+    const { error } = await supabase.rpc('request_change_advisor', { p_request: r.id, p_advisor: advisorId })
+    if (error) { reloadDir(); return setErr(errMsg(error)) }
+    setChange(null); setView(null); setToast(advisorId ? 'Listo: cambiaste tu asesor/a' : 'Listo: VINKA elegirá a tu asesor/a'); load()
+  }
+  const byId = (id) => (dir || []).find((a) => a.id === id)
   const openReq = (id) => mine.find((r) => r.service_id === id && ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status))
 
   return (
@@ -61,7 +72,7 @@ export default function Advisory() {
       <div className="flex flex-col gap-4 px-5 pb-10 lg:px-8">
         <div className="flex flex-col gap-1.5">
           <h1 className="font-display text-[22px] font-bold leading-tight">Un reclutador te ayuda con tu CV y tu búsqueda</h1>
-          <p className="text-sm leading-relaxed text-tinta-2">Reclutadores con experiencia en selección te ayudan a mostrar mejor lo que sabes hacer y a encontrar ofertas que calcen contigo.</p>
+          <p className="text-sm leading-relaxed text-tinta-2">Reclutadores con experiencia en selección te ayudan a mostrar mejor lo que sabes hacer y a encontrar ofertas que calcen contigo. Puedes elegir a tu asesor/a o dejar que VINKA elija por ti.</p>
         </div>
 
         {mine.length > 0 && (
@@ -76,7 +87,26 @@ export default function Advisory() {
                     <span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span>
                   </div>
                   {st[2] && <p className="text-sm text-tinta-2">{st[2]}</p>}
-                  {r.assigned_name && r.status !== 'cancelada' && <span className="text-sm">Tu asesor/a: <b>{r.assigned_name}</b>, reclutador/a de VINKA</span>}
+                  {r.assigned_to && r.status !== 'cancelada' && (byId(r.assigned_to) ? (
+                    <button className="flex items-center gap-2.5 self-start text-left text-sm" onClick={() => setView(byId(r.assigned_to))}>
+                      <AdvisorPhoto a={byId(r.assigned_to)} size={36} /><span>Tu asesor/a: <b>{byId(r.assigned_to).display_name}</b> <span className="font-semibold text-rosa-texto">Ver perfil</span></span>
+                    </button>
+                  ) : <span className="text-sm">Tu asesor/a: <b>{r.assigned_name}</b>, reclutador/a de VINKA</span>)}
+                  {/* Antes de empezar: a quién eligió y qué hacer si ya no está disponible */}
+                  {!r.assigned_to && ['solicitada', 'pago_pendiente'].includes(r.status) && (
+                    r.choice === 'asesor' && byId(r.preferred_advisor) ? (
+                      <div className={`flex flex-col gap-2 rounded-xl p-3 text-sm ${byId(r.preferred_advisor).available ? 'bg-[#F7F0FB] text-[#4A2163]' : 'bg-naranja-palido text-naranja-texto'}`}>
+                        <span className="flex items-center gap-2.5"><AdvisorPhoto a={byId(r.preferred_advisor)} size={32} />
+                          <span>{byId(r.preferred_advisor).available ? <>Elegiste a <b>{byId(r.preferred_advisor).display_name}</b>. VINKA la/lo asigna al confirmar el pago.</> : <><b>{byId(r.preferred_advisor).display_name}</b> no tiene cupo ahora. Elige a otra persona o deja que VINKA elija.</>}</span></span>
+                        <div className="flex flex-wrap gap-2">
+                          <button className="btn-sm h-9 border border-linea bg-white" onClick={() => setChange(r)}>Elegir otro/a</button>
+                          <button className="btn-sm h-9 border border-linea bg-white" onClick={() => changeTo(r, null)}>Que VINKA elija</button>
+                        </div>
+                      </div>
+                    ) : (dir || []).some((a) => (a.services || []).includes(r.service_id)) ? (
+                      <span className="text-sm text-tinta-2">VINKA elegirá a tu asesor/a. <button className="font-semibold text-rosa-texto underline" onClick={() => setChange(r)}>Prefiero elegir</button></span>
+                    ) : null
+                  )}
                   {/* Avance a la vista, sin abrir nada: qué incluye, qué falta y cuándo corresponde */}
                   {['solicitada', 'pago_pendiente'].includes(r.status) && (services || []).find((s) => s.id === r.service_id)?.includes?.length > 0 && (
                     <div className="flex flex-col gap-1 rounded-xl border border-linea bg-white p-3">
@@ -141,6 +171,7 @@ export default function Advisory() {
         {pick && (
           <div className="flex flex-col gap-4">
             <div className="flex items-baseline justify-between rounded-xl bg-[#F7F0FB] px-4 py-3"><span className="text-sm font-semibold text-[#4A2163]">{pick.name}</span><span className="font-display text-xl font-bold text-[#4A2163]">{money(pick.price_clp)}</span></div>
+            <AdvisorChooser service={pick.id} list={dir} value={form.advisor} onChange={(id) => setForm((f) => ({ ...f, advisor: id }))} />
             <label className="flex flex-col gap-1.5"><span className="label">¿Qué te gustaría lograr? (opcional)</span>
               <textarea className="textarea h-24" maxLength={1000} value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} placeholder="Ej.: quiero cambiarme de retail a un cargo administrativo en Talca" /></label>
             <p className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-[13px] leading-snug text-[#4A2163]">VINKA te escribirá por el chat de tu asesoría, dentro de la app, para coordinar el pago y empezar. No usamos WhatsApp, llamadas ni correos para la asesoría.</p>
@@ -154,6 +185,18 @@ export default function Advisory() {
           </div>
         )}
       </Sheet>
+      <Sheet open={!!change} onClose={() => setChange(null)} title="Elige a tu asesor/a">
+        {change && (
+          <div className="flex flex-col gap-2">
+            <ErrorBox>{err}</ErrorBox>
+            {(dir || []).filter((a) => (a.services || []).includes(change.service_id)).map((a) => (
+              <AdvisorCard key={a.id} a={a} picked={change.preferred_advisor === a.id} onView={setView} onPick={(x) => changeTo(change, x.id)} />
+            ))}
+            <button className="btn-sec" onClick={() => changeTo(change, null)}>Que VINKA elija por mí</button>
+          </div>
+        )}
+      </Sheet>
+      <AdvisorSheet a={view} onClose={() => setView(null)} onPick={change ? (x) => changeTo(change, x.id) : undefined} />
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>
   )

@@ -7,6 +7,7 @@ import { Dossier, NextStep, ServiceProgress, TeamNotes } from '../../components/
 import { atLocal, ymd } from '../../lib/dates'
 import { fmtDateTime } from '../../lib/files'
 import { pl } from '../../lib/text'
+import { AdminAdvisorProfile } from '../../components/AdvisorProfile'
 import CommunityFeed from '../community/Community'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
@@ -482,6 +483,18 @@ function Advisory() {
             <span className="text-xs text-tinta-3">Coordinación y asesoría solo por el chat de VINKA (pestaña Conversación).</span>
             <NextStep next={r.next} />
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
+            {['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status) && (r.choice === 'asesor' || r.suggested_id) && (() => {
+              // Elección del postulante (o sugerencia de VINKA) y asignación con un toque
+              const target = r.choice === 'asesor' ? r.preferred_id : r.suggested_id
+              const name = r.choice === 'asesor' ? r.preferred : advisors.find((a) => a.id === r.suggested_id)?.name
+              return (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[#F7F0FB] px-3 py-2 text-[13px] text-[#4A2163]">
+                  <span className="flex-1">{r.choice === 'asesor' ? <>Eligió a <b>{name}</b>{r.preferred_available === false ? ' (ahora sin cupo o pausado)' : ''}</> : <>Dejó que VINKA elija · sugerido: <b>{name}</b> (menos casos en curso)</>}</span>
+                  {target && r.advisor_id !== target && <button className="btn-sm h-9 bg-morado text-white" onClick={() => assign(r, target)}>Asignar a {String(name || '').split(' ')[0]}</button>}
+                  {target && r.advisor_id === target && <span className="font-semibold">✓ Asignado</span>}
+                </div>
+              )
+            })()}
             <label className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-tinta-3">Asesor/a asignado/a</span>
               <select className="h-9 rounded-lg border border-linea bg-white px-2 text-sm" value={r.advisor_id || ''} onChange={(ev) => assign(r, ev.target.value)}>
                 <option value="">Sin asignar</option>
@@ -654,7 +667,11 @@ function Advisors() {
   const [talk, setTalk] = useState(null)
   const [spaces, setSpaces] = useState({}) // asesor → su espacio de reclutamiento (consultora)
   const [making, setMaking] = useState(null)
+  const [profiles, setProfiles] = useState({}) // perfil público de cada asesor
+  const [svcs, setSvcs] = useState([])
   const load = useCallback(() => {
+    supabase.rpc('admin_advisor_profiles').then(({ data }) => setProfiles(data || {}))
+    supabase.from('career_services').select('id, name, sort').order('sort').then(({ data }) => setSvcs(data || []))
     supabase.rpc('admin_advisors').then(({ data, error }) => {
       if (error) setErr(errMsg(error)); setList(data || [])
       const ids = (data || []).map((a) => a.id)
@@ -717,6 +734,7 @@ function Advisors() {
             {level === 'total' && !spaces[a.id] && <button className="btn-sm border border-rosa-accion bg-white text-rosa-texto" disabled={making === a.id} onClick={() => makeSpace(a)}>{making === a.id ? 'Creando…' : 'Crear espacio de reclutamiento'}</button>}
           </div>
           {spaces[a.id] && <span className="text-xs text-[#134A2B]">✓ Espacio de reclutamiento: <b>{spaces[a.id].display_name}</b> (plan Asesor, sin cobro)</span>}
+          <AdminAdvisorProfile advisorId={a.id} p={profiles[a.id]} services={svcs} onChange={load} />
           {talk === a.id && <TeamNotes advisorId={a.id} as="admin" />}
         </div>
       ))}

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AdvisorInicio, ChatFilter, ChatsHub, NoWorkspace } from './pages/advisor/Hub'
+import { MyPublicProfile } from './components/AdvisorProfile'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useUnread, useUnreadSync } from './lib/unread'
 import { useAdvisorUnread, useAdvisorUnreadSync } from './lib/advisorUnread'
@@ -206,7 +207,9 @@ export default function App() {
     ]
     const account = (
       <AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración."
-        extra={company && (
+        extra={<>
+          <MyPublicProfile />
+          {company && (
           <div className="card px-4">
             <span className="block pt-3 text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">{company.display_name}</span>
             {[['/vitrina', 'Empresa y vitrina'], ['/equipo-consultora', 'Equipo'], ['/plan', 'Plan y uso'], ['/reportes', 'Reportes'], ['/plantillas', 'Plantillas de mensajes'], ['/automatizaciones', 'Automatizaciones'],
@@ -214,7 +217,7 @@ export default function App() {
               <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
             ))}
           </div>
-        )} />
+        )}</>} />
     )
     return (
       <>
