@@ -11,9 +11,9 @@ import { MatchModal } from './MatchModal'
  * Informa la cantidad pendiente para mostrar un punto en "Chats".
  */
 export function MatchWatcher({ onCount }) {
-  const { user, profile, company } = useAuth()
+  const { user, profile, company, actsAs } = useAuth()
   const [queue, setQueue] = useState([])
-  const isCompany = profile?.role === 'company'
+  const isCompany = actsAs === 'company'
   const mySeen = isCompany ? 'company_seen' : 'candidate_seen'
 
   const refresh = useCallback(async () => {

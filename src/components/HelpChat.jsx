@@ -33,7 +33,7 @@ const KEY = 'vinka-help-chat'
 
 /** Asistente de ayuda: en la web responde dudas; con sesión además deja reportes de errores o mejoras */
 export function HelpChat({ className = '' }) {
-  const { session, profile } = useAuth()
+  const { session, profile, actsAs } = useAuth()
   const loc = useLocation()
   const [msgs, setMsgs] = useState(() => { try { return JSON.parse(sessionStorage.getItem(KEY) || '[]') } catch { return [] } })
   const [text, setText] = useState('')
@@ -51,7 +51,7 @@ export function HelpChat({ className = '' }) {
     const reply = data?.reply || data?.error || (error ? 'No pude conectarme. Revisa tu conexión e inténtalo de nuevo.' : 'No tengo respuesta para eso.')
     setMsgs([...next, { role: 'assistant', content: reply, ...(data?.report_id ? { report: data.report_id } : {}), ...(!data?.reply ? { note: true } : {}) }])
   }
-  const who = !session ? 'web' : profile?.role === 'candidate' ? 'candidate' : profile?.role === 'company' ? 'company' : 'other'
+  const who = !session ? 'web' : profile?.role === 'candidate' ? 'candidate' : actsAs === 'company' ? 'company' : 'other'
 
   return (
     <div className={`flex min-h-0 flex-col gap-2 ${className}`}>

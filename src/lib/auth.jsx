@@ -3,6 +3,8 @@ import { supabase } from './supabase'
 
 const Ctx = createContext(null)
 const KEY = 'vinka-company'
+const MODE_KEY = 'vinka-modo' // asesores: 'asesorias' o 'reclutamiento'
+const readMode = () => { try { return localStorage.getItem(MODE_KEY) === 'reclutamiento' ? 'reclutamiento' : 'asesorias' } catch { return 'asesorias' } }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -14,6 +16,7 @@ export function AuthProvider({ children }) {
   const [advisor, setAdvisor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [recovery, setRecovery] = useState(false)
+  const [mode, setModeState] = useState(readMode)
 
   const load = useCallback(async (sess) => {
     if (!sess?.user) {
@@ -27,8 +30,17 @@ export function AuthProvider({ children }) {
     ])
     setProfile(p); setIsAdmin(!!a)
     if (p?.role === 'advisor') {
-      const { data: adv } = await supabase.from('advisors').select('*').eq('user_id', uid).maybeSingle()
-      setAdvisor(adv || null); setCandidate(null); setCompany(null); setCompanies([])
+      // Asesor: sus asesorías y, si VINKA le creó su espacio de reclutamiento, también su consultora
+      const [{ data: adv }, { data: ms }] = await Promise.all([
+        supabase.from('advisors').select('*').eq('user_id', uid).maybeSingle(),
+        supabase.rpc('my_companies'),
+      ])
+      setAdvisor(adv || null); setCandidate(null)
+      const list = (ms || []).filter((m) => m.companies).map((m) => ({ ...m.companies, member_role: m.role, inherited: !!m.inherited }))
+      let saved = ''
+      try { saved = localStorage.getItem(KEY) || '' } catch { /* sin almacenamiento */ }
+      setCompanies(list)
+      setCompany(list.find((c) => c.id === saved) || list[0] || null)
       return
     }
     if (p?.role === 'candidate') {
@@ -77,9 +89,15 @@ export function AuthProvider({ children }) {
     setCompany(c)
   }, [companies])
   const signOut = async () => { await supabase.auth.signOut(); setRecovery(false) }
+  const setMode = useCallback((m) => {
+    try { localStorage.setItem(MODE_KEY, m) } catch { /* sin almacenamiento */ }
+    setModeState(m)
+  }, [])
+  // Con qué «sombrero» actúa la cuenta ahora: un asesor en modo Reclutamiento actúa como empresa (su consultora)
+  const actsAs = profile?.role === 'advisor' ? (mode === 'reclutamiento' && company ? 'company' : 'advisor') : profile?.role
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, advisor, loading, refresh, signOut, recovery, setRecovery }}>
+    <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, advisor, loading, refresh, signOut, recovery, setRecovery, mode, setMode, actsAs }}>
       {children}
     </Ctx.Provider>
   )

@@ -191,7 +191,7 @@ export function Team() {
 export function JoinTeam() {
   const { token } = useParams()
   const nav = useNavigate()
-  const { session, profile, company, refresh, signOut } = useAuth()
+  const { session, profile, company, refresh, signOut, actsAs } = useAuth()
   const [inv, setInv] = useState(null)
   const [f, setF] = useState({ first_name: '', last_name: '', password: '', terms: false })
   const [err, setErr] = useState('')
@@ -239,7 +239,7 @@ export function JoinTeam() {
         ) : sent ? (
           <div className="card flex flex-col gap-2 p-4 text-sm leading-relaxed"><b>Revisa tu correo</b>Te enviamos un enlace a {inv.email} para confirmar tu cuenta. Al confirmarlo entrarás directo al equipo.</div>
         ) : session ? (
-          profile?.role === 'company' ? (
+          actsAs === 'company' ? (
             <>{company?.id && <p className="text-sm text-tinta-3">Ya eres parte de {company.display_name}. Al aceptar podrás cambiar entre ambas empresas desde Empresa o la barra lateral.</p>}
             <button className="btn" disabled={busy} onClick={accept}>{busy ? 'Uniéndote…' : 'Aceptar invitación'}</button></>
           ) : (

@@ -39,12 +39,12 @@ const GUIDES = {
 export default function Tutorials() {
   const { who } = useParams()
   const nav = useNavigate()
-  const { session, profile } = useAuth()
-  const def = profile?.role === 'company' ? 'empresas' : 'postulantes'
+  const { session, profile, actsAs } = useAuth()
+  const def = actsAs === 'company' ? 'empresas' : 'postulantes'
   const key = GUIDES[who] ? who : def
   const g = GUIDES[key]
   const [open, setOpen] = useState(0)
-  const mine = session && ((key === 'empresas' && profile?.role === 'company') || (key === 'postulantes' && profile?.role === 'candidate'))
+  const mine = session && ((key === 'empresas' && actsAs === 'company') || (key === 'postulantes' && profile?.role === 'candidate'))
   return (
     <Screen className="bg-[#FAF7F9]" wide>
       <TopBar back title="Tutoriales" />

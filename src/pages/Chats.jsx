@@ -36,13 +36,13 @@ export function groupChats(rows, isCompany) {
 }
 
 export function ChatList() {
-  const { profile } = useAuth()
+  const { profile, actsAs } = useAuth()
   const [rows, setRows] = useState(null)
   const [err, setErr] = useState('')
   useEffect(() => {
     supabase.rpc('my_matches').then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data || []) })
   }, [])
-  const isCompany = profile?.role === 'company'
+  const isCompany = actsAs === 'company'
   const { byMatch } = useUnread()
   const pres = usePresence(isCompany ? { users: (rows || []).filter((m) => !m.closed).map((m) => m.candidate_id) } : { companies: (rows || []).filter((m) => !m.closed).map((m) => m.company_id) })
   const [ivs, setIvs] = useState([])
@@ -102,8 +102,8 @@ export function ChatList() {
 export function ChatRoom() {
   const { id } = useParams()
   const nav = useNavigate()
-  const { user, profile } = useAuth()
-  const isCompany = profile?.role === 'company'
+  const { user, profile, actsAs } = useAuth()
+  const isCompany = actsAs === 'company'
   const [m, setM] = useState(null)
   const [sibs, setSibs] = useState([]) // todas las vacantes con esta misma empresa/persona (incluida la actual)
   const [allMsgs, setAllMsgs] = useState([])
@@ -126,7 +126,7 @@ export function ChatRoom() {
   const polish = async () => {
     if (!draft.trim() || polishing) return
     setPolishing(true); setErr('')
-    try { const r = await callAi('chat_message', 'improve', { current: draft, role: profile?.role }); if (r.text) setDraft(r.text.slice(0, 2000)) } catch (e) { setErr(e.message) } finally { setPolishing(false) }
+    try { const r = await callAi('chat_message', 'improve', { current: draft, role: actsAs }); if (r.text) setDraft(r.text.slice(0, 2000)) } catch (e) { setErr(e.message) } finally { setPolishing(false) }
   }
   const endRef = useRef()
   const loadIvs = useCallback(async () => {

@@ -651,7 +651,23 @@ function Advisors() {
   const [cred, setCred] = useState(null)
   const [toast, setToast] = useState('')
   const [talk, setTalk] = useState(null)
-  const load = useCallback(() => { supabase.rpc('admin_advisors').then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [])
+  const [spaces, setSpaces] = useState({}) // asesor → su espacio de reclutamiento (consultora)
+  const [making, setMaking] = useState(null)
+  const load = useCallback(() => {
+    supabase.rpc('admin_advisors').then(({ data, error }) => {
+      if (error) setErr(errMsg(error)); setList(data || [])
+      const ids = (data || []).map((a) => a.id)
+      if (ids.length) supabase.from('companies').select('id, owner_id, display_name').eq('kind', 'consultora').is('parent_id', null).in('owner_id', ids)
+        .then(({ data: cs }) => setSpaces(Object.fromEntries((cs || []).map((c) => [c.owner_id, c]))))
+    })
+  }, [])
+  const makeSpace = async (a) => {
+    setErr(''); setMaking(a.id)
+    const { error } = await supabase.rpc('admin_create_advisor_workspace', { p_advisor: a.id })
+    setMaking(null)
+    if (error) return setErr(errMsg(error))
+    setToast(`Listo: ${a.name} ya tiene su espacio de reclutamiento.`); load()
+  }
   useEffect(() => { load() }, [load])
   const create = async () => {
     setErr('')
@@ -697,7 +713,9 @@ function Advisors() {
             {level === 'total' && <button className="btn-sm border border-linea bg-white" onClick={() => reset(a)}>Nueva clave temporal</button>}
             <button className={`btn-sm border ${a.active ? 'border-[#C0362C] text-[#912018]' : 'border-linea'} bg-white`} onClick={() => toggle(a)}>{a.active ? 'Suspender' : 'Reactivar'}</button>
             <button className="btn-sm bg-morado text-white" onClick={() => setTalk(talk === a.id ? null : a.id)}>{talk === a.id ? 'Cerrar notas' : 'Notas y conversación'}</button>
+            {level === 'total' && !spaces[a.id] && <button className="btn-sm border border-rosa-accion bg-white text-rosa-texto" disabled={making === a.id} onClick={() => makeSpace(a)}>{making === a.id ? 'Creando…' : 'Crear espacio de reclutamiento'}</button>}
           </div>
+          {spaces[a.id] && <span className="text-xs text-[#134A2B]">✓ Espacio de reclutamiento: <b>{spaces[a.id].display_name}</b> (plan Asesor, sin cobro)</span>}
           {talk === a.id && <TeamNotes advisorId={a.id} as="admin" />}
         </div>
       ))}

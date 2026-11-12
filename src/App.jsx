@@ -102,6 +102,15 @@ function EditStep({ Comp }) {
   return <Comp edit onDone={() => nav('/perfil')} />
 }
 
+/** Asesores: cambia entre Asesorías y Reclutamiento y vuelve al inicio del modo elegido */
+function ModeSwitch() {
+  const { m } = useParams()
+  const { setMode } = useAuth()
+  const nav = useNavigate()
+  useEffect(() => { setMode(m === 'reclutamiento' ? 'reclutamiento' : 'asesorias'); nav('/', { replace: true }) }, [m, setMode, nav])
+  return null
+}
+
 /** En computador: lista de chats a la izquierda y conversación a la derecha. En móvil: una pantalla a la vez. */
 function ChatsSplit({ items }) {
   const { id } = useParams()
@@ -124,7 +133,7 @@ function ChatsSplit({ items }) {
 const Loading = () => <div className="flex h-full min-h-[50vh]"><Spinner /></div>
 
 export default function App() {
-  const { session, profile, candidate, company, isAdmin, advisor, loading, recovery } = useAuth()
+  const { session, profile, candidate, company, isAdmin, advisor, loading, recovery, actsAs } = useAuth()
   useHeartbeat(!!session && !!profile && profile.show_online !== false)
   const [unseen, setUnseen] = useState(0)
   useUnreadSync(session && profile ? session.user.id : null)
@@ -171,11 +180,14 @@ export default function App() {
   // Cuentas entregadas por VINKA con clave temporal: primero crean su contraseña
   if (profile.must_change_password) return wrap(<Routes><Route path="*" element={<ForcePassword />} /></Routes>)
 
-  // Asesores de VINKA: solo sus asesorías asignadas
-  if (profile.role === 'advisor') {
+  // Asesores de VINKA: modo Asesorías (sus asesorías asignadas) o, si tienen espacio de reclutamiento, modo Reclutamiento
+  // (su consultora, con las mismas pantallas que una empresa). En modo Reclutamiento se usa la rama de empresa de más abajo.
+  const isAdvisor = profile.role === 'advisor'
+  const modeRoute = isAdvisor && company ? <Route key="modo" path="/modo/:m" element={<ModeSwitch />} /> : null
+  if (isAdvisor && (!advisor?.active || !advisor.terms_accepted_at || actsAs !== 'company')) {
     if (!advisor?.active) return wrap(<Routes><Route path="*" element={<AdminAccount subtitle="Tu cuenta de asesor/a no está activa. Escribe a VINKA si crees que es un error." hint="" />} /></Routes>)
     if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
-    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, { to: '/equipo', label: 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
+    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, ...(company ? [{ to: '/modo/reclutamiento', label: 'Reclutamiento', icon: 'building' }] : []), { to: '/equipo', label: 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
     return (
       <>
       <DesktopNav items={nav} />
@@ -184,6 +196,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
         <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam /></WithNav>} />
+        {modeRoute}
         <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
         <Route path="/avisos" element={<Notifications />} />
         {common}
@@ -288,6 +301,7 @@ export default function App() {
   const nav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
     { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
+    ...(isAdvisor ? [{ to: '/modo/asesorias', label: 'Asesorías', icon: 'swap' }] : []),
   ]
   const deskNav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
@@ -298,6 +312,7 @@ export default function App() {
     ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
     { to: '/vitrina', label: 'Empresa', icon: 'building' },
     { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
+    ...(isAdvisor ? [{ section: 'Asesor/a de VINKA' }, { to: '/modo/asesorias', label: 'Ir a mis asesorías', icon: 'swap' }] : []),
   ]
   return (
     <>
@@ -308,6 +323,7 @@ export default function App() {
     {wrap(
     <Routes>
       <Route path="/" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />
+      {modeRoute}
       <Route path="/vacantes/nueva" element={<JobForm />} />
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />
