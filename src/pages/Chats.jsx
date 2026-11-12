@@ -158,7 +158,20 @@ export function ChatRoom() {
   useEffect(() => {
     const ids = sibKey ? sibKey.split(',') : [id]
     ids.forEach((mid) => supabase.rpc('mark_match_seen', { p_match: mid }))
-    supabase.from('messages').select('*').in('match_id', ids).order('created_at').then(({ data }) => setAllMsgs(data || []))
+    // Carga completa; se repite al recuperar internet o volver a la app, por si llegaron mensajes mientras tanto
+    const fetchMsgs = () => supabase.from('messages').select('*').in('match_id', ids).order('created_at').then(({ data, error }) => {
+      if (error || !data) return
+      setAllMsgs((prev) => {
+        const known = new Set(prev.map((x) => x.id))
+        const fresh = data.filter((x) => !known.has(x.id))
+        if (prev.length && fresh.some((x) => x.sender_id !== user?.id) && !atBottom()) setBelow((n) => n + fresh.filter((x) => x.sender_id !== user?.id).length)
+        return fresh.length || data.length !== prev.length ? data : prev
+      })
+    })
+    fetchMsgs()
+    const onBack = () => { if (document.visibilityState === 'visible') fetchMsgs() }
+    window.addEventListener('online', onBack)
+    document.addEventListener('visibilitychange', onBack)
     const ch = supabase.channel(`chat-${ids.join('-').slice(0, 180)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: ids.length > 1 ? `match_id=in.(${ids.join(',')})` : `match_id=eq.${ids[0]}` },
         (p) => {
@@ -167,7 +180,7 @@ export function ChatRoom() {
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews', filter: `match_id=eq.${id}` }, () => loadIvs())
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { supabase.removeChannel(ch); window.removeEventListener('online', onBack); document.removeEventListener('visibilitychange', onBack) }
   }, [sibKey, id, loadIvs])
   const msgs = allMsgs.filter((x) => x.match_id === id) // los de la vacante elegida (para la regla «la empresa escribe primero»)
   const multi = sibs.length > 1
@@ -191,13 +204,14 @@ export function ChatRoom() {
     setBelow(0)
     if (marked.current === `${sibKey}|${lastShown}`) return // ya marcado hasta aquí
     marked.current = `${sibKey}|${lastShown}`
-    markRead(sibKey.split(','), lastShown)
+    markRead(sibKey.split(','), lastShown).then((ok) => { if (!ok) marked.current = '' })
   }, [lastShown, sibKey])
   useEffect(() => { readNow() }, [readNow])
   useEffect(() => {
     const onVis = () => { if (document.visibilityState === 'visible') readNow() }
     document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    window.addEventListener('online', onVis)
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('online', onVis) }
   }, [readNow])
   // Al abrir se baja al final; después solo si ya estabas abajo o si el mensaje es tuyo. Luego se marca lo que quedó a la vista.
   const opened = useRef(false)

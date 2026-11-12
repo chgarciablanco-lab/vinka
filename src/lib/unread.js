@@ -28,14 +28,17 @@ export async function refreshUnread() {
 /** Marca leídas esas conversaciones hasta el último mensaje mostrado (no «hasta ahora») */
 export async function markRead(matchIds, until) {
   const ids = (matchIds || []).filter(Boolean)
-  if (!ids.length || document.visibilityState !== 'visible') return
+  if (!ids.length || document.visibilityState !== 'visible') return false
   // Optimista: baja el contador de inmediato; el servidor confirma con la recarga
+  const before = state
   const byMatch = { ...state.byMatch }
   for (const id of ids) if (byMatch[id] && (!until || new Date(byMatch[id].first) <= new Date(until))) delete byMatch[id]
   state = { ...state, byMatch, total: Object.values(byMatch).reduce((a, x) => a + x.n, 0) }
   emit()
-  await supabase.rpc('mark_chat_read', { p_matches: ids.slice(0, 50), p_until: until || null })
+  const { error } = await supabase.rpc('mark_chat_read', { p_matches: ids.slice(0, 50), p_until: until || null })
+  if (error) { state = before; emit(); return false } // sin red: no se marcó; se reintenta al volver la conexión
   refreshUnread()
+  return true
 }
 
 export function useUnread() {
@@ -56,10 +59,11 @@ export function useUnreadSync(userId) {
     const onVis = () => { if (document.visibilityState === 'visible') refreshUnread() }
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onVis)
+    window.addEventListener('online', onVis) // al recuperar internet
     const iv = setInterval(refreshUnread, 60000)
     return () => {
       supabase.removeChannel(ch); clearInterval(iv); clearTimeout(t)
-      document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', onVis)
+      document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', onVis); window.removeEventListener('online', onVis)
       state = { byMatch: {}, total: 0, ready: false }; emit()
     }
   }, [userId])
