@@ -15,8 +15,45 @@ export function AdvisorPhoto({ a, size = 56 }) {
 }
 
 const years = (n) => (n == null ? null : n === 1 ? '1 año de experiencia' : `${n} años de experiencia`)
-// Etapa 2 traerá las valoraciones; mientras tanto, nunca se muestran notas inventadas
-const Ratings = ({ a }) => <span className="text-[12px] text-tinta-3">{a.ratings > 0 ? `★ ${a.ratings}` : 'Sin valoraciones todavía'}</span>
+// Valoraciones verificadas: solo de asesorías finalizadas y aprobadas por VINKA. Nunca notas inventadas.
+const dec = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+export const CRITERIA = [['punctuality', 'Puntualidad'], ['quality', 'Calidad del servicio'], ['communication', 'Comunicación'], ['deliverables', 'Cumplimiento de entregables']]
+export function Stars({ n, size = 14 }) {
+  const v = Math.round(Number(n) || 0)
+  return <span aria-label={`${n} de 5 estrellas`} className="whitespace-nowrap tracking-tight text-[#C98A00]" style={{ fontSize: size }}>{'★'.repeat(v)}<span className="text-[#E3D8DF]">{'★'.repeat(5 - v)}</span></span>
+}
+const Ratings = ({ a }) => (a.ratings > 0
+  ? <span className="flex items-center gap-1.5 text-[12px] text-tinta-2"><Stars n={a.rating} /><b>{dec(a.rating)}</b><span className="text-tinta-3">· {a.ratings === 1 ? '1 valoración' : `${a.ratings} valoraciones`}</span></span>
+  : <span className="text-[12px] text-tinta-3">Sin valoraciones todavía</span>)
+const monthYear = (d) => new Date(d).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+
+/** Opiniones verificadas de un asesor (sin el nombre de quien opina) */
+function PublicReviews({ a }) {
+  const [list, setList] = useState(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (!a?.id || !(a.ratings > 0)) return
+    supabase.rpc('advisor_reviews_public', { p_user: a.id }).then(({ data, error }) => { if (error) setFailed(true); else setList(data || []) })
+  }, [a?.id, a?.ratings])
+  if (!(a.ratings > 0)) return <div className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[12px] leading-snug text-tinta-3">Sin valoraciones todavía. Solo pueden valorar personas que terminen una asesoría con este asesor/a.</div>
+  return (
+    <div className="flex flex-col gap-2">
+      <b>Valoraciones verificadas</b>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-[#FAF7F9] p-3 text-[12px]">
+        {CRITERIA.map(([k, l]) => a[k] != null && <span key={k} className="flex items-center justify-between gap-2"><span className="text-tinta-3">{l}</span><b>{dec(a[k])}</b></span>)}
+      </div>
+      {failed && <span className="text-[12px] text-tinta-3">No pudimos cargar las opiniones. Intenta más tarde.</span>}
+      {(list || []).map((v) => (
+        <div key={v.id} className="flex flex-col gap-1 rounded-xl border border-linea p-3 text-[13px]">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><Stars n={v.overall} /><span className="text-[11px] text-tinta-3">Postulante verificado · {v.service} · {monthYear(v.created_at)}</span></span>
+          {v.comment && <p className="leading-relaxed text-tinta-2">«{v.comment}»</p>}
+          {v.reply && <p className="rounded-lg bg-[#F7F0FB] px-2.5 py-1.5 text-[12px] text-[#4A2163]"><b>Respuesta:</b> {v.reply}</p>}
+        </div>
+      ))}
+      <span className="text-[11px] text-tinta-suave">Las valoraciones miden el servicio (puntualidad, calidad, comunicación y entregables), no si la persona consiguió empleo.</span>
+    </div>
+  )
+}
 const Availability = ({ a }) => (
   <span className={`pill shrink-0 ${a.available ? 'bg-[#EAF6EF] text-[#134A2B]' : 'bg-[#F4EEF2] text-tinta-3'}`}>{a.available ? 'Disponible' : 'Sin cupo ahora'}</span>
 )
@@ -59,7 +96,7 @@ export function AdvisorSheet({ a, onClose, onPick, pickLabel }) {
         )}
         <p className="whitespace-pre-line leading-relaxed text-tinta-2">{a.bio}</p>
         <div className="flex flex-col gap-1"><b>Servicios que realiza</b>{(a.service_names || []).map((s) => <span key={s} className="flex gap-2"><Svg name="check" size={16} className="mt-0.5 shrink-0 text-[#2F7A4F]" />{s}</span>)}</div>
-        <div className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[12px] leading-snug text-tinta-3">Valoraciones: {a.ratings > 0 ? '' : 'aún no tiene. Solo podrán valorar personas que terminen una asesoría con este asesor/a.'}</div>
+        <PublicReviews a={a} />
         <span className="text-[11px] text-tinta-suave">Perfil revisado y aprobado por VINKA.</span>
         {onPick && <button className="btn" disabled={!a.available} onClick={() => onPick(a)}>{a.available ? pickLabel || `Elegir a ${a.display_name.split(' ')[0]}` : 'Sin cupo ahora'}</button>}
       </div>
@@ -255,3 +292,161 @@ export function AdminAdvisorProfile({ advisorId, p, services, onChange }) {
   )
 }
 
+
+function StarInput({ label, value, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[13px]">{label}</span>
+      <span className="flex" role="radiogroup" aria-label={label}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} de 5`} onClick={() => onChange(n)}
+            className={`h-9 w-8 text-[24px] leading-none ${n <= (value || 0) ? 'text-[#C98A00]' : 'text-[#E3D8DF]'}`}>★</button>
+        ))}
+      </span>
+    </div>
+  )
+}
+
+/** El postulante valora su asesoría (una vez, al finalizar y aprobarse) */
+export function ReviewSheet({ r, advisorName, onClose, onDone }) {
+  const [v, setV] = useState({ overall: 0, punctuality: 0, quality: 0, communication: 0, deliverables: 0, comment: '' })
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (!r) return null
+  const missing = ['overall', ...CRITERIA.map(([k]) => k)].some((k) => !v[k])
+  const send = async () => {
+    setErr('')
+    if (missing) return setErr('Marca de 1 a 5 estrellas en cada punto.')
+    setBusy(true)
+    const { error } = await supabase.rpc('review_submit', { p_request: r.id, p_overall: v.overall, p_punctuality: v.punctuality, p_quality: v.quality, p_communication: v.communication, p_deliverables: v.deliverables, p_comment: v.comment })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    onDone()
+  }
+  return (
+    <Sheet open onClose={onClose} title={`Valora a ${advisorName || 'tu asesor/a'}`}>
+      <div className="flex flex-col gap-3 pb-5 text-sm">
+        <span className="text-[13px] text-tinta-3">Evalúa el servicio que recibiste en tu {r.service_name}, no si conseguiste empleo. Tu nombre no se muestra: aparece como «Postulante verificado».</span>
+        <div className="rounded-xl bg-[#FAF7F9] p-3"><StarInput label={<b>Calificación general</b>} value={v.overall} onChange={(n) => setV({ ...v, overall: n })} /></div>
+        <div className="flex flex-col gap-1">{CRITERIA.map(([k, l]) => <StarInput key={k} label={l} value={v[k]} onChange={(n) => setV({ ...v, [k]: n })} />)}</div>
+        <label className="flex flex-col gap-1.5"><span className="label">Comentario (opcional)</span>
+          <textarea className="textarea h-24" maxLength={600} value={v.comment} onChange={(e) => setV({ ...v, comment: e.target.value })} placeholder="¿Qué te sirvió? ¿Qué se podría mejorar?" /></label>
+        <span className="text-[11px] text-tinta-suave">Solo puedes valorar una vez. El asesor/a puede responder, y VINKA revisa las opiniones denunciadas.</span>
+        <ErrorBox>{err}</ErrorBox>
+        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Enviando…' : 'Enviar valoración'}</button>
+      </div>
+    </Sheet>
+  )
+}
+
+const REVIEW_ST = { visible: ['Publicada', 'bg-[#EAF6EF] text-[#134A2B]'], reportada: ['En revisión por VINKA', 'bg-naranja-palido text-naranja-texto'], oculta: ['Oculta por VINKA', 'bg-[#F4EEF2] text-tinta-3'] }
+function ReviewItem({ v, children }) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-linea p-3 text-[13px]">
+      <span className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2"><Stars n={v.overall} /><span className="text-[11px] text-tinta-3">{v.service} · {new Date(v.created_at).toLocaleDateString('es-CL')}</span></span>
+        <span className={`pill ${REVIEW_ST[v.status]?.[1]}`}>{REVIEW_ST[v.status]?.[0]}</span></span>
+      <span className="text-[11px] text-tinta-3">{CRITERIA.map(([k, l]) => `${l}: ${v[k]}`).join(' · ')}</span>
+      {v.comment && <p className="leading-relaxed text-tinta-2">«{v.comment}»</p>}
+      {v.reply && <p className="rounded-lg bg-[#F7F0FB] px-2.5 py-1.5 text-[12px] text-[#4A2163]"><b>Respuesta:</b> {v.reply}</p>}
+      {v.report_reason && <p className="text-[12px] text-naranja-texto"><b>Denuncia:</b> {v.report_reason}</p>}
+      {v.moderation_note && <p className="text-[12px] text-tinta-2"><b>Decisión de VINKA:</b> {v.moderation_note}</p>}
+      {children}
+    </div>
+  )
+}
+
+/** Asesor: sus valoraciones, responder y pedir revisión */
+export function MyAdvisorReviews() {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [act, setAct] = useState(null) // { id, kind: 'reply' | 'report', text }
+  const load = useCallback(() => supabase.rpc('my_advisor_reviews').then(({ data, error }) => { if (error) setErr(errMsg(error)); else setD(data) }), [])
+  useEffect(() => { load() }, [load])
+  const send = async () => {
+    setErr('')
+    const { error } = act.kind === 'reply' ? await supabase.rpc('review_reply', { p_id: act.id, p_reply: act.text }) : await supabase.rpc('review_report', { p_id: act.id, p_reason: act.text })
+    if (error) return setErr(errMsg(error))
+    setAct(null); load()
+  }
+  if (!d || !Array.isArray(d.items)) return err ? <ErrorBox>{err}</ErrorBox> : null
+  const sum = d.summary || {}
+  return (
+    <div className="card flex flex-col gap-2.5 p-4 text-sm">
+      <div className="flex items-center justify-between gap-2"><b className="text-[15px]">Mis valoraciones</b>{sum.ratings > 0 && <Ratings a={sum} />}</div>
+      {d.items.length === 0 && <span className="text-[13px] text-tinta-3">Sin valoraciones todavía. Te llegarán cuando un postulante termine una asesoría contigo y VINKA la apruebe.</span>}
+      {d.items.map((v) => (
+        <ReviewItem key={v.id} v={v}>
+          {act?.id === v.id ? (
+            <div className="flex flex-col gap-2">
+              <textarea className="textarea h-20" maxLength={act.kind === 'reply' ? 600 : 400} value={act.text} onChange={(e) => setAct({ ...act, text: e.target.value })}
+                placeholder={act.kind === 'reply' ? 'Tu respuesta pública' : 'Por qué es inapropiada (mín. 15 caracteres). Solo la ve VINKA.'} />
+              <ErrorBox>{err}</ErrorBox>
+              <div className="flex gap-2"><button className="btn-sm h-9 border border-linea bg-white" onClick={() => { setAct(null); setErr('') }}>Cancelar</button>
+                <button className="btn-sm h-9 bg-rosa-accion text-white" onClick={send}>{act.kind === 'reply' ? 'Publicar respuesta' : 'Pedir revisión'}</button></div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              <button className="text-[13px] font-semibold text-rosa-texto" onClick={() => setAct({ id: v.id, kind: 'reply', text: v.reply || '' })}>{v.reply ? 'Editar respuesta' : 'Responder'}</button>
+              {v.status === 'visible' && !v.moderation_note && <button className="text-[13px] font-semibold text-tinta-3" onClick={() => setAct({ id: v.id, kind: 'report', text: '' })}>Pedir revisión a VINKA</button>}
+            </div>
+          )}
+        </ReviewItem>
+      ))}
+      <span className="text-[11px] text-tinta-suave">Son solo de asesorías pagadas y aprobadas. Tus aportes en Comunidad no se mezclan con estas valoraciones.</span>
+    </div>
+  )
+}
+
+/** Administración: indicadores de calidad y moderación de valoraciones */
+export function AdminReviews({ names = {} }) {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const [all, setAll] = useState(false)
+  const [mod, setMod] = useState(null) // { id, hide, text }
+  const load = useCallback(() => supabase.rpc('admin_reviews').then(({ data, error }) => { if (error) setErr(errMsg(error)); else setD(data) }), [])
+  useEffect(() => { load() }, [load])
+  const send = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_review_moderate', { p_id: mod.id, p_hide: mod.hide, p_note: mod.text })
+    if (error) return setErr(errMsg(error))
+    setMod(null); load()
+  }
+  if (!d || !Array.isArray(d.items)) return err ? <ErrorBox>{err}</ErrorBox> : null
+  const reported = d.items.filter((v) => v.status === 'reportada')
+  const rated = Object.entries(d.advisors || {}).filter(([, s]) => s.ratings > 0)
+  const shown = all ? d.items : reported
+  return (
+    <div className="card flex flex-col gap-2.5 p-4 text-sm">
+      <div className="flex items-center justify-between gap-2"><b className="text-[15px]">Valoraciones</b>
+        <span className={`pill ${reported.length ? 'bg-naranja-palido text-naranja-texto' : 'bg-[#F4EEF2] text-tinta-3'}`}>{reported.length ? `${reported.length} por revisar` : 'Nada por revisar'}</span></div>
+      {rated.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] p-3 text-[12px]">
+          <span className="font-semibold text-tinta-2">Calidad del servicio (sin ranking público)</span>
+          {rated.map(([id, s]) => (
+            <span key={id} className="flex flex-wrap items-center justify-between gap-x-3"><b>{names[id] || 'Asesor/a'}</b>
+              <span className="text-tinta-3">{dec(s.rating)} general · {s.ratings} · puntualidad {dec(s.punctuality)} · calidad {dec(s.quality)} · comunicación {dec(s.communication)} · entregables {dec(s.deliverables)}</span></span>
+          ))}
+        </div>
+      ) : <span className="text-[13px] text-tinta-3">Aún no hay valoraciones. Los postulantes pueden valorar cuando apruebas la entrega de su asesoría.</span>}
+      {shown.map((v) => (
+        <ReviewItem key={v.id} v={v}>
+          <span className="text-[11px] text-tinta-3">{v.advisor} · valoró {v.candidate}</span>
+          {mod?.id === v.id ? (
+            <div className="flex flex-col gap-2">
+              <textarea className="textarea h-20" maxLength={400} value={mod.text} onChange={(e) => setMod({ ...mod, text: e.target.value })} placeholder="Motivo de la decisión (mín. 10 caracteres). Lo verá el asesor/a y queda registrado." />
+              <ErrorBox>{err}</ErrorBox>
+              <div className="flex gap-2"><button className="btn-sm h-9 border border-linea bg-white" onClick={() => { setMod(null); setErr('') }}>Cancelar</button>
+                <button className="btn-sm h-9 bg-morado text-white" disabled={mod.text.trim().length < 10} onClick={send}>{mod.hide ? 'Ocultar valoración' : 'Mantener publicada'}</button></div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {v.status !== 'visible' && <button className="btn-sm h-9 border border-linea bg-white" onClick={() => setMod({ id: v.id, hide: false, text: '' })}>Mantener / volver a publicar</button>}
+              {v.status !== 'oculta' && <button className="btn-sm h-9 border border-[#C0362C] bg-white text-[#912018]" onClick={() => setMod({ id: v.id, hide: true, text: '' })}>Ocultar</button>}
+            </div>
+          )}
+        </ReviewItem>
+      ))}
+      {d.items.length > reported.length && <button className="self-start text-[13px] font-semibold text-rosa-texto" onClick={() => setAll(!all)}>{all ? 'Ver solo las por revisar' : `Ver todas (${d.items.length})`}</button>}
+    </div>
+  )
+}

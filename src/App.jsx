@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AdvisorInicio, ChatFilter, ChatsHub, NoWorkspace } from './pages/advisor/Hub'
-import { MyPublicProfile } from './components/AdvisorProfile'
+import { MyAdvisorReviews, MyPublicProfile } from './components/AdvisorProfile'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useUnread, useUnreadSync } from './lib/unread'
 import { useAdvisorUnread, useAdvisorUnreadSync } from './lib/advisorUnread'
@@ -209,6 +209,7 @@ export default function App() {
       <AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración."
         extra={<>
           <MyPublicProfile />
+          <MyAdvisorReviews />
           {company && (
           <div className="card px-4">
             <span className="block pt-3 text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">{company.display_name}</span>

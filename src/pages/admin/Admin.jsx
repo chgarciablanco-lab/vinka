@@ -7,7 +7,7 @@ import { Dossier, NextStep, ServiceProgress, TeamNotes } from '../../components/
 import { atLocal, ymd } from '../../lib/dates'
 import { fmtDateTime } from '../../lib/files'
 import { pl } from '../../lib/text'
-import { AdminAdvisorProfile } from '../../components/AdvisorProfile'
+import { AdminAdvisorProfile, AdminReviews } from '../../components/AdvisorProfile'
 import CommunityFeed from '../community/Community'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
@@ -761,6 +761,7 @@ function Advisors() {
       <div className="flex items-center justify-between gap-2"><p className="text-sm text-tinta-3">Las cuentas de asesor las crea VINKA. Cada asesor/a solo ve las asesorías que le asignes, sin teléfono ni correo de las personas.</p>
         {level === 'total' && <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={() => { setForm({ email: '', first: '', last: '', phone: '', specialty: '' }); setErr('') }}>Nuevo asesor/a</button>}</div>
       <ErrorBox>{!form && err}</ErrorBox>
+      {list && list.length > 0 && <AdminReviews names={Object.fromEntries(list.map((a) => [a.id, profiles[a.id]?.pub?.display_name || a.name]))} />}
       {cred && (
         <div className="card flex flex-col gap-2 border-2 border-[#2F7A4F] p-4 text-sm">
           <b>Acceso de {cred.name}</b>

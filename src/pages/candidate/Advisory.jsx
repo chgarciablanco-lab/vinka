@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { CandidateDossier, ServiceProgress, ServiceTimeline } from '../../components/Dossier'
-import { AdvisorCard, AdvisorChooser, AdvisorPhoto, AdvisorSheet, useAdvisorDirectory } from '../../components/AdvisorProfile'
+import { AdvisorCard, AdvisorChooser, AdvisorPhoto, AdvisorSheet, ReviewSheet, Stars, useAdvisorDirectory } from '../../components/AdvisorProfile'
 
 // Texto del botón cuando ya hay una solicitud abierta de ese servicio
 const PENDING_TXT = { solicitada: 'Ya la solicitaste', pago_pendiente: 'Pago pendiente', en_curso: 'Asesoría en curso', entregada: 'En revisión de VINKA' }
@@ -14,6 +14,29 @@ export const SERVICE_STATUS = {
   entregada: ['En revisión de VINKA', 'bg-[#EAF6EF] text-[#134A2B]', 'Tu asesor/a terminó. VINKA está revisando que esté todo lo que incluye tu asesoría; te avisaremos.'],
   aprobada: ['Finalizada', 'bg-[#EAF6EF] text-[#134A2B]', 'Asesoría finalizada. Tus archivos y ofertas quedan guardados aquí.'],
   cancelada: ['Cancelada', 'bg-[#F1EDF0] text-tinta-3', ''],
+}
+// Recorrido de cada solicitud y qué viene ahora, en una sola línea
+const STEPS = ['Solicitada', 'Pago', 'En curso', 'Revisión', 'Finalizada']
+const STEP_OF = { solicitada: 0, pago_pendiente: 1, en_curso: 2, entregada: 3, aprobada: 4 }
+const NEXT = {
+  solicitada: 'VINKA te escribirá por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.',
+  pago_pendiente: 'Paga con los datos que te enviamos por el chat. Al confirmar el pago, empieza tu asesoría.',
+  en_curso: 'Trabaja con tu asesor/a por el chat. Abajo ves lo que incluye y cuánto va listo.',
+  entregada: 'VINKA revisa que esté todo lo que incluye tu asesoría y te avisa.',
+}
+function Stepper({ status }) {
+  const at = STEP_OF[status]
+  if (at == null) return null
+  return (
+    <ol className="flex items-center gap-1" aria-label={`Paso ${at + 1} de ${STEPS.length}: ${STEPS[at]}`}>
+      {STEPS.map((l, i) => (
+        <li key={l} className="flex flex-1 flex-col items-center gap-1">
+          <span className={`h-1.5 w-full rounded-full ${i <= at ? 'bg-rosa-accion' : 'bg-[#EDE3EA]'}`} />
+          <span className={`text-[10px] leading-none ${i === at ? 'font-bold text-tinta' : 'text-tinta-suave'}`}>{l}</span>
+        </li>
+      ))}
+    </ol>
+  )
 }
 const money = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
@@ -32,6 +55,8 @@ export default function Advisory() {
   const [busyAlt, setBusyAlt] = useState(false) // el elegido se quedó sin cupo al enviar
   const [change, setChange] = useState(null) // solicitud a la que se le cambia el asesor elegido
   const [view, setView] = useState(null)
+  const [reviews, setReviews] = useState({}) // valoraciones que ya hice, por solicitud
+  const [rate, setRate] = useState(null) // solicitud que estoy valorando
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -40,6 +65,7 @@ export default function Advisory() {
     ])
     if (a.error) setErr(errMsg(a.error))
     setServices(a.data || []); setMine(b.data || [])
+    supabase.rpc('my_reviews').then(({ data }) => setReviews(data || {}))
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -98,7 +124,21 @@ export default function Advisory() {
                     <span className="flex flex-col"><span className="text-[15px] font-semibold">{r.service_name}</span><span className="text-xs text-tinta-3">{money(r.price_clp)} · solicitada el {fmt(r.created_at)}</span></span>
                     <span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span>
                   </div>
-                  {st[2] && <p className="text-sm text-tinta-2">{st[2]}</p>}
+                  <Stepper status={r.status} />
+                  {NEXT[r.status] ? <p className="text-sm text-tinta-2"><b>Próximo paso:</b> {NEXT[r.status]}</p> : st[2] && r.status !== 'aprobada' && <p className="text-sm text-tinta-2">{st[2]}</p>}
+                  {/* Asesoría finalizada: valorar al asesor/a (una vez) o ver la valoración hecha */}
+                  {r.status === 'aprobada' && r.assigned_to && (reviews[r.id] ? (
+                    <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] px-3 py-2 text-[13px]">
+                      <span className="flex items-center gap-2">Tu valoración: <Stars n={reviews[r.id].overall} />{reviews[r.id].status === 'oculta' && <span className="text-tinta-3">(oculta por VINKA)</span>}</span>
+                      {reviews[r.id].reply && <span className="text-[12px] text-[#4A2163]"><b>Respuesta:</b> {reviews[r.id].reply}</span>}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 rounded-xl border border-[#F3D9A4] bg-[#FFFAEE] p-3 text-sm">
+                      <span><b>Próximo paso:</b> valora a tu asesor/a. Ayudas a otros postulantes a elegir.</span>
+                      <button className="btn-sm h-10 self-start bg-rosa-accion px-4 text-white" onClick={() => setRate(r)}>Valorar asesoría</button>
+                    </div>
+                  ))}
+                  {r.status === 'aprobada' && st[2] && <p className="text-[13px] text-tinta-3">{st[2]}</p>}
                   {r.assigned_to && r.status !== 'cancelada' && (byId(r.assigned_to) ? (
                     <button className="flex items-center gap-2.5 self-start text-left text-sm" onClick={() => setView(byId(r.assigned_to))}>
                       <AdvisorPhoto a={byId(r.assigned_to)} size={36} /><span>Tu asesor/a: <b>{byId(r.assigned_to).display_name}</b> <span className="font-semibold text-rosa-texto">Ver perfil</span></span>
@@ -196,17 +236,22 @@ export default function Advisory() {
       <Sheet open={!!pick} onClose={() => setPick(null)} title={pick ? `Solicitar ${pick.name}` : ''}>
         {pick && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-baseline justify-between rounded-xl bg-[#F7F0FB] px-4 py-3"><span className="text-sm font-semibold text-[#4A2163]">{pick.name}</span><span className="font-display text-xl font-bold text-[#4A2163]">{money(pick.price_clp)}</span></div>
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">1 · Tu asesor/a y lo que buscas</span>
             <AdvisorChooser service={pick.id} list={dir} value={form.advisor} onChange={(id) => { setBusyAlt(false); setForm((f) => ({ ...f, advisor: id })) }}
               mode={form.mode} onMode={(m) => setForm((f) => ({ ...f, mode: m }))} failed={dirFailed} onRetry={reloadDir} />
             <label className="flex flex-col gap-1.5"><span className="label">¿Qué te gustaría lograr? (opcional)</span>
               <textarea className="textarea h-24" maxLength={1000} value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} placeholder="Ej.: quiero cambiarme de retail a un cargo administrativo en Talca" /></label>
-            <p className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-[13px] leading-snug text-[#4A2163]">VINKA te escribirá por el chat de tu asesoría, dentro de la app, para coordinar el pago y empezar. No usamos WhatsApp, llamadas ni correos para la asesoría.</p>
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">2 · Revisa y confirma</span>
+            <div className="flex flex-col gap-2 rounded-xl bg-[#F7F0FB] p-3 text-[13px] leading-snug text-[#4A2163]">
+              <span className="flex items-baseline justify-between gap-2"><b className="text-sm">{pick.name}</b><span className="font-display text-xl font-bold">{money(pick.price_clp)}</span></span>
+              <span>Pago único, IVA incluido · {pick.delivery}{form.mode === 'asesor' && form.advisor && byId(form.advisor) ? <> · con <b>{byId(form.advisor).display_name}</b></> : ' · VINKA elige a tu asesor/a'}</span>
+              {(pick.includes || []).length > 0 && <span className="flex flex-col gap-0.5">{pick.includes.map((x) => <span key={x} className="flex gap-1.5"><Svg name="check" size={15} className="mt-0.5 shrink-0" />{x}</span>)}</span>}
+              <span className="text-[12px]">No pagas nada ahora: VINKA te escribe por el chat de la asesoría para confirmar y enviarte los datos de pago. Todo ocurre dentro de VINKA. Te ayuda a presentarte mejor, pero no garantiza un empleo.</span>
+            </div>
             <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
               <input type="checkbox" checked={form.consent} onChange={(e) => setForm({ ...form, consent: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
               Autorizo que un reclutador de VINKA vea mi perfil laboral y me escriba por el chat de la asesoría, dentro de VINKA, para coordinarla y su pago.
             </label>
-            <p className="hint">No pagas nada ahora. Te escribiremos por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.</p>
             <ErrorBox>{err}</ErrorBox>
             {busyAlt && (
               <div className="grid grid-cols-2 gap-2">
@@ -214,7 +259,7 @@ export default function Advisory() {
                 <button className="btn-sm h-10 border border-linea bg-white" onClick={() => { setBusyAlt(false); setErr(''); setForm((f) => ({ ...f, advisor: null, mode: 'vinka' })) }}>Que VINKA elija</button>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setPick(null)}>Cancelar</button><button className="btn" disabled={busy} onClick={request}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button></div>
+            <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setPick(null)}>Cancelar</button><button className="btn" disabled={busy} onClick={request}>{busy ? 'Enviando…' : 'Confirmar solicitud'}</button></div>
           </div>
         )}
       </Sheet>
@@ -230,6 +275,7 @@ export default function Advisory() {
         )}
       </Sheet>
       <AdvisorSheet a={view} onClose={() => setView(null)} onPick={change ? (x) => changeTo(change, x.id) : undefined} />
+      {rate && <ReviewSheet r={rate} advisorName={byId(rate.assigned_to)?.display_name || rate.assigned_name} onClose={() => setRate(null)} onDone={() => { setRate(null); setToast('¡Gracias! Tu valoración quedó publicada'); load() }} />}
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>
   )
