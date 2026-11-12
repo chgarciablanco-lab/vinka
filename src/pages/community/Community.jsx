@@ -1,449 +1,288 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { salaryText } from '../../lib/catalog'
-import { pl } from '../../lib/text'
-import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, TagInput, Toast, TopBar } from '../../components/ui'
+import { colorFor, initials } from '../../lib/catalog'
+import { Avatar, ErrorBox, Screen, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 
-// VINKA Comunidad (etapa 1, solo por invitación): asesores que colaboran en búsquedas de candidatos.
+// VINKA Comunidad: muro abierto solo para asesores. Publican lo que necesitan cerrar, todos comentan,
+// y quien publicó puede invitar al proceso de su vacante a quien comentó (ve el proceso y conversan por chat).
 
-export const SEARCH_ST = { abierta: ['ABIERTA', 'bg-[#EAF6EF] text-[#134A2B]'], pausada: ['PAUSADA', 'bg-naranja-palido text-naranja-texto'], cerrada: ['CERRADA', 'bg-[#F4EEF2] text-tinta-3'] }
-export const PRES_ST = {
-  esperando_consentimiento: ['ESPERA SU RESPUESTA', 'bg-[#F4EEF2] text-tinta-3'],
-  presentado: ['POR REVISAR', 'bg-[#E7F1FB] text-[#1F4E86]'],
-  mas_antecedentes: ['MÁS ANTECEDENTES', 'bg-naranja-palido text-naranja-texto'],
-  aceptado: ['ACEPTADO', 'bg-[#EAF6EF] text-[#134A2B]'],
-  rechazado: ['NO AVANZA', 'bg-[#FEF3F2] text-[#912018]'],
-  no_acepto: ['NO QUISO POSTULAR', 'bg-[#F4EEF2] text-tinta-3'],
+const ago = (d) => {
+  const m = Math.round((Date.now() - new Date(d).getTime()) / 60000)
+  if (m < 1) return 'ahora'
+  if (m < 60) return `hace ${m} min`
+  const h = Math.round(m / 60)
+  if (h < 24) return `hace ${h} h`
+  const dd = Math.round(h / 24)
+  return dd < 7 ? `hace ${dd} d` : new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
 }
-const COLLAB = { candidatos: 'Presentar candidatos', referidos: 'Referidos de tu red', filtro: 'Apoyo en el filtro' }
-const REL = { asesorado: 'Asesorado/a tuyo', proceso_propio: 'De tus procesos', vinka: 'Recomendado por VINKA' }
-const ROLE = { responsable: 'Eres responsable', colaborador: 'Colaboras', invitado: 'Te invitaron', admin: 'Vista de VINKA' }
-const STAGE = { postulante: 'Postuló', match: 'Match', contacto: 'Contacto', entrevista: 'Entrevista', oferta: 'Oferta', contratado: 'Contratado/a', descartado: 'Descartado/a' }
-const fmt = (d) => (d ? new Date(typeof d === 'string' && d.length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '')
+const PRIVACY = 'No escribas nombres, RUT ni datos de contacto de candidatos: el muro lo ven todos los asesores.'
 
-export const RULES = [
-  'Solo presentas a personas que asesoras en VINKA o que están en tus propios procesos.',
-  'Nadie es presentado sin su consentimiento: la persona recibe la recomendación y decide si postula a esa vacante.',
-  'Lo que ves en una búsqueda (vacante, empresa y candidatos) es confidencial. No lo compartas fuera de VINKA.',
-  'No contactes por fuera a la empresa cliente de otro asesor ni a las personas que otros presentan.',
-  'Quien publica la búsqueda es responsable de ella y decide sobre los candidatos. Responde con respeto y a tiempo.',
-  'VINKA puede revisar la actividad de la comunidad y suspender a quien no cumpla estas reglas.',
-]
-
-function Pill({ st, map }) {
-  const [l, c] = map[st] || [st, 'bg-[#F4EEF2] text-tinta-3']
-  return <span className={`pill shrink-0 whitespace-nowrap ${c}`}>{l}</span>
-}
-
-/** Inicio de la Comunidad: reglas, invitaciones, búsquedas propias y en las que colaboro */
-export default function CommunityHome() {
-  const { actsAs } = useAuth()
-  const [d, setD] = useState(null)
+/** Muro de la comunidad. admin: vista de VINKA (no publica, puede ocultar) */
+export default function CommunityFeed({ admin = false }) {
+  const { companies } = useAuth()
+  const { hash } = useLocation()
+  const [posts, setPosts] = useState(null)
+  const [more, setMore] = useState(false)
+  const [collabs, setCollabs] = useState([])
+  const [jobs, setJobs] = useState([])
   const [err, setErr] = useState('')
-  const [ok, setOk] = useState(false)
-  const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
-  const load = useCallback(() => supabase.rpc('community_home').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data || { searches: [] }) }), [])
-  useEffect(() => { load() }, [load])
-  const accept = async () => {
-    setBusy(true); setErr('')
-    const { error } = await supabase.rpc('community_accept_rules')
-    setBusy(false)
-    if (error) return setErr(errMsg(error))
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('community_feed', { p_before: null, p_limit: 30 })
+    if (error) { setErr(errMsg(error)); setPosts((p) => p || []); return }
+    setErr(''); setPosts(data || []); setMore((data || []).length === 30)
+  }, [])
+  useEffect(() => {
     load()
-  }
-  const respond = async (id, yes) => {
-    setErr('')
-    const { error } = await supabase.rpc('community_respond_invite', { p_search: id, p_accept: yes })
+    if (!admin) supabase.rpc('my_collaborations').then(({ data }) => setCollabs(data || []))
+    const onVis = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [load, admin])
+  // Vacantes abiertas que gestiono (para ligarlas a una publicación)
+  useEffect(() => {
+    const ids = (companies || []).filter((c) => ['owner', 'admin', 'recruiter'].includes(c.member_role)).map((c) => c.id)
+    if (admin || !ids.length) return
+    supabase.from('jobs').select('id, title, comuna, status').in('company_id', ids).neq('status', 'closed').order('created_at', { ascending: false })
+      .then(({ data }) => setJobs(data || []))
+  }, [companies, admin])
+  // Al llegar desde un aviso (#publicación), ir a esa publicación
+  useEffect(() => {
+    if (!posts || !hash) return
+    document.getElementById('p-' + hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [posts, hash])
+  const loadMore = async () => {
+    const last = posts[posts.length - 1]
+    const { data, error } = await supabase.rpc('community_feed', { p_before: last.created_at, p_limit: 30 })
     if (error) return setErr(errMsg(error))
-    setToast(yes ? 'Ya colaboras en esta búsqueda' : 'Invitación rechazada'); load()
+    setPosts([...posts, ...(data || [])]); setMore((data || []).length === 30)
   }
-  const m = d?.member
-  const list = d?.searches || []
-  const invites = list.filter((s) => s.my_status === 'invitado')
-  const mine = list.filter((s) => s.my_role === 'responsable')
-  const collab = list.filter((s) => s.my_role === 'colaborador' && s.my_status === 'aceptado')
   return (
     <Screen className="bg-[#FAF7F9]" wide>
-      <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
-        <h1 className="text-[22px] font-bold">Comunidad</h1>
-        <p className="text-[13px] text-tinta-3">Colabora con otros asesores de VINKA en búsquedas de candidatos.</p>
-      </div>
-      <div className="flex flex-col gap-3 px-5 pb-28 lg:px-8 lg:pb-10">
+      {!admin && (
+        <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
+          <h1 className="text-[22px] font-bold">Comunidad</h1>
+          <p className="text-[13px] text-tinta-3">Solo para asesores de VINKA: pide recomendaciones y ayuda a otros a cerrar sus procesos.</p>
+        </div>
+      )}
+      <div className={`mx-auto flex w-full max-w-2xl flex-col gap-3 ${admin ? '' : 'px-5 pb-28 lg:px-8 lg:pb-10'}`}>
         <ErrorBox>{err}</ErrorBox>
-        {d == null ? <Spinner /> : !m ? (
-          <Empty title="La Comunidad es solo por invitación">Por ahora VINKA habilita a los asesores uno a uno. Si te interesa participar, escríbele al equipo desde «Equipo VINKA».</Empty>
-        ) : m.status !== 'activo' ? (
-          <Empty title="Tu participación está suspendida">Escribe al equipo de VINKA si crees que es un error.</Empty>
-        ) : !m.rules_accepted ? (
-          <div className="card flex flex-col gap-3 p-4">
-            <span className="font-display text-lg font-semibold">Reglas de la Comunidad</span>
-            <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm leading-relaxed">{RULES.map((r) => <li key={r}>{r}</li>)}</ol>
-            <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-white p-3 text-[13px] leading-snug">
-              <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
-              Leí y acepto las reglas de la Comunidad de VINKA.
-            </label>
-            <button className="btn" disabled={!ok || busy} onClick={accept}>{busy ? 'Guardando…' : 'Aceptar y entrar'}</button>
-          </div>
-        ) : (
-          <>
-            {invites.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <h2 className="text-[15px] font-semibold">Invitaciones · {invites.length}</h2>
-                {invites.map((s) => (
-                  <div key={s.id} className="card flex flex-col gap-2.5 border-[#F3D9A4] p-3.5">
-                    <Link to={`/comunidad/${s.id}`} className="flex items-start gap-2">
-                      <span className="flex min-w-0 flex-1 flex-col"><b className="text-[15px]">{s.title}</b><span className="text-[13px] text-tinta-3">{s.owner} te invita a colaborar · {[s.comuna, s.modality].filter(Boolean).join(' · ')}</span></span>
-                      <Svg name="chevron" size={18} className="mt-1 text-tinta-suave" />
-                    </Link>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button className="btn-sm border border-linea bg-white" onClick={() => respond(s.id, false)}>No puedo</button>
-                      <button className="btn-sm bg-rosa-accion text-white" onClick={() => respond(s.id, true)}>Colaborar</button>
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[15px] font-semibold">Mis búsquedas · {mine.length}</h2>
-              {mine.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-linea bg-white px-4 py-3.5 text-[13px] leading-snug text-tinta-3">
-                  {d.has_workspace
-                    ? <>Para pedir apoyo, abre el proceso de una vacante en Reclutamiento y toca <b>«Pedir apoyo a la comunidad»</b>.{actsAs !== 'company' && <> <Link to="/modo/reclutamiento" className="font-semibold text-rosa-texto">Ir a Reclutamiento →</Link></>}</>
-                    : 'Para publicar búsquedas necesitas tu espacio de reclutamiento. Pídeselo al equipo de VINKA. Mientras tanto, puedes colaborar cuando te inviten.'}
-                </p>
-              ) : mine.map((s) => <SearchRow key={s.id} s={s} />)}
-            </section>
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[15px] font-semibold">Colaboro en · {collab.length}</h2>
-              {collab.length === 0 ? <p className="text-[13px] text-tinta-3">Cuando aceptes una invitación, la búsqueda aparecerá aquí.</p> : collab.map((s) => <SearchRow key={s.id} s={s} />)}
-            </section>
-            <details className="card p-3.5 text-sm">
-              <summary className="cursor-pointer font-semibold">Reglas de la Comunidad</summary>
-              <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-5 text-[13px] leading-relaxed text-tinta-2">{RULES.map((r) => <li key={r}>{r}</li>)}</ol>
-            </details>
-          </>
+        {collabs.length > 0 && (
+          <section className="card flex flex-col gap-1 p-2">
+            <span className="px-2 pt-1.5 text-[15px] font-semibold">Procesos compartidos contigo</span>
+            {collabs.map((c) => (
+              <Link key={c.job_id} to={`/vacantes/${c.job_id}/proceso`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#FAF7F9]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="people" size={18} /></span>
+                <span className="flex min-w-0 flex-1 flex-col"><b className="text-sm">{c.title}</b><span className="text-xs text-tinta-3">De {c.owner}{c.comuna ? ` · ${c.comuna}` : ''}{c.closed ? ' · cerrada' : ''}</span></span>
+                <Svg name="chevron" size={18} className="text-tinta-suave" />
+              </Link>
+            ))}
+          </section>
         )}
+        {!admin && <Composer jobs={jobs} onDone={() => { setToast('Publicado'); load() }} />}
+        {posts == null ? <Spinner /> : posts.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-linea bg-white px-4 py-6 text-center text-sm text-tinta-3">Aún no hay publicaciones. {admin ? '' : '¡Sé el primero en pedir una recomendación!'}</p>
+        ) : posts.map((p) => <Post key={p.id} p={p} admin={admin} onChange={(msg) => { if (msg) setToast(msg); load() }} />)}
+        {more && <button className="btn-sec self-center" onClick={loadMore}>Ver publicaciones anteriores</button>}
       </div>
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
     </Screen>
   )
 }
 
-function SearchRow({ s }) {
+function Composer({ jobs, onDone }) {
+  const [body, setBody] = useState('')
+  const [job, setJob] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const send = async () => {
+    if (!body.trim()) return
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('community_post', { p_body: body.trim(), p_job: job || null })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setBody(''); setJob(''); onDone()
+  }
   return (
-    <Link to={`/comunidad/${s.id}`} className="card flex items-center gap-3 p-3.5 hover:bg-[#FFFCFD]">
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex items-start justify-between gap-2"><b className="text-[15px]">{s.title}</b><Pill st={s.status} map={SEARCH_ST} /></span>
-        <span className="text-[13px] text-tinta-3">
-          {s.my_role === 'responsable' ? pl(s.collaborators, 'colaborador', 'colaboradores') : `Responsable: ${s.owner}`} · {pl(s.presented, 'presentado', 'presentados')}
-          {s.close_estimate ? ` · cierre estimado ${fmt(s.close_estimate)}` : ''}
-        </span>
-        {s.to_review > 0 && <span className="self-start rounded-md bg-[#E7F1FB] px-1.5 py-0.5 text-[11px] font-semibold text-[#1F4E86]">{pl(s.to_review, 'candidato por revisar', 'candidatos por revisar')}</span>}
-      </span>
-      <Svg name="chevron" size={18} className="text-tinta-suave" />
-    </Link>
+    <section className="card flex flex-col gap-2.5 p-3.5">
+      <textarea className="textarea h-24" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} aria-label="Nueva publicación"
+        placeholder="Ej.: Hola, necesito un jefe de tienda en Talca, ¿alguna recomendación?" />
+      {jobs.length > 0 && (
+        <label className="flex flex-col gap-1"><span className="text-[12px] font-semibold text-tinta-2">Ligar a una de tus vacantes (para poder invitar a quien comente)</span>
+          <select className="input h-11" value={job} onChange={(e) => setJob(e.target.value)}>
+            <option value="">Sin vacante</option>
+            {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}{j.comuna ? ` · ${j.comuna}` : ''}</option>)}
+          </select>
+        </label>
+      )}
+      <span className="text-[12px] leading-snug text-tinta-suave">{PRIVACY}</span>
+      <ErrorBox>{err}</ErrorBox>
+      <button className="btn-sm h-11 self-end bg-rosa-accion px-5 text-white" disabled={busy || !body.trim()} onClick={send}>{busy ? 'Publicando…' : 'Publicar'}</button>
+    </section>
   )
 }
 
-/** Detalle de una búsqueda: datos, participantes, presentar y decidir */
-export function CommunitySearch() {
-  const { id } = useParams()
-  const nav = useNavigate()
-  const { actsAs, setMode } = useAuth()
-  const [d, setD] = useState(null)
+function Post({ p, admin, onChange }) {
+  const [txt, setTxt] = useState('')
+  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [toast, setToast] = useState('')
-  const [invOpen, setInvOpen] = useState(false)
-  const [presOpen, setPresOpen] = useState(false)
-  const [decide, setDecide] = useState(null)
-  const load = useCallback(() => supabase.rpc('community_search', { p_search: id }).then(({ data, error }) => {
-    if (error) { setErr(errMsg(error)); setD(false) } else setD(data)
-  }), [id])
-  useEffect(() => { load() }, [load])
+  const [open, setOpen] = useState(p.comments.length <= 3)
   const call = async (fn, args, msg) => {
     setErr('')
     const { error } = await supabase.rpc(fn, args)
     if (error) { setErr(errMsg(error)); return false }
-    if (msg) setToast(msg)
-    load(); return true
+    onChange(msg); return true
   }
-  const goProcess = () => { if (actsAs !== 'company') setMode('reclutamiento'); nav(`/vacantes/${d.job_id}/proceso`) }
-  if (d == null) return <Screen><TopBar back="/comunidad" title="Búsqueda" /><Spinner /></Screen>
-  if (d === false) return <Screen><TopBar back="/comunidad" title="Búsqueda" /><div className="p-5"><ErrorBox>{err}</ErrorBox></div></Screen>
-  const role = d.my_role
-  const open = d.status === 'abierta'
-  const reqs = (d.requirements || []).map((r) => (typeof r === 'string' ? r : r?.text)).filter(Boolean)
-  const others = (d.participants || []).filter((p) => p.role === 'colaborador')
-  const pres = d.presentations || []
-  return (
-    <Screen className="bg-[#FAF7F9]" wide>
-      <TopBar back="/comunidad" title="Búsqueda de la comunidad" />
-      <div className="flex flex-col gap-3 px-5 pb-28 lg:grid lg:grid-cols-[1fr_340px] lg:items-start lg:px-8 lg:pb-10">
-        <div className="flex flex-col gap-3">
-          <ErrorBox>{err}</ErrorBox>
-          <section className="card flex flex-col gap-2.5 p-4">
-            <div className="flex items-start justify-between gap-2">
-              <span className="flex flex-col gap-0.5"><h1 className="text-[20px] font-bold leading-tight">{d.title}</h1><span className="text-sm font-semibold text-rosa-texto">{d.company}</span></span>
-              <Pill st={d.status} map={SEARCH_ST} />
-            </div>
-            <span className="text-[13px] text-tinta-3">{[d.area, d.level, d.modality, d.schedule, d.contract, [d.comuna, d.region].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</span>
-            <span className="text-sm font-semibold">{salaryText(d)}</span>
-            <span className="text-[13px] text-tinta-2">{ROLE[role]} · Responsable: <b>{d.owner}</b> · publicada {fmt(d.created_at)}{d.close_estimate ? ` · cierre estimado ${fmt(d.close_estimate)}` : ''}</span>
-            <div className="flex flex-col gap-1.5 rounded-xl bg-[#FAF7F9] p-3 text-[13px] leading-snug">
-              <span><b>Qué se pide:</b> {COLLAB[d.collab_type] || d.collab_type}</span>
-              {d.experience && <span><b>Experiencia:</b> {d.experience}</span>}
-              {d.skills?.length > 0 && <span className="flex flex-wrap gap-1">{d.skills.map((s) => <span key={s} className="rounded-md bg-white px-1.5 py-0.5 text-[12px] font-semibold text-tinta-2">{s}</span>)}</span>}
-              {d.note && <span className="whitespace-pre-line text-tinta-2">«{d.note}»</span>}
-            </div>
-            {reqs.length > 0 && <ul className="flex list-disc flex-col gap-1 pl-5 text-[13px] text-tinta-2">{reqs.map((r, i) => <li key={i}>{r}</li>)}</ul>}
-            {d.description && <details className="text-[13px]"><summary className="cursor-pointer font-semibold">Descripción de la vacante</summary><p className="mt-1.5 whitespace-pre-line leading-relaxed text-tinta-2">{d.description}</p></details>}
-            {role === 'invitado' && (
-              <div className="grid grid-cols-2 gap-2">
-                <button className="btn-sm border border-linea bg-white" onClick={() => call('community_respond_invite', { p_search: id, p_accept: false }, 'Invitación rechazada').then((x) => x && nav('/comunidad'))}>No puedo</button>
-                <button className="btn-sm bg-rosa-accion text-white" onClick={() => call('community_respond_invite', { p_search: id, p_accept: true }, 'Ya colaboras en esta búsqueda')}>Colaborar</button>
-              </div>
-            )}
-            {role === 'responsable' && (
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-sm bg-morado text-white" onClick={goProcess}>Ver proceso de la vacante</button>
-                {d.status === 'abierta' && <button className="btn-sm border border-linea bg-white" onClick={() => call('community_set_status', { p_search: id, p_status: 'pausada' }, 'Búsqueda pausada')}>Pausar</button>}
-                {d.status === 'pausada' && <button className="btn-sm border border-linea bg-white" onClick={() => call('community_set_status', { p_search: id, p_status: 'abierta' }, 'Búsqueda reabierta')}>Reabrir</button>}
-                {d.status !== 'cerrada' && <button className="btn-sm border border-linea bg-white" onClick={() => call('community_set_status', { p_search: id, p_status: 'cerrada' }, 'Búsqueda cerrada')}>Cerrar búsqueda</button>}
-              </div>
-            )}
-          </section>
-
-          {role !== 'invitado' && (
-            <section className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[15px] font-semibold">{role === 'colaborador' ? 'Tus presentados' : 'Candidatos presentados'} · {pres.filter((x) => x.status !== 'no_acepto').length}</h2>
-                {open && (role === 'responsable' || role === 'colaborador') && <button className="btn-sm h-10 bg-rosa-accion text-white" onClick={() => setPresOpen(true)}><Svg name="plus" size={16} />&nbsp;Presentar</button>}
-              </div>
-              {role === 'responsable' && pres.some((x) => x.status === 'esperando_consentimiento' && !x.mine) && (
-                <p className="text-[12px] leading-snug text-tinta-3">Mientras la persona no acepte postular, no ves quién es: solo quien la presentó.</p>
-              )}
-              {pres.length === 0 ? <p className="rounded-2xl border border-dashed border-linea bg-white px-4 py-3.5 text-[13px] text-tinta-3">Aún no hay candidatos presentados.</p> : pres.map((x) => (
-                <div key={x.id} className="card flex flex-col gap-2 p-3.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <b className="text-[15px]">{x.candidate || 'Persona por confirmar'}</b>
-                      {x.headline && <span className="text-[13px] text-tinta-3">{x.headline}</span>}
-                      <span className="text-[12px] text-tinta-suave">Presentado por {x.mine ? 'ti' : x.presented_by} · {REL[x.relation]} · {fmt(x.created_at)}</span>
-                    </span>
-                    <Pill st={x.status} map={PRES_ST} />
-                  </div>
-                  {x.note && <span className="whitespace-pre-line rounded-xl bg-[#FAF7F9] px-3 py-2 text-[13px] text-tinta-2">«{x.note}»</span>}
-                  {x.response_note && <span className="whitespace-pre-line rounded-xl bg-[#FFFAEE] px-3 py-2 text-[13px] text-tinta-2"><b>Respuesta del responsable:</b> {x.response_note}</span>}
-                  {x.stage && ['aceptado', 'rechazado', 'presentado', 'mas_antecedentes'].includes(x.status) && <span className="text-[12px] text-tinta-3">Etapa en el proceso: <b>{STAGE[x.stage] || x.stage}</b></span>}
-                  {role === 'responsable' && ['presentado', 'mas_antecedentes'].includes(x.status) && (
-                    <div className="grid grid-cols-3 gap-2">
-                      <button className="btn-sm border border-linea bg-white px-2" onClick={() => setDecide({ x, decision: 'rechazado' })}>No avanza</button>
-                      <button className="btn-sm border border-linea bg-white px-2" onClick={() => setDecide({ x, decision: 'mas_antecedentes' })}>Más datos</button>
-                      <button className="btn-sm bg-[#1E6B3F] px-2 text-white" onClick={() => setDecide({ x, decision: 'aceptado' })}>Aceptar</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </section>
-          )}
-        </div>
-
-        <aside className="flex flex-col gap-3">
-          <section className="card flex flex-col gap-2 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[15px] font-semibold">Participantes</h2>
-              {role === 'responsable' && open && <button className="text-[13px] font-semibold text-rosa-texto" onClick={() => setInvOpen(true)}>+ Invitar</button>}
-            </div>
-            <span className="text-sm"><b>{d.owner}</b> <span className="text-tinta-3">· responsable</span></span>
-            {others.length === 0 ? <span className="text-[13px] text-tinta-3">{role === 'responsable' ? 'Invita a asesores de la comunidad para que te presenten candidatos.' : 'Sin otros colaboradores.'}</span> : others.map((p) => (
-              <div key={p.user_id} className="flex items-center justify-between gap-2 text-sm">
-                <span>{p.name} <span className="text-tinta-3">· {p.status === 'aceptado' ? 'colabora' : p.status === 'invitado' ? 'invitado/a' : p.status === 'rechazado' ? 'no aceptó' : 'retirado/a'}</span></span>
-                {role === 'responsable' && ['invitado', 'aceptado'].includes(p.status) && <button className="text-[12px] font-semibold text-[#912018]" onClick={() => call('community_remove', { p_search: id, p_user: p.user_id }, 'Participante retirado')}>Retirar</button>}
-              </div>
-            ))}
-            {role === 'colaborador' && <button className="btn-sm mt-1 self-start border border-linea bg-white" onClick={async () => { const me = (await supabase.auth.getUser()).data.user?.id; if (await call('community_remove', { p_search: id, p_user: me }, 'Te retiraste de la búsqueda')) nav('/comunidad') }}>Retirarme de la búsqueda</button>}
-          </section>
-          <p className="px-1 text-[12px] leading-snug text-tinta-3">Toda presentación requiere el consentimiento de la persona. La información de esta búsqueda es confidencial.</p>
-        </aside>
-      </div>
-      {invOpen && <InviteSheet id={id} onClose={() => setInvOpen(false)} onDone={() => { setToast('Invitación enviada'); load() }} />}
-      {presOpen && <PresentSheet id={id} onClose={() => setPresOpen(false)} onDone={() => { setPresOpen(false); setToast('Listo: la persona recibió la recomendación'); load() }} />}
-      <DecideSheet item={decide} onClose={() => setDecide(null)} onDone={(msg) => { setDecide(null); setToast(msg); load() }} />
-      {toast && <Toast msg={toast} onDone={() => setToast('')} />}
-    </Screen>
-  )
-}
-
-function InviteSheet({ id, onClose, onDone }) {
-  const [list, setList] = useState(null)
-  const [err, setErr] = useState('')
-  const load = useCallback(() => supabase.rpc('community_invitable', { p_search: id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }), [id])
-  useEffect(() => { load() }, [load])
-  const invite = async (u) => {
-    setErr('')
-    const { error } = await supabase.rpc('community_invite', { p_search: id, p_user: u })
-    if (error) return setErr(errMsg(error))
-    onDone(); load()
-  }
-  return (
-    <Sheet open onClose={onClose} title="Invitar a colaborar">
-      <div className="flex flex-col gap-2">
-        <ErrorBox>{err}</ErrorBox>
-        {list == null ? <Spinner /> : list.length === 0 ? <p className="text-sm text-tinta-3">No hay más asesores habilitados para invitar.</p> : list.map((u) => (
-          <div key={u.user_id} className="flex items-center justify-between gap-2 rounded-xl border border-linea p-3">
-            <span className="flex min-w-0 flex-col"><b className="text-sm">{u.name}</b>{u.specialties?.length > 0 && <span className="text-[12px] text-tinta-3">{u.specialties.join(' · ')}</span>}</span>
-            <button className="btn-sm h-10 shrink-0 bg-rosa-accion text-white" onClick={() => invite(u.user_id)}>Invitar</button>
-          </div>
-        ))}
-      </div>
-    </Sheet>
-  )
-}
-
-function PresentSheet({ id, onClose, onDone }) {
-  const [list, setList] = useState(null)
-  const [q, setQ] = useState('')
-  const [sel, setSel] = useState(null)
-  const [note, setNote] = useState('')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  useEffect(() => { supabase.rpc('community_presentable', { p_search: id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setList(data || []) }) }, [id])
-  const qn = q.trim().toLowerCase()
-  const shown = (list || []).filter((c) => !qn || `${c.name} ${c.headline} ${c.comuna}`.toLowerCase().includes(qn))
-  const send = async () => {
-    setBusy(true); setErr('')
-    const { error } = await supabase.rpc('community_present', { p_search: id, p_candidate: sel.candidate_id, p_note: note.trim() })
+  const comment = async () => {
+    if (!txt.trim()) return
+    setBusy(true)
+    const ok = await call('community_comment', { p_post: p.id, p_body: txt.trim() })
     setBusy(false)
-    if (error) return setErr(errMsg(error))
-    onDone()
+    if (ok) { setTxt(''); setOpen(true) }
   }
+  const shown = open ? p.comments : p.comments.slice(-2)
   return (
-    <Sheet open onClose={onClose} title={sel ? `Presentar a ${sel.name}` : 'Presentar candidato'}>
-      <div className="flex flex-col gap-2.5">
-        <ErrorBox>{err}</ErrorBox>
-        {sel ? (
-          <>
-            <p className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[13px] leading-snug text-tinta-2">{sel.name} recibirá la recomendación en VINKA y decidirá si postula. Solo si acepta, quien gestiona la vacante verá su perfil.</p>
-            <label className="flex flex-col gap-1.5"><span className="label">¿Por qué lo/la recomiendas? (opcional)</span>
-              <textarea className="textarea h-24" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Experiencia relevante, disponibilidad, lo que conoces de su trabajo" /></label>
-            <span className="text-[12px] text-tinta-suave">La persona y el responsable verán este mensaje.</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button className="btn-sm border border-linea bg-white" onClick={() => setSel(null)}>Volver</button>
-              <button className="btn-sm bg-rosa-accion text-white" disabled={busy} onClick={send}>{busy ? 'Enviando…' : 'Enviar recomendación'}</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-[13px] leading-snug text-tinta-3">Puedes presentar a personas que asesoras o que están en tus propios procesos.</p>
-            <input className="input h-11" placeholder="Buscar por nombre, cargo o comuna" value={q} onChange={(e) => setQ(e.target.value)} />
-            {list == null ? <Spinner /> : shown.length === 0 ? <p className="text-sm text-tinta-3">{list.length ? 'Nadie coincide con la búsqueda.' : 'Aún no tienes asesorados ni personas en tus procesos.'}</p> : shown.map((c) => (
-              <button key={c.candidate_id} disabled={c.already} onClick={() => setSel(c)} className="flex items-center gap-2 rounded-xl border border-linea p-3 text-left disabled:opacity-55">
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <b className="text-sm">{c.name}</b>
-                  <span className="text-[12px] text-tinta-3">{[c.headline, c.comuna].filter(Boolean).join(' · ') || 'Sin cargo definido'}</span>
-                  <span className="text-[11px] font-semibold text-tinta-suave">{REL[c.relation]}{c.already ? ' · ya está en esta vacante' : ''}</span>
-                </span>
-                {!c.already && <Svg name="chevron" size={18} className="text-tinta-suave" />}
-              </button>
-            ))}
-          </>
+    <article id={'p-' + p.id} className={`card flex scroll-mt-4 flex-col gap-2.5 p-3.5 ${p.hidden ? 'opacity-60' : ''}`}>
+      <header className="flex items-start gap-2.5">
+        <Avatar text={initials(p.author)} color={colorFor(p.author || '')} size={40} round />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <b className="text-[15px]">{p.author}{p.mine && <span className="font-normal text-tinta-3"> (tú)</span>}</b>
+          <span className="text-[12px] text-tinta-3">{[p.specialty, ago(p.created_at)].filter(Boolean).join(' · ')}{p.hidden ? ' · oculta' : ''}</span>
+        </span>
+        {(p.mine || admin) && !p.hidden && (
+          <button className="text-[12px] font-semibold text-tinta-3" onClick={() => call('community_hide', { p_kind: 'post', p_id: p.id }, admin ? 'Publicación oculta' : 'Publicación borrada')}>{admin ? 'Ocultar' : 'Borrar'}</button>
         )}
-      </div>
-    </Sheet>
+      </header>
+      <p className="whitespace-pre-line text-[15px] leading-relaxed">{p.body}</p>
+      {p.job && (
+        <span className="flex items-center gap-2 self-start rounded-xl bg-[#FAF7F9] px-3 py-2 text-[13px] text-tinta-2">
+          <Svg name="building" size={16} />Vacante: <b>{p.job.title}</b>{p.job.comuna ? ` · ${p.job.comuna}` : ''}{p.job.closed ? ' · cerrada' : ''}
+        </span>
+      )}
+      {p.comments.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-[#F4EEF2] pt-2.5">
+          {!open && <button className="self-start text-[13px] font-semibold text-tinta-3" onClick={() => setOpen(true)}>Ver los {p.comments.length} comentarios</button>}
+          {shown.map((c) => (
+            <div key={c.id} className={`flex gap-2 ${c.hidden ? 'opacity-60' : ''}`}>
+              <Avatar text={initials(c.author)} color={colorFor(c.author || '')} size={30} round />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="rounded-2xl bg-[#FAF7F9] px-3 py-2">
+                  <b className="text-[13px]">{c.author}{c.mine && <span className="font-normal text-tinta-3"> (tú)</span>}</b>
+                  <p className="whitespace-pre-line text-sm leading-snug">{c.body}</p>
+                </div>
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] text-tinta-3">
+                  {ago(c.created_at)}{c.hidden ? ' · oculto' : ''}
+                  {c.invited && <span className="font-semibold text-[#1E6B3F]">✓ En el proceso</span>}
+                  {p.can_invite && !c.mine && !c.invited && !c.hidden && (
+                    <button className="font-semibold text-rosa-texto" onClick={() => call('community_invite_to_process', { p_comment: c.id }, `${c.author} ya puede ver tu proceso y conversar contigo`)}>Invitar al proceso</button>
+                  )}
+                  {(c.mine || admin) && !c.hidden && <button className="font-semibold" onClick={() => call('community_hide', { p_kind: 'comment', p_id: c.id }, admin ? 'Comentario oculto' : 'Comentario borrado')}>{admin ? 'Ocultar' : 'Borrar'}</button>}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <ErrorBox>{err}</ErrorBox>
+      {!admin && !p.hidden && (
+        <div className="flex items-end gap-2">
+          <textarea rows={1} className="textarea min-h-11 flex-1 py-2.5" maxLength={1000} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Escribe un comentario" aria-label="Comentario" />
+          <button aria-label="Comentar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rosa-accion text-white disabled:opacity-50" disabled={busy || !txt.trim()} onClick={comment}><Svg name="send" size={18} /></button>
+        </div>
+      )}
+    </article>
   )
 }
 
-const DECIDE_TXT = {
-  aceptado: ['Aceptar candidato/a', 'Pasa a «Match» en el proceso de la vacante y podrás escribirle por el chat.', 'Aceptar', 'Candidato/a aceptado: ya está en tu proceso'],
-  rechazado: ['No avanzar', 'Queda descartado/a en el proceso. Quien lo/la presentó recibirá tu respuesta.', 'Confirmar', 'Respuesta enviada'],
-  mas_antecedentes: ['Pedir más antecedentes', 'Cuéntale a quien lo/la presentó qué información necesitas.', 'Enviar', 'Pedido enviado'],
-}
-function DecideSheet({ item, onClose, onDone }) {
-  const [note, setNote] = useState('')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  useEffect(() => { setNote(''); setErr('') }, [item])
-  if (!item) return null
-  const [title, hint, btn, msg] = DECIDE_TXT[item.decision]
-  const send = async () => {
-    if (item.decision === 'mas_antecedentes' && !note.trim()) return setErr('Escribe qué antecedentes necesitas.')
-    setBusy(true); setErr('')
-    const { error } = await supabase.rpc('community_decide', { p_presentation: item.x.id, p_decision: item.decision, p_note: note.trim() })
-    setBusy(false)
-    if (error) return setErr(errMsg(error))
-    onDone(msg)
-  }
-  return (
-    <Sheet open onClose={onClose} title={`${title}: ${item.x.candidate || ''}`}>
-      <div className="flex flex-col gap-2.5">
-        <p className="text-[13px] leading-snug text-tinta-2">{hint}</p>
-        <textarea className="textarea h-24" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={item.decision === 'mas_antecedentes' ? 'Ej.: ¿tiene licencia clase B? ¿cuál es su pretensión de renta?' : 'Mensaje para quien lo/la presentó (opcional)'} />
-        <ErrorBox>{err}</ErrorBox>
-        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Guardando…' : btn}</button>
-      </div>
-    </Sheet>
-  )
-}
-
-/** Proceso de una vacante: pedir apoyo a la comunidad o ir a la búsqueda abierta */
-export function CommunityButton({ jobId, jobTitle }) {
+/** En el proceso de una vacante: asesores invitados y su chat interno */
+export function CollabBar({ jobId }) {
   const nav = useNavigate()
-  const [state, setState] = useState(null) // { member, search }
-  const [open, setOpen] = useState(false)
+  const { search } = useLocation()
+  const [info, setInfo] = useState(null)
+  const [chat, setChat] = useState(null) // { collab, name }
+  const [err, setErr] = useState('')
+  const load = useCallback(() => supabase.rpc('job_collab_info', { p_job: jobId }).then(({ data, error }) => { if (!error) setInfo(data) }), [jobId])
+  useEffect(() => { load() }, [load])
+  const { user } = useAuth()
+  // Abrir el chat directo al llegar desde un aviso (?chat=…)
   useEffect(() => {
-    let alive = true
-    Promise.all([supabase.rpc('community_home'), supabase.rpc('community_search_for_job', { p_job: jobId })]).then(([h, s]) => {
-      if (!alive || h.error) return
-      setState({ member: h.data?.member?.status === 'activo' && h.data.member.rules_accepted, pending: h.data?.member?.status === 'activo' && !h.data.member.rules_accepted, search: s.error ? null : s.data })
-    })
-    return () => { alive = false }
-  }, [jobId])
-  if (!state || (!state.member && !state.pending && !state.search)) return null
-  if (state.search) return <button className="btn-sm h-10 border border-linea bg-white" onClick={() => nav(`/comunidad/${state.search}`)}><Svg name="people" size={16} />&nbsp;Búsqueda en la comunidad</button>
-  if (state.pending) return <button className="btn-sm h-10 border border-linea bg-white" onClick={() => nav('/comunidad')}><Svg name="people" size={16} />&nbsp;Pedir apoyo a la comunidad</button>
+    const q = new URLSearchParams(search).get('chat')
+    if (!q || !info) return
+    if (info.role === 'invitado') setChat({ collab: user?.id, name: info.owner })
+    else { const c = (info.collaborators || []).find((x) => x.user_id === q); if (c) setChat({ collab: c.user_id, name: c.name, removable: true }) }
+  }, [search, info, user])
+  if (!info) return null
+  const remove = async (uid, self) => {
+    setErr('')
+    const { error } = await supabase.rpc('collab_remove', { p_job: jobId, p_user: uid })
+    if (error) return setErr(errMsg(error))
+    setChat(null)
+    if (self) nav('/comunidad'); else load()
+  }
+  if (info.role === 'invitado') return (
+    <div className="mt-2 flex flex-col gap-2 rounded-2xl bg-[#FFFAEE] px-3.5 py-2.5 text-[13px] text-tinta-2">
+      <span><b>{info.owner}</b> te invitó a ver este proceso desde la Comunidad. Puedes revisarlo, pero solo su equipo mueve candidatos.</span>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-sm h-10 bg-rosa-accion text-white" onClick={() => setChat({ collab: user?.id, name: info.owner })}><Svg name="chat" size={16} />&nbsp;Chat con {info.owner}</button>
+        <button className="btn-sm h-10 border border-linea bg-white" onClick={() => remove(user?.id, true)}>Salir del proceso</button>
+      </div>
+      <ErrorBox>{err}</ErrorBox>
+      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} onClose={() => setChat(null)} />}
+    </div>
+  )
+  if (!info.collaborators?.length) return null
   return (
-    <>
-      <button className="btn-sm h-10 border border-linea bg-white" onClick={() => setOpen(true)}><Svg name="people" size={16} />&nbsp;Pedir apoyo a la comunidad</button>
-      {open && <PublishSheet jobId={jobId} jobTitle={jobTitle} onClose={() => setOpen(false)} onDone={(sid) => nav(`/comunidad/${sid}`)} />}
-    </>
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+      <span className="text-tinta-3">Asesores invitados:</span>
+      {info.collaborators.map((c) => (
+        <button key={c.user_id} className="btn-sm h-9 border border-linea bg-white" onClick={() => setChat({ collab: c.user_id, name: c.name, removable: true })}><Svg name="chat" size={15} />&nbsp;{c.name}</button>
+      ))}
+      <ErrorBox>{err}</ErrorBox>
+      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} onClose={() => setChat(null)} onRemove={chat.removable ? () => remove(chat.collab, false) : null} />}
+    </div>
   )
 }
 
-export function PublishSheet({ jobId, jobTitle, onClose, onDone }) {
-  const [f, setF] = useState({ collab_type: 'candidatos', experience: '', skills: [], close_estimate: '', show_company: false, note: '' })
+function CollabChat({ jobId, collab, name, onClose, onRemove }) {
+  const [msgs, setMsgs] = useState(null)
+  const [txt, setTxt] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }))
+  const end = useRef(null)
+  const load = useCallback(() => supabase.rpc('collab_thread', { p_job: jobId, p_collab: collab }).then(({ data, error }) => {
+    if (error) { setErr(errMsg(error)); setMsgs((m) => m || []) } else setMsgs(data || [])
+  }), [jobId, collab])
+  useEffect(() => { load(); const t = setInterval(load, 6000); return () => clearInterval(t) }, [load])
+  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [msgs?.length])
   const send = async () => {
+    if (!txt.trim()) return
     setBusy(true); setErr('')
-    const { data, error } = await supabase.rpc('community_publish', { p_job: jobId, p: f })
+    const { error } = await supabase.rpc('collab_send', { p_job: jobId, p_collab: collab, p_body: txt.trim() })
     setBusy(false)
     if (error) return setErr(errMsg(error))
-    onDone(data)
+    setTxt(''); load()
   }
   return (
-    <Sheet open onClose={onClose} title="Pedir apoyo a la comunidad">
-      <div className="flex flex-col gap-3">
-        <p className="text-[13px] leading-snug text-tinta-2">Publica <b>{jobTitle}</b> para que asesores que invites te presenten candidatos. Solo verán la búsqueda quienes tú invites.</p>
-        <fieldset className="flex flex-col gap-1.5"><legend className="label mb-1.5">¿Qué apoyo necesitas?</legend>
-          <div className="flex flex-wrap gap-1.5">{Object.entries(COLLAB).map(([k, l]) => <button type="button" key={k} className={`chip h-9 text-[13px] ${f.collab_type === k ? 'chip-on' : ''}`} onClick={() => set('collab_type')(k)}>{l}</button>)}</div>
-        </fieldset>
-        <label className="flex flex-col gap-1.5"><span className="label">Experiencia esperada</span>
-          <input className="input h-11" maxLength={500} value={f.experience} onChange={(e) => set('experience')(e.target.value)} placeholder="Ej.: 2 años en bodega o centro de distribución" /></label>
-        <div className="flex flex-col gap-1.5"><span className="label">Competencias clave</span><TagInput value={f.skills} onChange={set('skills')} placeholder="Escribe y presiona Enter" /></div>
-        <label className="flex flex-col gap-1.5"><span className="label">Cierre estimado (opcional)</span>
-          <input className="input h-11" type="date" value={f.close_estimate} onChange={(e) => set('close_estimate')(e.target.value)} /></label>
-        <label className="flex flex-col gap-1.5"><span className="label">Mensaje para los asesores (opcional)</span>
-          <textarea className="textarea h-20" maxLength={1000} value={f.note} onChange={(e) => set('note')(e.target.value)} placeholder="Lo que más importa del perfil, urgencia, contexto del cliente" /></label>
-        <label className="flex items-start gap-2.5 text-[13px] leading-snug">
-          <input type="checkbox" checked={f.show_company} onChange={(e) => set('show_company')(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
-          Mostrar el nombre de la empresa a los colaboradores (si la vacante es confidencial, nunca se muestra).
-        </label>
+    <Sheet open onClose={onClose} title={`Chat con ${name}`}>
+      <div className="flex flex-col gap-2.5">
+        <p className="text-[12px] leading-snug text-tinta-3">Conversación privada entre ustedes sobre este proceso: compartan ideas y repártanse tareas.</p>
+        <div className="flex max-h-[50vh] min-h-[8rem] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#FAF7F9] p-2.5">
+          {msgs == null ? <Spinner /> : msgs.length === 0 ? <span className="m-auto text-[13px] text-tinta-3">Aún no hay mensajes.</span> : msgs.map((m) => (
+            <div key={m.id} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.mine ? 'self-end bg-rosa-accion text-white' : 'self-start bg-white'}`}>
+              <p className="whitespace-pre-line leading-snug">{m.body}</p>
+              <span className={`text-[11px] ${m.mine ? 'text-white/80' : 'text-tinta-suave'}`}>{m.mine ? '' : `${m.sender} · `}{new Date(m.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ))}
+          <span ref={end} />
+        </div>
         <ErrorBox>{err}</ErrorBox>
-        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Publicando…' : 'Publicar en la comunidad'}</button>
+        <div className="flex items-end gap-2">
+          <textarea rows={2} className="textarea flex-1" maxLength={2000} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Escribe un mensaje" aria-label="Mensaje" />
+          <button aria-label="Enviar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rosa-accion text-white disabled:opacity-50" disabled={busy || !txt.trim()} onClick={send}><Svg name="send" size={18} /></button>
+        </div>
+        {onRemove && <button className="self-start text-[13px] font-semibold text-[#912018]" onClick={onRemove}>Quitar a {name} del proceso</button>}
       </div>
     </Sheet>
   )

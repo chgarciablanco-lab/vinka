@@ -10,7 +10,7 @@ import { PresenceLine } from '../../components/Presence'
 import { pl, plw } from '../../lib/text'
 import { useDialogFocus } from '../../lib/useDialogFocus'
 
-import { CommunityButton } from '../community/Community'
+import { CollabBar } from '../community/Community'
 
 const CandidateDetail = lazy(() => import('./CandidateDetail'))
 
@@ -122,7 +122,7 @@ export function StagePicker({ current, onPick, kind }) {
   )
 }
 
-function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, canManage, showStage, p, by }) {
+function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, canManage, showStage, p }) {
   const next = NEXT[c.stage]
   return (
     <div draggable={canManage && !selecting} onDragStart={(e) => e.dataTransfer.setData('text/plain', JSON.stringify({ kind: c.kind, id: c.id }))}
@@ -139,9 +139,8 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
           {showStage && <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: colorOf(c.stage) }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: colorOf(c.stage) }} />{SHORT[c.stage]}</span>}
         </span>
       </button>
-      {(c.knocked_out || c.kind === 'externo' || c.fit != null || c.eval_n > 0 || c.next_interview || c.tags?.length > 0 || by) && (
+      {(c.knocked_out || c.kind === 'externo' || c.fit != null || c.eval_n > 0 || c.next_interview || c.tags?.length > 0) && (
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
-          {by && <span className="rounded-md bg-[#FFF4D6] px-1.5 py-0.5 text-[#7A5200]">Presentado por {by}</span>}
           {c.knocked_out && <span className="rounded-md bg-[#FEF3F2] px-1.5 py-0.5 text-[#912018]">No cumple filtro</span>}
           {c.kind === 'externo' && <span className="rounded-md bg-[#EEF2FA] px-1.5 py-0.5 text-[#2C4A8A]">{c.source === 'externo' ? 'Otro portal' : c.source}</span>}
           {c.fit != null && <span className="rounded-md bg-[#F7F0FB] px-1.5 py-0.5 text-[#6B2E8F]">IA {c.fit}%</span>}
@@ -170,9 +169,7 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
 export default function Pipeline() {
   const { id } = useParams()
   const nav = useNavigate()
-  const { profile } = useAuth()
   const [d, setD] = useState(null)
-  const [attr, setAttr] = useState({})
   const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [hideKo, setHideKo] = useState(false)
@@ -190,10 +187,8 @@ export default function Pipeline() {
   const pickView = (v) => { setView(v); try { localStorage.setItem('vinka-pipeline-view', v) } catch { /* sin almacenamiento */ } }
 
   const load = useCallback(async () => {
-    const [{ data, error }, a] = await Promise.all([supabase.rpc('job_pipeline', { p_job: id }), supabase.rpc('community_job_attributions', { p_job: id })])
+    const { data, error } = await supabase.rpc('job_pipeline', { p_job: id })
     if (error) return setErr(errMsg(error))
-    // Quién presentó a cada persona desde la Comunidad (si falla, el proceso se muestra igual)
-    if (!a.error) setAttr(Object.fromEntries((a.data || []).map((x) => [x.candidate_id, x.presented_by])))
     setD(data)
   }, [id])
   useEffect(() => { load() }, [load])
@@ -236,7 +231,7 @@ export default function Pipeline() {
   const canManage = d.can_manage
   const ko = d.cards.filter((c) => c.knocked_out).length
   const list = col === 'todas' ? cards : byCol[col]
-  const cardProps = (c) => ({ c, p: pres[c.candidate_id], by: c.candidate_id && attr[c.candidate_id], canManage, selecting, selected: sel.includes(key(c)), onToggle: () => toggle(c), onOpen: () => open(c), onMove: () => setMoving(c), onAdvance: () => move(c, NEXT[c.stage]) })
+  const cardProps = (c) => ({ c, p: pres[c.candidate_id], canManage, selecting, selected: sel.includes(key(c)), onToggle: () => toggle(c), onOpen: () => open(c), onMove: () => setMoving(c), onAdvance: () => move(c, NEXT[c.stage]) })
   const tiles = [['todas', 'Todas', '#302538'], ...COLUMNAS.map(([k, , color]) => [k, SHORT[k], color])]
 
   return (
@@ -247,7 +242,7 @@ export default function Pipeline() {
           <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')}</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
           {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]); setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : <><Svg name="check" size={16} className="mr-1" />Seleccionar varios</>}</button>}
         </div>
-        {canManage && !selecting && profile?.role === 'advisor' && <div className="mt-1 flex"><CommunityButton jobId={id} jobTitle={d.job.title} /></div>}
+        {!selecting && <CollabBar jobId={id} />}
         {canManage && !selecting && !tipSeen && d.cards.length >= 3 && (
           <div className="mt-2 flex items-center gap-2 rounded-xl bg-[#F7F0FB] px-3 py-2 text-[12px] leading-snug text-[#4A2163]">
             <span className="flex-1">¿Varias personas a la vez? Con <b>Seleccionar varios</b> las mueves de etapa o les envías un mensaje común.</span>

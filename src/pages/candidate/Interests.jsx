@@ -44,40 +44,30 @@ export default function Interests() {
   const [ivs, setIvs] = useState([])
   const [offers, setOffers] = useState([])
   const [ivOpen, setIvOpen] = useState(null)
-  const [recs, setRecs] = useState([])
   const { byMatch } = useUnread()
 
   const load = useCallback(async () => {
-    const [a, b, c, d, e] = await Promise.all([
+    const [a, b, c, d] = await Promise.all([
       supabase.rpc('my_interests'), supabase.rpc('my_matches'), supabase.rpc('my_interviews'),
       supabase.from('offers').select('id, match_id, status, position, expires_on, created_at').eq('candidate_id', user.id).neq('status', 'retirada').order('created_at', { ascending: false }),
-      supabase.rpc('my_recommendations'),
     ])
     if (a.error || b.error) setErr(errMsg(a.error || b.error))
-    // Recomendaciones de asesores de VINKA (Comunidad): si fallan, el resto de la pantalla sigue funcionando
-    setRecs(e.error ? [] : e.data || [])
     setRows(a.data || []); setMatches(b.data || []); setIvs(c.data || []); setOffers(d.data || [])
   }, [user.id])
   useEffect(() => { load() }, [load])
-  useEffect(() => { if (rows && tab === 'invited' && !rows.some((r) => r.kind === 'invited') && !recs.length) setTab(matches.length ? 'match' : 'sent') }, [rows]) // eslint-disable-line
+  useEffect(() => { if (rows && tab === 'invited' && !rows.some((r) => r.kind === 'invited')) setTab(matches.length ? 'match' : 'sent') }, [rows]) // eslint-disable-line
 
   const [ask, setAsk] = useState(null)
-  // rec: recomendación de la Comunidad. Se postula por el camino normal (con preguntas de filtro si las hay) y luego se da el consentimiento.
-  const respond = async (job_id, action, answers = null, rec = null) => {
-    setErr('')
+  const respond = async (job_id, action, answers = null) => {
     if (action === 'interest' && !answers) {
       const qs = await jobQuestions(job_id)
-      if (qs.length) return setAsk({ job_id, rec, questions: qs, title: rec?.title || (rows || []).find((x) => x.job_id === job_id)?.title })
+      if (qs.length) return setAsk({ job_id, questions: qs, title: (rows || []).find((x) => x.job_id === job_id)?.title })
     }
     const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id, action, ...(answers ? { answers } : {}) })
     if (error) return setErr(errMsg(error))
-    if (rec && action === 'interest') {
-      const { error: e2 } = await supabase.rpc('community_consent', { p_presentation: rec.id, p_accept: true })
-      if (e2) setErr(errMsg(e2))
-    }
     if (action === 'interest') {
       const { data } = await supabase.from('matches').select('id').eq('job_id', job_id).eq('candidate_id', user.id).maybeSingle()
-      const r = (rows || []).find((x) => x.job_id === job_id) || (rec && { title: rec.title, company_name: rec.company })
+      const r = (rows || []).find((x) => x.job_id === job_id)
       if (data) {
         setMatch({ matchId: data.id, jobTitle: r?.title, otherName: r?.company_name, continueLabel: 'Volver a Intereses',
           leftInitials: `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`.toUpperCase(), leftColor: '#D02E72',
@@ -86,15 +76,9 @@ export default function Interests() {
     }
     load()
   }
-  const declineRec = async (rec) => {
-    setErr('')
-    const { error } = await supabase.rpc('community_consent', { p_presentation: rec.id, p_accept: false })
-    if (error) setErr(errMsg(error))
-    load()
-  }
   const unsave = async (job_id) => { await supabase.from('candidate_job_actions').delete().eq('candidate_id', user.id).eq('job_id', job_id); load() }
 
-  const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length + (k === 'invited' ? recs.length : 0))
+  const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length)
   const list = tab === 'match'
     ? matches.map((m) => ({ key: m.match_id, job_id: m.job_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage, closed: m.closed, can_schedule: m.can_schedule }))
     : (rows || []).filter((r) => r.kind === tab).sort((a, b) => (ORDER[a.status] || 0) - (ORDER[b.status] || 0))
@@ -113,33 +97,11 @@ export default function Interests() {
             </button>
           ))}
         </div>
-        <p className="mt-3 text-[13px] leading-snug text-tinta-3">{TABS.find((t) => t[0] === tab)[2]}{tab === 'invited' && recs.length > 0 ? ' También verás aquí las vacantes que te recomienda un asesor/a de VINKA.' : ''}</p>
+        <p className="mt-3 text-[13px] leading-snug text-tinta-3">{TABS.find((t) => t[0] === tab)[2]}</p>
       </div>
       <div className="flex flex-col gap-2.5 px-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
         {err && <div className="lg:col-span-2"><ErrorBox>{err}</ErrorBox></div>}
-        {rows != null && tab === 'invited' && recs.map((x) => (
-          <div key={x.id} className="card flex flex-col gap-2.5 border-[#F3D9A4] p-3.5">
-            <Link to={`/vacante/${x.job_id}`} className="flex items-center gap-3" aria-label={`Ver vacante completa: ${x.title}`}>
-              <Avatar text={initials(x.company)} color={colorFor(x.company || '')} size={44} />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold">{x.title}</span>
-                <span className="truncate text-[13px] text-tinta-3">{[x.company, x.comuna, x.modality].filter(Boolean).join(' · ')}</span>
-              </div>
-              <span className="pill whitespace-nowrap bg-[#FFF4D6] text-[#7A5200]">RECOMENDADA</span>
-            </Link>
-            <Link to={`/vacante/${x.job_id}`} className="-mt-1 self-start text-[13px] font-semibold text-rosa-texto">Ver vacante completa →</Link>
-            <div className="rounded-xl bg-[#FFFAEE] px-3 py-2 text-[13px] leading-snug text-tinta-2">
-              <b>Te recomienda: {x.recommended_by}</b>
-              {x.note && <span className="mt-0.5 block whitespace-pre-line text-tinta-3">«{x.note}»</span>}
-            </div>
-            <span className="text-[13px] leading-snug text-tinta-3">Si te interesa, postulas como siempre y tus datos se comparten con quien gestiona esta vacante. Si no, nadie más sabrá de esta recomendación.</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button className="btn-sm border border-linea bg-white" onClick={() => declineRec(x)}>No, gracias</button>
-              <button className="btn-sm bg-rosa-accion text-white" onClick={() => respond(x.job_id, 'interest', null, x)}>Me interesa</button>
-            </div>
-          </div>
-        ))}
-        {rows == null ? <div className="lg:col-span-2"><Spinner /></div> : list.length === 0 && !(tab === 'invited' && recs.length) ? (
+        {rows == null ? <div className="lg:col-span-2"><Spinner /></div> : list.length === 0 ? (
           <div className="lg:col-span-2"><Empty title="Nada por aquí todavía">{tab === 'invited' ? 'Cuando una empresa se interese en ti, aparecerá aquí.' : <>Sigue explorando en <Link to="/" className="font-semibold text-rosa-texto">Explorar</Link>.</>}</Empty></div>
         ) : list.map((r) => (
           <div key={r.key} className="card flex flex-col gap-2.5 p-3.5">
@@ -172,7 +134,7 @@ export default function Interests() {
         ))}
       </div>
       <ScreeningSheet open={!!ask} title={ask?.title} questions={ask?.questions} onClose={() => setAsk(null)}
-        onSubmit={async (answers) => { const a = ask; setAsk(null); await respond(a.job_id, 'interest', answers, a.rec) }} />
+        onSubmit={async (answers) => { const a = ask; setAsk(null); await respond(a.job_id, 'interest', answers) }} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
       <Sheet open={!!ivOpen} onClose={() => setIvOpen(null)} title="Tu entrevista">
         {ivOpen && <InterviewCard iv={ivOpen} role="candidate" onChange={() => { setIvOpen(null); load() }} />}

@@ -416,6 +416,8 @@ export default function CandidateDetail({ panel }) {
   if (!d) return <Spinner />
 
   const canManage = d.can_manage
+  // Asesor invitado al proceso desde la Comunidad: no es del equipo; solo ve el perfil y el historial
+  const collab = !canManage && !!d.my_id && Array.isArray(d.team) && !d.team.some((t) => t.id === d.my_id)
   const isAdmin = ['owner', 'admin'].includes(company?.member_role)
   const c = ext ? null : d.candidate
   const e = ext ? d.external : null
@@ -465,7 +467,7 @@ export default function CandidateDetail({ panel }) {
           </div>
         </div>
         <div className="flex gap-1 overflow-x-auto">
-          {TABS.filter(([k]) => !(ext && k === 'ia')).map(([k, l]) => (
+          {TABS.filter(([k]) => !(ext && k === 'ia') && !(collab && !['perfil', 'historial'].includes(k))).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-11 shrink-0 border-b-2 px-2.5 text-sm font-semibold ${tab === k ? 'border-rosa-accion text-rosa-texto' : 'border-transparent text-tinta-3'}`}>
               {l}{k === 'notas' && d.notes.length ? ` (${d.notes.length})` : k === 'evaluacion' && d.evaluations.length ? ` (${d.evaluations.length})` : ''}
             </button>

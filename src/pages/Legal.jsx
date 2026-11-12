@@ -114,6 +114,7 @@ const DOCS = {
         'Si pides una asesoría, autorizas que el equipo de VINKA vea tu perfil laboral y te escriba por el chat de la asesoría para coordinar el servicio y su pago. Las asesorías no usan WhatsApp, llamadas ni correos: todo ocurre dentro de VINKA.',
         'El asesor o asesora asignado ve tu perfil laboral, tu nombre con la inicial del apellido, tu CV guardado y lo que compartas en el chat de la asesoría, pero no tu teléfono ni tu correo. Toda la asesoría ocurre dentro de VINKA, y VINKA puede revisar esas conversaciones para resguardar la calidad y tu seguridad.',
         'Las empresas no ven si contrataste una asesoría.',
+        'Los asesores de VINKA también reclutan para empresas. Quien gestiona una vacante puede invitar a otro asesor de VINKA a ver el proceso de esa vacante (solo para revisarlo y conversar sobre él, sin mover candidatos): ese asesor ve los mismos datos de los postulantes que ve el equipo de la vacante y debe mantenerlos en reserva.',
       ]],
       ['7. Postulación sin cuenta', [
         'Si postulas sin cuenta desde la página de empleos de una empresa, guardamos solo lo que escribes (nombre, correo, teléfono, cargo y mensaje) para ese proceso. Lo ve únicamente esa empresa, y se elimina a los 12 meses si no sigues en el proceso ni creas una cuenta.',

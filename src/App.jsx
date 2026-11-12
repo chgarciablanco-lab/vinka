@@ -72,7 +72,6 @@ const Advisory = lz(() => import('./pages/candidate/Advisory'))
 const Visibility = lz(() => import('./pages/candidate/Visibility'))
 const Promote = lz(() => import('./pages/company/Promote'))
 const CommunityHome = lz(() => import('./pages/community/Community'))
-const CommunitySearch = lz(() => import('./pages/community/Community'), 'CommunitySearch')
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -201,7 +200,9 @@ export default function App() {
         <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
         <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam /></WithNav>} />
         <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />
-        <Route path="/comunidad/:id" element={<CommunitySearch />} />
+        {/* Procesos a los que otro asesor lo invitó desde la Comunidad (solo lectura) */}
+        <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
+        <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
         {modeRoute}
         <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
         <Route path="/avisos" element={<Notifications />} />
@@ -332,7 +333,6 @@ export default function App() {
       <Route path="/" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />
       {modeRoute}
       {isAdvisor && <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />}
-      {isAdvisor && <Route path="/comunidad/:id" element={<CommunitySearch />} />}
       <Route path="/vacantes/nueva" element={<JobForm />} />
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />

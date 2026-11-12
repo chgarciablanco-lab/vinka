@@ -7,129 +7,7 @@ import { Dossier, NextStep, ServiceProgress, TeamNotes } from '../../components/
 import { atLocal, ymd } from '../../lib/dates'
 import { fmtDateTime } from '../../lib/files'
 import { pl } from '../../lib/text'
-import { PRES_ST, SEARCH_ST } from '../community/Community'
-
-/** Comunidad (solo por invitación): habilitar asesores, ver búsquedas y presentar candidatos como VINKA */
-function CommunityAdmin() {
-  const [d, setD] = useState(null)
-  const [err, setErr] = useState('')
-  const [toast, setToast] = useState('')
-  const [sel, setSel] = useState(null)
-  const load = useCallback(() => supabase.rpc('admin_community_overview').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data || { members: [], searches: [] }) }), [])
-  useEffect(() => { load() }, [load])
-  const setMember = async (m, on) => {
-    setErr('')
-    const { error } = await supabase.rpc('admin_community_set_member', { p_user: m.user_id, p_active: on, p_specialties: null })
-    if (error) return setErr(errMsg(error))
-    setToast(on ? `${m.name} quedó habilitado/a` : `${m.name} quedó suspendido/a`); load()
-  }
-  const close = async (s) => {
-    setErr('')
-    const { error } = await supabase.rpc('community_set_status', { p_search: s.id, p_status: 'cerrada' })
-    if (error) return setErr(errMsg(error))
-    setToast('Búsqueda cerrada'); load()
-  }
-  if (d == null) return <Spinner />
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-[13px] leading-snug text-tinta-3">Etapa 1, solo por invitación: VINKA habilita a cada asesor. Un asesor habilitado acepta las reglas, publica búsquedas desde sus vacantes e invita a otros. VINKA puede presentar candidatos en cualquier búsqueda abierta; la persona siempre debe aceptar.</p>
-      <ErrorBox>{err}</ErrorBox>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[15px] font-semibold">Asesores · {d.members.filter((m) => m.status === 'activo').length} habilitados de {d.members.length}</h2>
-        <div className="card divide-y divide-[#F4EEF2]">
-          {d.members.length === 0 && <p className="p-4 text-sm text-tinta-3">Aún no hay asesores.</p>}
-          {d.members.map((m) => (
-            <div key={m.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-              <span className="flex min-w-0 flex-col">
-                <b>{m.name}</b>
-                <span className="text-xs text-tinta-3">{[m.specialty, !m.advisor_active && 'cuenta de asesor inactiva', m.workspace ? 'con espacio de reclutamiento' : 'sin espacio de reclutamiento', m.status === 'activo' && !m.rules_accepted && 'aún no acepta las reglas'].filter(Boolean).join(' · ')}</span>
-              </span>
-              <span className="flex items-center gap-2">
-                {m.status === 'activo' ? <span className="pill bg-[#EAF6EF] text-[#134A2B]">Habilitado</span> : m.status === 'suspendido' ? <span className="pill bg-[#FEF3F2] text-[#912018]">Suspendido</span> : <span className="pill bg-[#F4EEF2] text-tinta-3">No miembro</span>}
-                {m.status === 'activo'
-                  ? <button className="btn-sm h-9 border border-linea bg-white" onClick={() => setMember(m, false)}>Suspender</button>
-                  : <button className="btn-sm h-9 bg-morado text-white" disabled={!m.advisor_active} onClick={() => setMember(m, true)}>Habilitar</button>}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[15px] font-semibold">Búsquedas · {d.searches.length}</h2>
-        {d.searches.length === 0 ? <Empty title="Sin búsquedas">Cuando un asesor pida apoyo a la comunidad, aparecerá aquí.</Empty> : d.searches.map((s) => (
-          <div key={s.id} className="card flex flex-col gap-2 p-3.5 text-sm">
-            <div className="flex items-start justify-between gap-2"><span className="flex flex-col"><b>{s.title}</b><span className="text-xs text-tinta-3">{s.company} · responsable {s.owner} · {dt(s.created_at)}</span></span><span className={`pill shrink-0 ${(SEARCH_ST[s.status] || ['', ''])[1]}`}>{(SEARCH_ST[s.status] || [s.status])[0]}</span></div>
-            <span className="text-xs text-tinta-2">{pl(s.collaborators, 'colaborador', 'colaboradores')} · {pl(s.presented, 'presentado', 'presentados')} · {pl(s.accepted, 'aceptado', 'aceptados')} · {pl(s.hired, 'contratado', 'contratados')}</span>
-            <div className="flex flex-wrap gap-2">
-              {s.status === 'abierta' && <button className="btn-sm h-9 bg-rosa-accion text-white" onClick={() => setSel(s)}>Presentar candidato como VINKA</button>}
-              {s.status !== 'cerrada' && <button className="btn-sm h-9 border border-linea bg-white" onClick={() => close(s)}>Cerrar búsqueda</button>}
-            </div>
-          </div>
-        ))}
-      </section>
-      {sel && <VinkaPresent s={sel} onClose={() => setSel(null)} onDone={() => { setSel(null); setToast('La persona recibió la recomendación de VINKA'); load() }} />}
-      {toast && <Toast msg={toast} onDone={() => setToast('')} />}
-    </div>
-  )
-}
-
-function VinkaPresent({ s, onClose, onDone }) {
-  const [q, setQ] = useState('')
-  const [qd, setQd] = useState('')
-  const [rows, setRows] = useState(null)
-  const [pick, setPick] = useState(null)
-  const [note, setNote] = useState('')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [det, setDet] = useState(null)
-  useEffect(() => { const t = setTimeout(() => setQd(q), 300); return () => clearTimeout(t) }, [q])
-  useEffect(() => { supabase.rpc('admin_candidates', { p_q: qd, p_filter: 'activos', p_limit: 20, p_offset: 0 }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data?.rows || []) }) }, [qd])
-  useEffect(() => { supabase.rpc('community_search', { p_search: s.id }).then(({ data }) => setDet(data)) }, [s.id])
-  const send = async () => {
-    setBusy(true); setErr('')
-    const { error } = await supabase.rpc('community_present', { p_search: s.id, p_candidate: pick.id, p_note: note.trim() })
-    setBusy(false)
-    if (error) return setErr(errMsg(error))
-    onDone()
-  }
-  return (
-    <Sheet open onClose={onClose} title={pick ? `Presentar a ${pick.name}` : `Presentar en: ${s.title}`}>
-      <div className="flex flex-col gap-2.5 text-sm">
-        <ErrorBox>{err}</ErrorBox>
-        {det && !pick && (
-          <details className="rounded-xl bg-[#FAF7F9] p-3 text-[13px]"><summary className="cursor-pointer font-semibold">Perfil buscado y presentados ({(det.presentations || []).length})</summary>
-            <div className="mt-1.5 flex flex-col gap-1 text-tinta-2">
-              {det.experience && <span>Experiencia: {det.experience}</span>}
-              {det.skills?.length > 0 && <span>Competencias: {det.skills.join(', ')}</span>}
-              {det.note && <span>«{det.note}»</span>}
-              {(det.presentations || []).map((x) => <span key={x.id}>• {x.candidate || 'Persona por confirmar'} ({x.presented_by}) · {(PRES_ST[x.status] || [x.status])[0].toLowerCase()}</span>)}
-            </div>
-          </details>
-        )}
-        {pick ? (
-          <>
-            <p className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[13px] leading-snug text-tinta-2">{pick.name} recibirá la recomendación de VINKA y decidirá si postula. Solo si acepta, el responsable verá su perfil.</p>
-            <textarea className="textarea h-24" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Por qué VINKA recomienda a esta persona (opcional)" />
-            <div className="grid grid-cols-2 gap-2">
-              <button className="btn-sm border border-linea bg-white" onClick={() => setPick(null)}>Volver</button>
-              <button className="btn-sm bg-rosa-accion text-white" disabled={busy} onClick={send}>{busy ? 'Enviando…' : 'Enviar recomendación'}</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <input className="input h-11" placeholder="Buscar postulante por nombre, cargo o comuna" value={q} onChange={(e) => setQ(e.target.value)} />
-            {rows == null ? <Spinner /> : rows.length === 0 ? <p className="text-tinta-3">Nadie coincide con la búsqueda.</p> : rows.map((u) => (
-              <button key={u.id} onClick={() => setPick(u)} className="flex items-center gap-2 rounded-xl border border-linea p-3 text-left">
-                <span className="flex min-w-0 flex-1 flex-col"><b>{u.name || 'Sin nombre'}</b><span className="text-xs text-tinta-3">{[u.headline, u.comuna].filter(Boolean).join(' · ') || 'Sin cargo definido'}</span></span>
-                <Svg name="chevron" size={18} className="text-tinta-suave" />
-              </button>
-            ))}
-          </>
-        )}
-      </div>
-    </Sheet>
-  )
-}
+import CommunityFeed from '../community/Community'
 
 const PLAN_STATUS = [['trial', 'Prueba'], ['active', 'Activo'], ['past_due', 'Pago pendiente'], ['canceled', 'Cancelado']]
 const n = (x) => Number(x || 0).toLocaleString('es-CL')
@@ -1303,7 +1181,7 @@ export default function Admin({ section }) {
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
-        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? (myLevel && myLevel !== 'total' ? <Empty title="Solo administración total">Los destacados involucran pagos y precios. Pídele acceso a un administrador total.</Empty> : <Promos />) : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'companyusers' ? <CompanyUsers /> : tab === 'staff' ? <Staff /> : tab === 'advisors' ? <Advisors /> : tab === 'community' ? <CommunityAdmin /> : companies == null ? <Spinner /> : tab === 'reports' ? (
+        {tab === 'business' ? <Business /> : tab === 'feedback' ? <Feedback /> : tab === 'promos' ? (myLevel && myLevel !== 'total' ? <Empty title="Solo administración total">Los destacados involucran pagos y precios. Pídele acceso a un administrador total.</Empty> : <Promos />) : tab === 'advisory' ? <Advisory /> : tab === 'candidates' ? <Candidates /> : tab === 'companyusers' ? <CompanyUsers /> : tab === 'staff' ? <Staff /> : tab === 'advisors' ? <Advisors /> : tab === 'community' ? <CommunityFeed admin /> : companies == null ? <Spinner /> : tab === 'reports' ? (
           reports.length === 0 ? <Empty title="Sin denuncias">Todo tranquilo.</Empty> : reports.map((r) => (
             <div key={r.id} className="card flex flex-col gap-2 p-3.5 text-sm">
               <span className="text-xs text-tinta-suave">{new Date(r.created_at).toLocaleString('es-CL')} · {r.status === 'open' ? 'Abierta' : 'Revisada'}</span>
