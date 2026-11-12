@@ -6,9 +6,6 @@ import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner, Svg } from './components/ui'
 import { DesktopNav } from './components/DesktopNav'
 import { ErrorBoundary, isStaleChunk, reloadForNewVersion } from './components/ErrorBoundary'
-import Welcome from './pages/auth/Welcome'
-import { CheckEmail, Forgot, Login, NewPassword } from './pages/auth/AuthPages'
-import { SignupCandidate, SignupCompany } from './pages/auth/Signup'
 import { readPendingInvite } from './pages/Invitation'
 
 // Cada pantalla se descarga solo cuando se abre: la app inicial pesa menos y carga más rápido
@@ -17,6 +14,14 @@ const lz = (load, name = 'default') => lazy(() => load().then((m) => ({ default:
   if (isStaleChunk(err?.message) && reloadForNewVersion()) return new Promise(() => {})
   throw err
 }))
+// Pantallas de ingreso: quien ya tiene la sesión abierta no las descarga
+const Welcome = lz(() => import('./pages/auth/Welcome'))
+const Login = lz(() => import('./pages/auth/AuthPages'), 'Login')
+const Forgot = lz(() => import('./pages/auth/AuthPages'), 'Forgot')
+const NewPassword = lz(() => import('./pages/auth/AuthPages'), 'NewPassword')
+const CheckEmail = lz(() => import('./pages/auth/AuthPages'), 'CheckEmail')
+const SignupCandidate = lz(() => import('./pages/auth/Signup'), 'SignupCandidate')
+const SignupCompany = lz(() => import('./pages/auth/Signup'), 'SignupCompany')
 const Onboarding = lz(() => import('./pages/candidate/ProfileSteps'), 'Onboarding')
 const StepWork = lz(() => import('./pages/candidate/ProfileSteps'), 'StepWork')
 const StepPrefs = lz(() => import('./pages/candidate/ProfileSteps'), 'StepPrefs')
@@ -139,7 +144,7 @@ export default function App() {
     <Route key="tutw" path="/tutoriales/:who" element={<Tutorials />} />,
   ]
 
-  if (recovery) return <Routes><Route path="*" element={<NewPassword />} /></Routes>
+  if (recovery) return wrap(<Routes><Route path="*" element={<NewPassword />} /></Routes>)
 
   if (!session) {
     return wrap(

@@ -1,15 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useDialogFocus } from '../lib/useDialogFocus'
 
 /** Pantalla de celebración cuando hay interés mutuo en una vacante. */
 export function MatchModal({ match, onClose }) {
   useEffect(() => {
     if (!match) return
     if (navigator.vibrate) navigator.vibrate([20, 60, 30])
-    const k = (e) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', k)
-    return () => window.removeEventListener('keydown', k)
-  }, [match, onClose])
+  }, [match])
+  const ref = useDialogFocus(!!match, onClose)
 
   const pieces = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
     left: (i * 37) % 100, delay: (i % 12) * 0.12, dur: 2.4 + (i % 5) * 0.35, size: 6 + (i % 4) * 2,
@@ -18,8 +17,8 @@ export function MatchModal({ match, onClose }) {
 
   if (!match) return null
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="match-title"
-      className="fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-morado/95 px-6 backdrop-blur-sm">
+    <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="match-title"
+      className="outline-none fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-morado/95 px-6 backdrop-blur-sm">
       <style>{`
         @keyframes vk-fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1 } 100% { transform: translateY(110vh) rotate(540deg); opacity: .9 } }
         @keyframes vk-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }

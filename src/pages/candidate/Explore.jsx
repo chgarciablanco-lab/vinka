@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase, errMsg } from '../../lib/supabase'
+import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials, salaryText } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Toast, Verified } from '../../components/ui'
@@ -84,7 +84,7 @@ export default function Explore() {
   // Se llama cuando la tarjeta terminó de salir de la pantalla
   const onSwipe = async (dir) => {
     const j = jobs[i]
-    setDetail(false)
+    setDetail(false); setErr('')
     setI((n) => n + 1)
     const action = ACTION[dir]
     if (action === 'interest') {
@@ -94,8 +94,13 @@ export default function Explore() {
     await commit(j, action)
   }
   const commit = async (j, action, answers = null) => {
-    const { error } = await supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id: j.id, action, ...(answers ? { answers } : {}) })
-    if (error) return setErr(errMsg(error))
+    // Se reintenta si falla la red; si igual no se guarda, la vacante vuelve a la pantalla para decidir de nuevo
+    const { error } = await withRetry(() => supabase.from('candidate_job_actions').upsert({ candidate_id: user.id, job_id: j.id, action, ...(answers ? { answers } : {}) }))
+    if (error) {
+      const back = jobs.findIndex((x) => x.id === j.id)
+      if (back >= 0) setI(back)
+      return setErr(error.code ? errMsg(error) : 'No se guardó tu decisión por un problema de conexión. La vacante volvió a la pantalla: inténtalo de nuevo.')
+    }
     if (action === 'interest') {
       const { data: m } = await supabase.from('matches').select('id').eq('job_id', j.id).eq('candidate_id', user.id).maybeSingle()
       if (m) {

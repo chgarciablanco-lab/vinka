@@ -20,3 +20,17 @@ export function errMsg(e) {
   if (/Password should be/i.test(m)) return 'La contraseña debe tener al menos 8 caracteres.'
   return m || 'Ocurrió un error. Inténtalo de nuevo.'
 }
+
+/**
+ * Reintenta una escritura si falló por la red (sin código de la base). Un rechazo real de la base no se reintenta.
+ * Uso: const { error } = await withRetry(() => supabase.from('x').upsert(...))
+ */
+export async function withRetry(fn, tries = 3) {
+  let res
+  for (let k = 0; k < tries; k++) {
+    try { res = await fn() } catch (e) { res = { error: { message: e?.message || 'Sin conexión', code: '' } } }
+    if (!res?.error || res.error.code) return res
+    if (k < tries - 1) await new Promise((r) => setTimeout(r, 700 * 2 ** k))
+  }
+  return res
+}

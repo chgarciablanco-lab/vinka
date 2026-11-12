@@ -38,9 +38,12 @@ export function ServiceChat({ requestId, as, disabled = false, advisorName = '' 
   const send = async (path = null, name = null) => {
     setErr('')
     const { error } = await supabase.rpc('send_service_message', { p_request: requestId, p_body: path ? '' : body, p_file_path: path, p_file_name: name })
-    if (error) return setErr(errMsg(error))
+    if (error) {
+      if (path) supabase.storage.from('asesorias').remove([path]).then(() => {})  // el archivo no quedó en el chat: no se guarda
+      setErr(errMsg(error)); return false
+    }
     if (!path) setBody('')
-    load()
+    load(); return true
   }
   const upload = async (e) => {
     const f = e.target.files?.[0]; e.target.value = ''

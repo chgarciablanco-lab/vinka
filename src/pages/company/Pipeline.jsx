@@ -8,6 +8,7 @@ import { ErrorBox, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine } from '../../components/Presence'
 import { pl, plw } from '../../lib/text'
+import { useDialogFocus } from '../../lib/useDialogFocus'
 
 const CandidateDetail = lazy(() => import('./CandidateDetail'))
 
@@ -215,7 +216,7 @@ export default function Pipeline() {
     e.preventDefault()
     try { const { kind, id: cid } = JSON.parse(e.dataTransfer.getData('text/plain')); const c = d.cards.find((x) => x.kind === kind && x.id === cid); if (c) move(c, stage) } catch { /* nada */ }
   }
-  useEffect(() => { if (!peek) return; const k = (e) => e.key === 'Escape' && setPeek(null); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [peek])
+  const peekRef = useDialogFocus(!!peek, () => setPeek(null))
   // En computador la ficha se abre al costado del tablero; en celular, como pantalla aparte
   const open = (c) => {
     if (window.matchMedia('(min-width: 1024px)').matches) return setPeek(c.kind === 'externo' ? { jobId: id, eid: c.id } : { jobId: id, cid: c.candidate_id || c.id })
@@ -347,8 +348,8 @@ export default function Pipeline() {
       {peek && (
         <div className="fixed inset-0 z-40 hidden lg:block" onClick={() => setPeek(null)}>
           <div className="absolute inset-0 bg-black/20" />
-          <aside role="dialog" aria-modal="true" aria-label="Ficha del candidato" onClick={(e) => e.stopPropagation()}
-            className="absolute inset-y-0 right-0 w-[min(600px,calc(100vw-18rem))] overflow-y-auto border-l border-[#EEE3EA] bg-[#FAF7F9] shadow-2xl">
+          <aside ref={peekRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Ficha del candidato" onClick={(e) => e.stopPropagation()}
+            className="outline-none absolute inset-y-0 right-0 w-[min(600px,calc(100vw-18rem))] overflow-y-auto border-l border-[#EEE3EA] bg-[#FAF7F9] shadow-2xl">
             <Suspense fallback={<Spinner />}>
               <CandidateDetail key={peek.cid || peek.eid} panel={{ ...peek, onClose: () => setPeek(null), onChange: load }} />
             </Suspense>

@@ -230,8 +230,12 @@ export function StepIntro({ onDone, edit }) {
     const path = `${user.id}/intro-${Date.now()}.${ext}`
     const { error } = await supabase.storage.from('videos').upload(path, file, { contentType: file.type })
     if (error) { setBusy(false); return setErr(errMsg(error)) }
-    if (videoPath) await supabase.storage.from('videos').remove([videoPath])
-    await saveCandidate(user.id, { video_path: path }).catch((e2) => setErr(errMsg(e2)))
+    // Primero se guarda el video nuevo en el perfil; recién después se borra el anterior (si falla, se borra el nuevo y queda el anterior)
+    try { await saveCandidate(user.id, { video_path: path }) } catch (e2) {
+      await supabase.storage.from('videos').remove([path])
+      setBusy(false); return setErr(errMsg(e2))
+    }
+    if (videoPath) supabase.storage.from('videos').remove([videoPath]).then(() => {})
     setVideoPath(path); setBusy(false); refresh()
   }
 

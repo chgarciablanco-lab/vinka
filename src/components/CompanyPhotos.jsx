@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { ErrorBox, Svg } from './ui'
+import { useDialogFocus } from '../lib/useDialogFocus'
 
 export const photoUrl = (path) => (path ? supabase.storage.from('company-photos').getPublicUrl(path).data.publicUrl : '')
 const MAX = 8
@@ -44,7 +45,7 @@ export function CompanyPhotosEditor({ company, canEdit, onSaved }) {
       if (error) { setErr('No pudimos subir una de las fotos. Inténtalo de nuevo.'); continue }
       added.push({ path, caption: '' })
     }
-    if (added.length) await save([...list, ...added])
+    if (added.length && !(await save([...list, ...added]))) supabase.storage.from('company-photos').remove(added.map((x) => x.path)).then(() => {})
     setBusy(false)
   }
   const remove = async (p) => {
@@ -97,7 +98,8 @@ export function PhotoGallery({ jobId, companyName = '' }) {
   const [list, setList] = useState([])
   const [open, setOpen] = useState(null)
   useEffect(() => { if (!jobId) return; supabase.rpc('job_photos', { p_job: jobId }).then(({ data }) => setList(Array.isArray(data) ? data : [])) }, [jobId])
-  useEffect(() => { if (open == null) return; const k = (e) => { if (e.key === 'Escape') setOpen(null); if (e.key === 'ArrowRight') setOpen((i) => Math.min(list.length - 1, i + 1)); if (e.key === 'ArrowLeft') setOpen((i) => Math.max(0, i - 1)) }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [open, list.length])
+  useEffect(() => { if (open == null) return; const k = (e) => { if (e.key === 'ArrowRight') setOpen((i) => Math.min(list.length - 1, i + 1)); if (e.key === 'ArrowLeft') setOpen((i) => Math.max(0, i - 1)) }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [open, list.length])
+  const ref = useDialogFocus(open != null, () => setOpen(null))
   if (!list.length) return null
   const cur = open != null ? list[open] : null
   return (
@@ -111,7 +113,7 @@ export function PhotoGallery({ jobId, companyName = '' }) {
         ))}
       </div>
       {cur && (
-        <div role="dialog" aria-modal="true" aria-label="Foto" className="fixed inset-0 z-50 flex flex-col bg-black/95" onClick={() => setOpen(null)}>
+        <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Foto" className="outline-none fixed inset-0 z-50 flex flex-col bg-black/95" onClick={() => setOpen(null)}>
           <div className="safe-t flex items-center justify-between px-4 py-3 text-white"><span className="text-sm">{open + 1} / {list.length}</span>
             <button aria-label="Cerrar" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15" onClick={() => setOpen(null)}><Svg name="x" size={20} /></button></div>
           <div className="relative flex flex-1 items-center justify-center px-2" onClick={(e) => e.stopPropagation()}>

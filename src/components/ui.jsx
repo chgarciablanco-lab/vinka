@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useDialogFocus } from '../lib/useDialogFocus'
 
 export const Icon = {
   back: <path d="M15 6l-6 6 6 6" />,
@@ -198,10 +199,11 @@ export function Empty({ title, children, action }) {
 }
 
 export function Sheet({ open, onClose, title, children, wide = false }) {
+  const ref = useDialogFocus(open, onClose)
   if (!open) return null
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 lg:items-center" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} className={`safe-b w-full rounded-t-3xl bg-white px-5 pt-5 lg:rounded-3xl ${wide ? 'max-w-3xl lg:max-w-5xl' : 'max-w-md lg:max-w-lg'}`} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`safe-b outline-none w-full rounded-t-3xl bg-white px-5 pt-5 lg:rounded-3xl ${wide ? 'max-w-3xl lg:max-w-5xl' : 'max-w-md lg:max-w-lg'}`} onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button aria-label="Cerrar" onClick={onClose} className="flex h-11 w-11 items-center justify-center"><Svg name="x" /></button>

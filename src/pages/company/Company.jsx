@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { supabase, errMsg } from '../../lib/supabase'
+import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
 import { logoUrl } from '../../components/OfferLetter'
 import { useAuth } from '../../lib/auth'
@@ -507,10 +507,15 @@ export function JobCandidates() {
   const onSwipe = async (dir) => {
     const cur = list[i]
     const action = { right: 'interest', left: 'pass', up: 'save' }[dir]
-    setVideo(''); setI((n) => n + 1)
+    setVideo(''); setErr(''); setI((n) => n + 1)
     if (cur.promotion_id && action !== 'pass') trackPromo([cur.promotion_id], 'click')
-    const { error } = await supabase.from('company_candidate_actions').upsert({ job_id: id, candidate_id: cur.candidate_id, action, created_by: user.id })
-    if (error) return setErr(errMsg(error))
+    // Se reintenta si falla la red; si igual no se guarda, la persona vuelve a la pantalla para decidir de nuevo
+    const { error } = await withRetry(() => supabase.from('company_candidate_actions').upsert({ job_id: id, candidate_id: cur.candidate_id, action, created_by: user.id }))
+    if (error) {
+      const back = list.findIndex((x) => x.candidate_id === cur.candidate_id)
+      if (back >= 0) setI(back)
+      return setErr(error.code ? errMsg(error) : `No se guardó tu decisión sobre ${cur.display_name} por un problema de conexión. Volvió a la pantalla: inténtalo de nuevo.`)
+    }
     if (action === 'interest') {
       const { data: m } = await supabase.from('matches').select('id').eq('job_id', id).eq('candidate_id', cur.candidate_id).maybeSingle()
       if (m) setMatch({
@@ -709,6 +714,7 @@ export function CompanyAccount() {
     const up = await supabase.storage.from('logos').upload(path, file, { contentType: file.type })
     if (up.error) { setLogoBusy(false); return setErr('No pudimos subir el logo. Usa PNG, JPG o WEBP de hasta 2 MB.') }
     const { error } = await supabase.rpc('set_company_logo', { p_company: company.id, p_path: path })
+    if (error) supabase.storage.from('logos').remove([path]).then(() => {})
     if (!error && company.logo_path) supabase.storage.from('logos').remove([company.logo_path]).then(() => {})
     setLogoBusy(false)
     if (error) return setErr(errMsg(error))
