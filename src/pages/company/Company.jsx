@@ -99,7 +99,7 @@ export function CompanyPanel() {
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
         {isAdmin && <BillingBanner billing={planInfo?.billing} />}
-        <TodoBlock companyId={company?.id} />
+        <TodoBlock companyId={company?.id} refresh={reload} />
         {canManage && verified && (() => {
           const due = (jobs || []).filter((j) => { const pr = promos[j.id]; return j.status === 'published' && pr?.status === 'activa' && !pr.renewal && new Date(pr.ends_at) - Date.now() <= 3 * 86400000 && new Date(pr.ends_at) > Date.now() })
           if (!due.length) return null
@@ -323,6 +323,10 @@ export function JobForm() {
   const [fromTitle, setFromTitle] = useState('')
   const [draftId, setDraftId] = useState(null)
   const [full, setFull] = useState(null)
+  // Publicación rápida (solo vacantes nuevas): lo esencial en una pantalla. Usa las mismas validaciones y la misma
+  // revisión del servidor que la completa; lo demás se puede agregar después editando la vacante.
+  const [quick, setQuick] = useState(() => { if (id || from) return false; try { return localStorage.getItem('vinka-job-mode') !== 'completa' } catch { return true } })
+  const pickMode = (q) => { setQuick(q); try { localStorage.setItem('vinka-job-mode', q ? 'rapida' : 'completa') } catch { /* sin almacenamiento */ } }
   useEffect(() => {
     if (!from) return
     supabase.from('jobs').select('*').eq('id', from).single().then(({ data }) => {
@@ -395,12 +399,23 @@ export function JobForm() {
         )}
       </Sheet>
       <div className="flex flex-col gap-4 px-6 pb-6 pt-2">
+        {!id && !from && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-1 rounded-xl bg-[#F4EEF2] p-[3px]" role="group" aria-label="Tipo de publicación">
+              {[[true, 'Rápida'], [false, 'Completa']].map(([q, l]) => (
+                <button key={l} type="button" aria-pressed={quick === q} onClick={() => pickMode(q)}
+                  className={`h-[38px] flex-1 rounded-[9px] text-[13px] font-semibold ${quick === q ? 'bg-white text-tinta shadow-sm' : 'text-tinta-3'}`}>{l}</button>
+              ))}
+            </div>
+            <span className="hint">{quick ? 'Lo esencial en una pantalla. Puedes sumar requisitos y preguntas después, editando la vacante.' : 'Con nivel, contrato, requisitos y preguntas de filtro.'}</span>
+          </div>
+        )}
         <Field label="Título del cargo"><input className="input" maxLength={90} value={j.title} onChange={(e) => set('title', e.target.value)} placeholder="Ej.: Vendedor/a de tienda" /></Field>
         <Field label="Área"><select className="input" value={j.area} onChange={(e) => set('area', e.target.value)}><option value="">Selecciona</option>{AREAS.map((a) => <option key={a}>{a}</option>)}</select></Field>
-        <Chips legend="Nivel" multi={false} options={NIVELES} value={j.level} onChange={(v) => set('level', v)} />
+        {!quick && <Chips legend="Nivel" multi={false} options={NIVELES} value={j.level} onChange={(v) => set('level', v)} />}
         <Chips legend="Modalidad" multi={false} options={MODALIDADES} value={j.modality} onChange={(v) => set('modality', v)} />
         <Chips legend="Jornada" multi={false} options={JORNADAS} value={j.schedule} onChange={(v) => set('schedule', v)} />
-        <Chips legend="Tipo de contrato" multi={false} options={CONTRATOS} value={j.contract} onChange={(v) => set('contract', v)} />
+        {!quick && <Chips legend="Tipo de contrato" multi={false} options={CONTRATOS} value={j.contract} onChange={(v) => set('contract', v)} />}
         <div className="grid grid-cols-2 gap-2.5">
           <Field label="Región"><select className="input" value={j.region} onChange={(e) => set('region', e.target.value)}><option value="">Selecciona</option>{REGIONES.map((r) => <option key={r}>{r}</option>)}</select></Field>
           <Field label="Comuna"><input className="input" value={j.comuna} onChange={(e) => set('comuna', e.target.value)} /></Field>
@@ -423,7 +438,7 @@ export function JobForm() {
         <AiAssist task="job_description" title="Descripción de la vacante" current={j.description}
           getContext={() => ({ title: j.title, area: j.area, level: j.level, modality: j.modality, schedule: j.schedule, contract: j.contract, comuna: j.comuna, company: company?.display_name, company_description: company?.description, benefits: company?.benefits })}
           onApply={(t) => set('description', t.slice(0, 3000))} />
-        <div className="flex flex-col gap-2">
+        {!quick && <div className="flex flex-col gap-2">
           <span className="label">Requisitos</span>
           <AiAssist list task="job_requirements" title="Requisitos sugeridos" label="Sugerir requisitos con IA"
             renderItem={(x) => <span><b className={x.essential ? 'text-morado' : 'text-tinta-3'}>{x.essential ? 'Esencial' : 'Deseable'}</b> · {x.text}</span>}
@@ -442,8 +457,8 @@ export function JobForm() {
             <button type="button" className="btn-sm shrink-0 border border-rosa-accion bg-white text-rosa-texto"
               onClick={() => { if (req.trim()) { set('requirements', [...j.requirements, { text: req.trim(), essential: true }]); setReq('') } }}>Agregar</button>
           </div>
-        </div>
-        <QuestionsEditor value={j.questions || []} onChange={(v) => set('questions', v)} />
+        </div>}
+        {!quick && <QuestionsEditor value={j.questions || []} onChange={(v) => set('questions', v)} />}
         <BiasReview job={j} onFix={(next) => setJ(next)} />
         {company?.parent_id && (
           <label className="flex items-start gap-2.5 rounded-xl border border-linea bg-white p-3 text-[13px] leading-snug">

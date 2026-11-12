@@ -7,7 +7,7 @@ import { Svg } from './ui'
 const ICON = { interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofertas_aprobar: 'doc', ofertas_vencen: 'doc', vacantes_aprobar: 'check' }
 
 /** Pendientes de la empresa: solo lo que requiere acción, con cifras reales y un toque para resolverlo */
-export function TodoBlock({ companyId }) {
+export function TodoBlock({ companyId, refresh = 0 }) {
   const [items, setItems] = useState(null)
   const { total } = useUnread() // si cambian los no leídos, se recalcula
   useEffect(() => {
@@ -15,9 +15,12 @@ export function TodoBlock({ companyId }) {
     let alive = true
     const load = () => supabase.rpc('company_todo', { p_company: companyId }).then(({ data, error }) => { if (alive && !error) setItems(data || []) })
     load()
+    // También al volver a la app (por ejemplo, después de resolver algo en otra pestaña o en el teléfono)
+    const onVis = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVis)
     const t = setInterval(load, 120000)
-    return () => { alive = false; clearInterval(t) }
-  }, [companyId, total])
+    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
+  }, [companyId, total, refresh])
   if (items == null) return null
   if (items.length === 0) return (
     <div className="flex items-center gap-2 rounded-2xl bg-[#EFF9F2] px-3.5 py-2.5 text-[13px] font-semibold text-[#134A2B]">
