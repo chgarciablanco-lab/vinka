@@ -8,6 +8,7 @@ import { Bell } from '../../components/Bell'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
 import { norm, parseQuery } from '../../lib/search'
+import { VacTabs } from '../advisor/Hub'
 import { pl } from '../../lib/text'
 
 const STAGE_TXT = (s) => ({ guardado: 'Guardado', invitado: 'Invitado', postulante: 'Postuló' }[s] || colLabel(s))
@@ -192,6 +193,7 @@ export default function Talent() {
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3">
         <div><h1 className="text-[22px] font-bold">Banco de talento</h1><p className="text-[13px] text-tinta-3">Personas que ya pasaron por tus procesos.</p></div><Bell />
       </div>
+      <VacTabs />
       <div className="flex flex-col gap-3 px-5 lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-6">
         {/* Filtros fijos al costado en computador */}
         <aside className="card sticky top-4 hidden max-h-[calc(100vh-2rem)] flex-col gap-4 overflow-y-auto p-4 lg:flex" aria-label="Filtros">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
-import { useAuth } from '../../lib/auth'
+import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { REGIONES, TAMANOS, AREAS, colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Toast, TopBar } from '../../components/ui'
 import { pl } from '../../lib/text'
@@ -21,6 +21,7 @@ const EMPTY = { display_name: '', legal_name: '', rut: '', sector: '', size: '',
 export default function Clients() {
   const { company, refresh, switchCompany, companies } = useAuth()
   const nav = useNavigate()
+  const home = useVacanciesHome()
   const [list, setList] = useState(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState(false)
@@ -58,7 +59,7 @@ export default function Clients() {
   }
   const work = (id) => {
     if (!companies.some((c) => c.id === id)) return setErr('Vuelve a cargar la página para ver este cliente en tu lista.')
-    switchCompany(id); nav('/')
+    switchCompany(id); nav(home)
   }
   const set = (k) => (e) => setF({ ...f, [k]: k === 'rut' ? formatRut(e.target.value) : e.target.value })
 

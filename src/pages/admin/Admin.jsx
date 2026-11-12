@@ -1098,13 +1098,14 @@ function Feedback() {
 }
 
 /** Cuenta de administración: datos, avisos y cierre de sesión */
-export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Para probar la app como postulante o empresa, usa las cuentas de prueba.' }) {
+export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Para probar la app como postulante o empresa, usa las cuentas de prueba.', extra = null }) {
   const { profile, user, signOut, isAdmin } = useAuth()
   return (
     <Screen className="bg-[#FAF7F9]">
       <div className="safe-t px-5 pb-3 pt-2"><h1 className="text-[22px] font-bold">Cuenta</h1><p className="text-[13px] text-tinta-3">{subtitle}</p></div>
       <div className="flex flex-col gap-3 px-5 pb-28">
         <div className="card flex flex-col gap-0.5 p-4"><span className="font-semibold">{`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Administración'}</span><span className="text-sm text-tinta-3">{user?.email}</span></div>
+        {extra}
         {isAdmin && (
           <div className="card px-4 lg:hidden">
             {[['/promociones', 'Destacados'], ['/asesores', 'Asesores'], ['/empresas', 'Todas las empresas'], ['/denuncias', 'Denuncias']].map(([to, l]) => (
@@ -1113,7 +1114,7 @@ export function AdminAccount({ subtitle = 'Administración de VINKA', hint = 'Pa
           </div>
         )}
         <div className="card px-4">
-          {[['/equipo-vinka', 'Equipo VINKA'], ['/usuarios-empresas', 'Usuarios de empresas'], ['/avisos', 'Avisos'], ['/ayuda', 'Ayuda y reportes'], ['/tutoriales', 'Tutoriales'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
+          {[...(isAdmin ? [['/equipo-vinka', 'Equipo VINKA'], ['/usuarios-empresas', 'Usuarios de empresas']] : []), ['/avisos', 'Avisos'], ['/ayuda', 'Ayuda y reportes'], ['/tutoriales', 'Tutoriales'], ['/legal/terminos', 'Términos de uso'], ['/legal/privacidad', 'Política de privacidad']].map(([to, l]) => (
             <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
           ))}
         </div>

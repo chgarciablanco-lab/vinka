@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
 import { logoUrl } from '../../components/OfferLetter'
-import { useAuth } from '../../lib/auth'
+import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { DangerZone, MyData } from '../Account'
@@ -21,6 +21,7 @@ import { CompanyContext, companyOption, homeCompany } from '../../components/Com
 import { pl } from '../../lib/text'
 import { CompanyPhotosEditor } from '../../components/CompanyPhotos'
 import { BillingBanner } from '../../components/BillingBanner'
+import { VacTabs } from '../advisor/Hub'
 import { TodoBlock } from '../../components/TodoBlock'
 
 const STATUS = {
@@ -53,7 +54,8 @@ export function VerificationBanner({ company }) {
 export const copyText = async (t) => { try { await navigator.clipboard.writeText(t); return true } catch { return false } }
 
 export function CompanyPanel() {
-  const { company, companies } = useAuth()
+  const { company, companies, profile } = useAuth()
+  const isAdvisor = profile?.role === 'advisor' // sus pendientes ya están en su Inicio
   const [jobs, setJobs] = useState(null)
   const [toast, setToast] = useState('')
   const [reload, setReload] = useState(0)
@@ -92,14 +94,15 @@ export function CompanyPanel() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-6xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
-        <div className="flex min-w-0 flex-col"><span className="text-[13px] text-tinta-suave">VINKA Company</span>
-        <h1 className="truncate text-[22px] font-bold">{homeCompany(companies, company)?.display_name}</h1></div>
+        <div className="flex min-w-0 flex-col"><span className="truncate text-[13px] text-tinta-suave">{isAdvisor ? homeCompany(companies, company)?.display_name : 'VINKA Company'}</span>
+        <h1 className="truncate text-[22px] font-bold">{isAdvisor ? 'Vacantes' : homeCompany(companies, company)?.display_name}</h1></div>
         <div className="flex items-center gap-2"><StatusPill /><Bell /></div>
       </div>
+      <VacTabs />
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
         {isAdmin && <BillingBanner billing={planInfo?.billing} />}
-        <TodoBlock companyId={company?.id} refresh={reload} />
+        {!isAdvisor && <TodoBlock companyId={company?.id} refresh={reload} />}
         {canManage && verified && (() => {
           const due = (jobs || []).filter((j) => { const pr = promos[j.id]; return j.status === 'published' && pr?.status === 'activa' && !pr.renewal && new Date(pr.ends_at) - Date.now() <= 3 * 86400000 && new Date(pr.ends_at) > Date.now() })
           if (!due.length) return null
@@ -311,6 +314,7 @@ function BiasReview({ job, onFix }) {
 export function JobForm() {
   const { id } = useParams()
   const nav = useNavigate()
+  const home = useVacanciesHome()
   const { company } = useAuth()
   const [j, setJ] = useState(id ? null : { ...EMPTY_JOB, region: company?.region || '', comuna: company?.comuna || '' })
   const [req, setReq] = useState('')
@@ -377,7 +381,7 @@ export function JobForm() {
       return setErr(errMsg(error))
     }
     if (!target && data?.id) setDraftId(data.id)
-    nav('/')
+    nav(home)
   }
   const verified = company?.verification_status === 'verified'
   return (
@@ -493,6 +497,7 @@ export function JobCandidates() {
   const { id } = useParams()
   const { user } = useAuth()
   const nav = useNavigate()
+  const home = useVacanciesHome()
   const [job, setJob] = useState(null)
   const [list, setList] = useState(null)
   const [i, setI] = useState(0)
@@ -567,7 +572,7 @@ export function JobCandidates() {
   return (
     <div className="safe-b mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-[#FAF7F9] lg:max-w-3xl lg:pb-10">
       <div className="safe-t flex items-center gap-1.5 px-4 pb-3">
-        <button aria-label="Volver" onClick={() => nav('/')} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
+        <button aria-label="Volver" onClick={() => nav(home)} className="flex h-11 w-11 items-center justify-center"><Svg name="back" /></button>
         <div className="flex flex-col"><span className="text-[11px] text-tinta-suave">Candidatos para</span><span className="text-[15px] font-semibold">{job?.title || '…'}</span></div>
       </div>
       <div className="flex flex-1 flex-col px-4">
@@ -715,6 +720,7 @@ function FitExtras({ steps, dep, box }) {
 
 export function CompanyAccount() {
   const { company, refresh } = useAuth()
+  const home = useVacanciesHome()
   const isAdmin = ['owner', 'admin'].includes(company?.member_role)
   const [f, setF] = useState(() => ({ description: company?.description || '', benefits: company?.benefits || '', website: company?.website || '', display_name: company?.display_name || '' }))
   const [msg, setMsg] = useState('')
@@ -770,7 +776,7 @@ export function CompanyAccount() {
         <button className="btn" onClick={save} disabled={!isAdmin}>Guardar vitrina</button>
         {!isAdmin && <span className="hint -mt-2">Solo quien administra la empresa puede editar la vitrina.</span>}
         <div className="card px-4">
-          {[['/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan'],
+          {[[home === '/vacantes' ? '/equipo-consultora' : '/equipo', 'people', 'Equipo', 'Invita reclutadores y evaluadores'], ['/plantillas', 'chat', 'Plantillas de mensajes', 'Respuestas listas con {nombre} y {cargo}'], ['/automatizaciones', 'swap', 'Automatizaciones', 'Mensajes por etapa, avisos y aprobaciones'], ['/reportes', 'chart', 'Reportes', 'Embudo, tiempos y fuentes'], ['/plan', 'check', 'Plan y uso', 'Límites, consumo de IA y cambio de plan'],
             ...(company?.parent_id ? [] : [['/clientes', 'building', company?.kind === 'consultora' ? 'Clientes de la consultora' : 'Somos consultora', company?.kind === 'consultora' ? `${pl(company?.clients || 0, 'cliente', 'clientes')} · agrega y cambia de cliente` : 'Recluta para otras empresas desde una cuenta matriz']])].map(([to, icon, t, sub]) => (
             <Link key={to} to={to} className="flex items-center gap-3 border-b border-[#F1E7ED] py-3.5 last:border-0">
               <Svg name={icon} className="text-tinta-3" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">{t}</span><span className="text-[13px] text-tinta-3">{sub}</span></span><Svg name="chevron" size={18} className="text-tinta-suave" />

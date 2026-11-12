@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials } from '../../lib/catalog'
+import { TopIcons } from '../advisor/Hub'
 import { Avatar, ErrorBox, Screen, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 
 // VINKA Comunidad: muro abierto solo para asesores. Publican lo que necesitan cerrar, todos comentan,
@@ -62,9 +63,10 @@ export default function CommunityFeed({ admin = false }) {
   return (
     <Screen className="bg-[#FAF7F9]" wide>
       {!admin && (
-        <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
-          <h1 className="text-[22px] font-bold">Comunidad</h1>
-          <p className="text-[13px] text-tinta-3">Solo para asesores de VINKA: pide recomendaciones y ayuda a otros a cerrar sus procesos.</p>
+        <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
+          <div><h1 className="text-[22px] font-bold">Comunidad</h1>
+          <p className="text-[13px] text-tinta-3">Solo para asesores de VINKA: pide recomendaciones y ayuda a otros a cerrar sus procesos.</p></div>
+          <TopIcons />
         </div>
       )}
       <div className={`mx-auto flex w-full max-w-2xl flex-col gap-3 ${admin ? '' : 'px-5 pb-28 lg:px-8 lg:pb-10'}`}>

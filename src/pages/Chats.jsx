@@ -35,7 +35,7 @@ export function groupChats(rows, isCompany) {
   }).sort((a, b) => lastAt(b.latest) - lastAt(a.latest))
 }
 
-export function ChatList() {
+export function ChatList({ extra = null }) {
   const { profile, actsAs } = useAuth()
   const [rows, setRows] = useState(null)
   const [err, setErr] = useState('')
@@ -50,6 +50,7 @@ export function ChatList() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24 lg:max-w-none lg:pb-4">
       <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
+      {extra}
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />
         {ivs.length > 0 && (

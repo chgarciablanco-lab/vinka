@@ -3,6 +3,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
 import { Dossier, NextStep, TeamNotes } from '../../components/Dossier'
+import { TopIcons } from './Hub'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
@@ -88,10 +89,11 @@ function Profile({ r }) {
 
 /** Panel del asesor/a: solo ve las asesorías que VINKA le asignó, sin datos de contacto */
 /** Conversación general con el equipo de VINKA (dudas, disponibilidad, temas que no son de una asesoría) */
-export function AdvisorTeam() {
+export function AdvisorTeam({ filter = null }) {
   return (
     <Screen className="bg-[#FAF7F9]" wide>
-      <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><h1 className="text-[22px] font-bold">Equipo VINKA</h1><p className="text-[13px] text-tinta-3">Tus notas y conversaciones con la administración. Incluye las notas de cada asesoría.</p></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><div><h1 className="text-[22px] font-bold">{filter ? 'Chats' : 'Equipo VINKA'}</h1><p className="text-[13px] text-tinta-3">{filter ? 'Equipo VINKA: tus' : 'Tus'} notas y conversaciones con la administración. Incluye las notas de cada asesoría.</p></div>{filter && <TopIcons />}</div>
+      {filter}
       <div className="px-5 pb-28 lg:px-8 lg:pb-10"><TeamNotes as="advisor" /></div>
     </Screen>
   )
@@ -184,9 +186,10 @@ export default function AdvisorHome() {
 
   return (
     <Screen className="bg-[#FAF7F9]" wide>
-      <div className="safe-t px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
-        <h1 className="text-[22px] font-bold">Mis asesorías</h1>
-        <p className="text-[13px] text-tinta-3">Hola {profile?.first_name}. Aquí ves solo las asesorías que VINKA te asignó.</p>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3 pt-2 lg:px-8 lg:pt-6">
+        <div><h1 className="text-[22px] font-bold">Mis asesorías</h1>
+        <p className="text-[13px] text-tinta-3">Aquí ves solo las asesorías que VINKA te asignó.</p></div>
+        <TopIcons />
       </div>
       <div className="flex flex-col gap-3 px-5 pb-28 lg:px-8 lg:pb-10">
         <ErrorBox>{err}</ErrorBox>

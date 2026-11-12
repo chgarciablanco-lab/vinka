@@ -7,6 +7,7 @@ import { Calendar } from '../../components/Calendar'
 import { InterviewCard } from '../../components/InterviewCard'
 import { Chips, Empty, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Bell } from '../../components/Bell'
+import { VacTabs } from '../advisor/Hub'
 import { pl, plw } from '../../lib/text'
 
 const DURS = [20, 30, 45, 60]
@@ -63,6 +64,7 @@ export default function Agenda() {
         <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno. Todas las horas están en hora de Chile.</p>{outsideChile() && <p className="mt-1 rounded-lg bg-naranja-palido px-2 py-1 text-[12px] text-naranja-texto">Tu dispositivo está en otra zona horaria: aquí ves y creas los horarios en hora de Chile.</p>}</div>
         <Bell />
       </div>
+      <VacTabs />
       <div className="flex flex-col gap-4 px-5">
         {!verified && <div className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]">Podrás publicar horarios cuando tu empresa esté verificada.</div>}
         <button className="btn" disabled={!verified} onClick={() => setOpen(true)}><Svg name="plus" size={20} stroke="#fff" />Agregar disponibilidad</button>

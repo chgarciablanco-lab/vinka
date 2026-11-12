@@ -93,8 +93,8 @@ export function AuthProvider({ children }) {
     try { localStorage.setItem(MODE_KEY, m) } catch { /* sin almacenamiento */ }
     setModeState(m)
   }, [])
-  // Con qué «sombrero» actúa la cuenta ahora: un asesor en modo Reclutamiento actúa como empresa (su consultora)
-  const actsAs = profile?.role === 'advisor' ? (mode === 'reclutamiento' && company ? 'company' : 'advisor') : profile?.role
+  // Un asesor con espacio de reclutamiento actúa también como empresa (su consultora), sin cambiar de modo
+  const actsAs = profile?.role === 'advisor' ? (company ? 'company' : 'advisor') : profile?.role
 
   return (
     <Ctx.Provider value={{ session, user: session?.user, profile, candidate, company, companies, switchCompany, isAdmin, advisor, loading, refresh, signOut, recovery, setRecovery, mode, setMode, actsAs }}>
@@ -104,3 +104,6 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(Ctx)
+
+/** «Volver a mis vacantes»: la empresa las tiene en el inicio; el asesor, en /vacantes (su inicio junta todo) */
+export const useVacanciesHome = () => (useContext(Ctx)?.profile?.role === 'advisor' ? '/vacantes' : '/')

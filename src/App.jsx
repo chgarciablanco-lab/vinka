@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { AdvisorInicio, ChatFilter, ChatsHub, NoWorkspace } from './pages/advisor/Hub'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useUnread, useUnreadSync } from './lib/unread'
 import { useAuth } from './lib/auth'
@@ -103,22 +104,19 @@ function EditStep({ Comp }) {
   return <Comp edit onDone={() => nav('/perfil')} />
 }
 
-/** Asesores: cambia entre Asesorías y Reclutamiento y vuelve al inicio del modo elegido */
-function ModeSwitch() {
+/** Enlaces antiguos de «cambiar de modo»: ya no hay modos */
+function OldMode() {
   const { m } = useParams()
-  const { setMode } = useAuth()
-  const nav = useNavigate()
-  useEffect(() => { setMode(m === 'reclutamiento' ? 'reclutamiento' : 'asesorias'); nav('/', { replace: true }) }, [m, setMode, nav])
-  return null
+  return <Navigate to={m === 'reclutamiento' ? '/vacantes' : '/asesorias'} replace />
 }
 
 /** En computador: lista de chats a la izquierda y conversación a la derecha. En móvil: una pantalla a la vez. */
-function ChatsSplit({ items }) {
+function ChatsSplit({ items, extra = null }) {
   const { id } = useParams()
   return (
     <div className="h-full lg:grid lg:grid-cols-[380px_1fr]">
       <div className={`${id ? 'hidden lg:block' : ''} h-full overflow-y-auto lg:border-r lg:border-[#EEE3EA]`}>
-        <ChatList />{!id && <BottomNav items={items} />}
+        <ChatList extra={extra} />{!id && <BottomNav items={items} />}
       </div>
       {id ? <div className="h-full lg:overflow-hidden"><ChatRoom key={id} /></div> : (
         <div className="hidden h-full flex-col items-center justify-center gap-2 bg-rosa-fondo text-center lg:flex">
@@ -181,31 +179,79 @@ export default function App() {
   // Cuentas entregadas por VINKA con clave temporal: primero crean su contraseña
   if (profile.must_change_password) return wrap(<Routes><Route path="*" element={<ForcePassword />} /></Routes>)
 
-  // Asesores de VINKA: modo Asesorías (sus asesorías asignadas) o, si tienen espacio de reclutamiento, modo Reclutamiento
-  // (su consultora, con las mismas pantallas que una empresa). En modo Reclutamiento se usa la rama de empresa de más abajo.
+  // Asesores de VINKA: un solo menú que junta sus asesorías y, si VINKA le creó su espacio de reclutamiento,
+  // su consultora (vacantes, procesos, talento, agenda), además de la Comunidad y todos sus chats.
   const isAdvisor = profile.role === 'advisor'
-  const modeRoute = isAdvisor && company ? <Route key="modo" path="/modo/:m" element={<ModeSwitch />} /> : null
-  if (isAdvisor && (!advisor?.active || !advisor.terms_accepted_at || actsAs !== 'company')) {
+  if (isAdvisor) {
     if (!advisor?.active) return wrap(<Routes><Route path="*" element={<AdminAccount subtitle="Tu cuenta de asesor/a no está activa. Escribe a VINKA si crees que es un error." hint="" />} /></Routes>)
     if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
-    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, ...(company ? [{ to: '/modo/reclutamiento', label: 'Reclutar', icon: 'building' }] : []), { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/equipo', label: company ? 'Equipo' : 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
-    // En el celular las etiquetas van cortas para que quepan las seis; en el computador, completas
-    const deskNav = nav.map((it) => (it.to === '/equipo' ? { ...it, label: 'Equipo VINKA' } : it.to === '/modo/reclutamiento' ? { ...it, label: 'Reclutamiento' } : it))
+    const nav = [
+      { to: '/', label: 'Inicio', icon: 'grid' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' }, { to: '/vacantes', label: 'Vacantes', icon: 'building', also: ['/talento', '/agenda', '/vitrina'] },
+      { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge, also: ['/equipo'] },
+    ]
+    const gestion = company ? [
+      { section: 'Mi consultora' }, { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' },
+      { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo-consultora', label: 'Equipo', icon: 'user' }, { to: '/plan', label: 'Plan y uso', icon: 'chart' },
+      ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
+      { to: '/vitrina', label: 'Empresa y vitrina', icon: 'building' },
+    ] : []
+    const deskNav = [
+      nav[0], nav[1], nav[2], ...(company ? [{ to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' }] : []), nav[3], nav[4],
+      ...gestion,
+      { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' },
+    ]
+    const account = (
+      <AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración."
+        extra={company && (
+          <div className="card px-4">
+            <span className="block pt-3 text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">{company.display_name}</span>
+            {[['/vitrina', 'Empresa y vitrina'], ['/equipo-consultora', 'Equipo'], ['/plan', 'Plan y uso'], ['/reportes', 'Reportes'], ['/plantillas', 'Plantillas de mensajes'], ['/automatizaciones', 'Automatizaciones'],
+              ...(company.kind === 'consultora' && !company.parent_id ? [['/clientes', 'Clientes']] : [])].map(([to, l]) => (
+              <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
+            ))}
+          </div>
+        )} />
+    )
     return (
       <>
+      {company && <MatchWatcher onCount={setUnseen} />}
       <DesktopNav items={deskNav} />
       <div className="desk h-full lg:pl-64">
       {wrap(
       <Routes>
-        <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
-        <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam /></WithNav>} />
+        <Route path="/" element={<WithNav items={nav}><AdvisorInicio /></WithNav>} />
+        <Route path="/asesorias" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
         <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />
-        {/* Procesos a los que otro asesor lo invitó desde la Comunidad (solo lectura) */}
+        <Route path="/chats" element={<ChatsHub items={nav} candidates={company ? <ChatsSplit items={nav} extra={<ChatFilter />} /> : null} />} />
+        {company && <Route path="/chats/:id" element={<ChatsSplit items={nav} extra={<ChatFilter />} />} />}
+        <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam filter={<ChatFilter />} /></WithNav>} />
+        <Route path="/cuenta" element={<WithNav items={nav}>{account}</WithNav>} />
+        <Route path="/avisos" element={<Notifications />} />
+        <Route path="/modo/:m" element={<OldMode />} />
+        {/* Procesos: los propios y aquellos a los que otro asesor lo invitó desde la Comunidad (solo lectura) */}
         <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
         <Route path="/vacantes/:job/candidato/:cid" element={<CandidateDetail />} />
-        {modeRoute}
-        <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
-        <Route path="/avisos" element={<Notifications />} />
+        {company ? [
+          <Route key="v" path="/vacantes" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />,
+          <Route key="vn" path="/vacantes/nueva" element={<JobForm />} />,
+          <Route key="ve" path="/vacantes/:id" element={<JobForm />} />,
+          <Route key="vc" path="/vacantes/:id/candidatos" element={<JobCandidates />} />,
+          <Route key="vx" path="/vacantes/:id/externos" element={<ExternalApplicants />} />,
+          <Route key="vcmp" path="/vacantes/:id/comparar" element={<Compare />} />,
+          <Route key="vd" path="/vacantes/:id/destacar" element={<Promote />} />,
+          <Route key="vext" path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />,
+          <Route key="tal" path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />,
+          <Route key="ag" path="/agenda" element={<WithNav items={nav}><Agenda /></WithNav>} />,
+          <Route key="aut" path="/automatizaciones" element={<Automations />} />,
+          <Route key="plan" path="/plan" element={<Plan />} />,
+          <Route key="cli" path="/clientes" element={<Clients />} />,
+          <Route key="rep" path="/reportes" element={<Reports />} />,
+          <Route key="pla" path="/plantillas" element={<Templates />} />,
+          <Route key="eqc" path="/equipo-consultora" element={<Team />} />,
+          <Route key="of" path="/ofertas/:id" element={<Offer />} />,
+          <Route key="imp" path="/importar/vacantes" element={<ImportJobs />} />,
+          <Route key="vit" path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />,
+        ] : <Route path="/vacantes" element={<WithNav items={nav}><NoWorkspace /></WithNav>} />}
         {common}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>)}
@@ -309,7 +355,6 @@ export default function App() {
   const nav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
     { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
-    ...(isAdvisor ? [{ to: '/modo/asesorias', label: 'Asesorías', icon: 'swap' }] : []),
   ]
   const deskNav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
@@ -320,7 +365,6 @@ export default function App() {
     ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
     { to: '/vitrina', label: 'Empresa', icon: 'building' },
     { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
-    ...(isAdvisor ? [{ section: 'Asesor/a de VINKA' }, { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/modo/asesorias', label: 'Ir a mis asesorías', icon: 'swap' }] : []),
   ]
   return (
     <>
@@ -331,8 +375,6 @@ export default function App() {
     {wrap(
     <Routes>
       <Route path="/" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />
-      {modeRoute}
-      {isAdvisor && <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />}
       <Route path="/vacantes/nueva" element={<JobForm />} />
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />

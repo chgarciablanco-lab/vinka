@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
-import { useAuth } from '../../lib/auth'
+import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { AREAS, REGIONES } from '../../lib/catalog'
 import { APPLICANT_FIELDS, JOB_FIELDS, cleanEmail, cleanPhone, toContract, toModality, toSalary, toSchedule, toStage } from '../../lib/importer'
 import { Importer } from '../../components/Importer'
@@ -17,6 +17,7 @@ const pickRegion = (s) => { const v = n(s); return v ? REGIONES.find((r) => v.in
 export function ImportJobs() {
   const { company } = useAuth()
   const nav = useNavigate()
+  const home = useVacanciesHome()
   const build = useCallback((r, m) => {
     const g = (k) => (m[k] ? String(r[m[k]] ?? '').trim() : '')
     const title = g('title')
@@ -45,7 +46,7 @@ export function ImportJobs() {
     return { ok: rows.length, skipped: 0, after: (
       <div className="flex w-full flex-col gap-2">
         <p className="text-sm text-tinta-3">Quedaron como <b>borradores</b>. Revisa cada una (área, renta, requisitos) y publícala cuando esté lista.</p>
-        <button className="btn" onClick={() => nav('/')}>Ir a mis vacantes</button>
+        <button className="btn" onClick={() => nav(home)}>Ir a mis vacantes</button>
       </div>
     ) }
   }

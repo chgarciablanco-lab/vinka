@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDialogFocus } from '../lib/useDialogFocus'
 
 export const Icon = {
@@ -175,10 +175,13 @@ export function Avatar({ text, color, size = 48, round = false }) {
 }
 
 export function BottomNav({ items }) {
+  const { pathname } = useLocation()
+  // also: otras rutas que cuentan como esta sección (p. ej. Talento y Agenda dentro de Vacantes)
+  const on = (it, isActive) => isActive || (it.also || []).some((p) => pathname === p || pathname.startsWith(p + '/'))
   return (
     <nav className="safe-b fixed bottom-0 left-1/2 z-20 flex w-full max-w-md -translate-x-1/2 border-t border-[#EEE3EA] bg-white px-2 pt-2 lg:hidden">
       {items.map((it) => (
-        <NavLink key={it.to} to={it.to} className={({ isActive }) => `relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold ${isActive ? 'text-rosa-texto' : 'text-tinta-suave'}`}>
+        <NavLink key={it.to} to={it.to} className={({ isActive }) => `relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold ${on(it, isActive) ? 'text-rosa-texto' : 'text-tinta-suave'}`}>
           <Svg name={it.icon} />
           {it.label}
           {typeof it.badge === 'number' && it.badge > 0
