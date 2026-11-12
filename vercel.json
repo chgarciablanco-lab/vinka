@@ -10,7 +10,7 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Content-Security-Policy-Report-Only",
+          "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://jifhlhbntcfnvmcpbexo.supabase.co; media-src 'self' blob: https://jifhlhbntcfnvmcpbexo.supabase.co; connect-src 'self' https://jifhlhbntcfnvmcpbexo.supabase.co wss://jifhlhbntcfnvmcpbexo.supabase.co; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
         },
         {
