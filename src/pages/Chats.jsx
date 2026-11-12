@@ -14,6 +14,25 @@ import { Bell } from '../components/Bell'
 import { dayNum, fmtDayShort, fmtTime } from '../lib/dates'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const lastAt = (m) => new Date(m.last_at || m.created_at).getTime()
+
+/**
+ * Un chat por empresa (para la persona) o por persona (para la empresa), aunque haya varias vacantes.
+ * Cada vacante sigue siendo un proceso propio (etapa, agenda, oferta); en el chat se ven juntas con su etiqueta.
+ */
+export function groupChats(rows, isCompany) {
+  const by = new Map()
+  for (const m of rows || []) {
+    const k = isCompany ? m.candidate_id : m.company_id
+    if (!by.has(k)) by.set(k, [])
+    by.get(k).push(m)
+  }
+  return [...by.values()].map((list) => {
+    list.sort((a, b) => lastAt(b) - lastAt(a))
+    const open = list.filter((x) => !x.closed)
+    return { key: isCompany ? list[0].candidate_id : list[0].company_id, latest: list[0], main: open[0] || list[0], list, open, closed: open.length === 0 }
+  }).sort((a, b) => lastAt(b.latest) - lastAt(a.latest))
+}
 
 export function ChatList() {
   const { profile } = useAuth()
@@ -52,17 +71,19 @@ export function ChatList() {
         <ErrorBox>{err}</ErrorBox>
         {rows == null ? <Spinner /> : rows.length === 0 ? (
           <Empty title="Aún no tienes matches">El chat se abre cuando ambos se interesan en la misma vacante.</Empty>
-        ) : rows.map((m) => {
+        ) : groupChats(rows, isCompany).map((g) => {
+          const m = g.latest
           const name = isCompany ? m.candidate_name : m.company_name
+          const jobs = (g.open.length ? g.open : g.list).map((x) => x.job_title)
           return (
-            <Link key={m.match_id} to={`/chats/${m.match_id}`} className="card flex items-center gap-3 p-3.5">
+            <Link key={g.key} to={`/chats/${g.main.match_id}`} className="card flex items-center gap-3 p-3.5">
               <WithDot p={pres[isCompany ? m.candidate_id : m.company_id]} size={14}><Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={46} round={isCompany} /></WithDot>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex justify-between gap-2"><span className="truncate text-[15px] font-semibold">{name}</span>
                   <span className="shrink-0 text-[11px] text-tinta-suave">{fmt(m.last_at || m.created_at)}</span></span>
-                {!m.closed && <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />}
-                <span className="truncate text-xs font-medium text-rosa-texto">{m.job_title}</span>
-                <span className="truncate text-[13px] text-tinta-3">{m.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
+                {!g.closed && <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />}
+                <span className="truncate text-xs font-medium text-rosa-texto">{jobs.length > 1 ? `${jobs.length} vacantes: ${jobs.join(' · ')}` : jobs[0]}</span>
+                <span className="truncate text-[13px] text-tinta-3">{g.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
               </div>
             </Link>
           )
@@ -78,7 +99,8 @@ export function ChatRoom() {
   const { user, profile } = useAuth()
   const isCompany = profile?.role === 'company'
   const [m, setM] = useState(null)
-  const [msgs, setMsgs] = useState([])
+  const [sibs, setSibs] = useState([]) // todas las vacantes con esta misma empresa/persona (incluida la actual)
+  const [allMsgs, setAllMsgs] = useState([])
   const [draft, setDraft] = useState('')
   const [err, setErr] = useState('')
   const [menu, setMenu] = useState(false)
@@ -105,23 +127,39 @@ export function ChatRoom() {
   const loadMatch = useCallback(async () => {
     const { data, error } = await supabase.rpc('my_matches')
     if (error) return setErr(errMsg(error))
-    setM((data || []).find((x) => x.match_id === id) || false)
-  }, [id])
+    const cur = (data || []).find((x) => x.match_id === id) || false
+    setM(cur)
+    if (cur) {
+      const same = (data || []).filter((x) => (isCompany ? x.candidate_id === cur.candidate_id : x.company_id === cur.company_id))
+      same.sort((a, b) => (a.closed - b.closed) || (new Date(b.last_at || b.created_at) - new Date(a.last_at || a.created_at)))
+      setSibs(same)
+    }
+  }, [id, isCompany])
+  const sibKey = sibs.map((x) => x.match_id).sort().join(',')
 
   useEffect(() => {
     loadMatch()
     loadIvs()
+    setOffer(null)
     supabase.from('offers').select('*').eq('match_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle().then(({ data }) => setOffer(data))
-    supabase.rpc('mark_match_seen', { p_match: id })
-    supabase.from('messages').select('*').eq('match_id', id).order('created_at').then(({ data }) => setMsgs(data || []))
-    const ch = supabase.channel(`chat-${id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `match_id=eq.${id}` },
-        (p) => setMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new])))
+  }, [id, loadMatch, loadIvs])
+
+  // Mensajes y avisos en vivo de todas las vacantes de esta conversación
+  useEffect(() => {
+    const ids = sibKey ? sibKey.split(',') : [id]
+    ids.forEach((mid) => supabase.rpc('mark_match_seen', { p_match: mid }))
+    supabase.from('messages').select('*').in('match_id', ids).order('created_at').then(({ data }) => setAllMsgs(data || []))
+    const ch = supabase.channel(`chat-${ids.join('-').slice(0, 180)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: ids.length > 1 ? `match_id=in.(${ids.join(',')})` : `match_id=eq.${ids[0]}` },
+        (p) => setAllMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new])))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews', filter: `match_id=eq.${id}` }, () => loadIvs())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [id, loadMatch, loadIvs])
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [msgs.length])
+  }, [sibKey, id, loadIvs])
+  const msgs = allMsgs.filter((x) => x.match_id === id) // los de la vacante elegida (para la regla «la empresa escribe primero»)
+  const multi = sibs.length > 1
+  const jobOf = Object.fromEntries(sibs.map((x) => [x.match_id, x.job_title]))
+  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [allMsgs.length])
 
   const send = async (e) => {
     e.preventDefault()
@@ -130,7 +168,7 @@ export function ChatRoom() {
     setDraft('')
     const { data, error } = await supabase.from('messages').insert({ match_id: id, sender_id: user.id, body }).select().single()
     if (error) { setDraft(body); return setErr(errMsg(error)) }
-    setMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data]))
+    setAllMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data]))
   }
   const inviteSchedule = async () => {
     setErr('')
@@ -166,10 +204,24 @@ export function ChatRoom() {
           <span className="truncate text-[15px] font-semibold">{name}</span>
           {!m.closed && pres[isCompany ? m.candidate_id : m.company_id]
             ? <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />
-            : <span className="truncate text-xs text-tinta-suave">{m.job_title}</span>}
+            : <span className="truncate text-xs text-tinta-suave">{multi ? `${sibs.length} vacantes` : m.job_title}</span>}
         </div>
         <button aria-label="Opciones: etapa, denunciar o bloquear" onClick={() => setMenu(true)} className="flex h-11 w-11 items-center justify-center"><Svg name="dots" /></button>
       </div>
+      {multi && (
+        <div className="flex flex-col gap-1.5 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-tinta-3">Vacante de este proceso</span>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+            {sibs.map((x) => (
+              <button key={x.match_id} onClick={() => x.match_id !== id && nav(`/chats/${x.match_id}`, { replace: true })} aria-pressed={x.match_id === id}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${x.match_id === id ? 'border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'border-linea bg-white text-tinta-3'}`}>
+                {x.job_title}{x.closed ? ' · cerrada' : ''}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] leading-snug text-tinta-suave">La etapa, la agenda y la oferta de abajo son de la vacante marcada. Tus mensajes se envían con esa etiqueta.</span>
+        </div>
+      )}
       {!m.closed && <AwayBanner p={pres[isCompany ? m.candidate_id : m.company_id]} name={isCompany ? (m.candidate_name || '').split(' ')[0] : m.company_name} />}
       <div className="flex gap-1 overflow-x-auto border-b border-[#EEE3EA] bg-white px-4 py-2.5 text-xs font-semibold">
         {ETAPAS.slice(0, 5).map(([k, l], idx) => (
@@ -226,14 +278,21 @@ export function ChatRoom() {
       )}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
         <div className="self-center rounded-xl border border-rosa-borde bg-white px-3 py-2 text-center text-xs leading-relaxed text-tinta-3">
-          Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.<br />VINKA nunca te pedirá pagar para postular.
+          {multi ? <>Tienen match en {sibs.length} vacantes; aquí ves la conversación de todas.</> : <>Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.</>}<br />VINKA nunca te pedirá pagar para postular.
         </div>
-        {msgs.map((x) => (
-          <div key={x.id} className={`max-w-[80%] whitespace-pre-wrap break-words px-3 py-2.5 text-sm leading-snug ${x.sender_id === user.id ? 'self-end rounded-2xl rounded-br-[4px] bg-rosa-accion text-white' : 'self-start rounded-2xl rounded-bl-[4px] border border-[#EEE3EA] bg-white'}`}>
-            {x.body}
-            <div className={`mt-1 text-[10px] ${x.sender_id === user.id ? 'text-white/80' : 'text-tinta-suave'}`}>{fmt(x.created_at)}</div>
-          </div>
-        ))}
+        {allMsgs.map((x, i) => {
+          const mine = x.sender_id === user.id
+          const tag = multi && (i === 0 || allMsgs[i - 1].match_id !== x.match_id)
+          return (
+            <div key={x.id} className={`flex max-w-[80%] flex-col gap-1 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
+              {tag && <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${x.match_id === id ? 'bg-rosa-palido text-rosa-oscuro' : 'bg-[#F4EEF2] text-tinta-3'}`}>{jobOf[x.match_id] || 'Vacante'}</span>}
+              <div className={`whitespace-pre-wrap break-words px-3 py-2.5 text-sm leading-snug ${mine ? 'rounded-2xl rounded-br-[4px] bg-rosa-accion text-white' : 'rounded-2xl rounded-bl-[4px] border border-[#EEE3EA] bg-white'}`}>
+                {x.body}
+                <div className={`mt-1 text-[10px] ${mine ? 'text-white/80' : 'text-tinta-suave'}`}>{fmt(x.created_at)}</div>
+              </div>
+            </div>
+          )
+        })}
         {/* Datos de contacto: solo con consentimiento del candidato */}
         {!isCompany && m.contact_requested && !m.contact_shared && (
           <div className="flex flex-col gap-2.5 rounded-2xl border border-[#EEE3EA] bg-white p-3.5">
@@ -253,13 +312,13 @@ export function ChatRoom() {
       </div>
       <ErrorBox>{err}</ErrorBox>
       {m.closed ? (
-        <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm text-tinta-3">Esta conversación está cerrada.</div>
+        <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm text-tinta-3">{multi && sibs.some((x) => !x.closed) ? 'El proceso de esta vacante está cerrado. Elige otra vacante arriba para escribir.' : 'Esta conversación está cerrada.'}</div>
       ) : !isCompany && !msgs.some((x) => x.sender_id !== user.id) ? (
         <div className="safe-b border-t border-[#EEE3EA] bg-white px-4 pt-3 text-center text-sm leading-snug text-tinta-3">La empresa inicia la conversación. Podrás responder apenas te escriba; te avisaremos.</div>
       ) : (
         <form onSubmit={send} className="safe-b flex items-center gap-2 border-t border-[#EEE3EA] bg-white px-3 pt-2.5">
           <label className="flex-1"><span className="sr-only">Mensaje</span>
-            <input value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} placeholder="Escribe un mensaje" className="h-[46px] w-full rounded-full border border-linea px-4 text-[16px] focus:border-rosa-accion focus:outline-none" />
+            <input value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} placeholder={multi ? `Mensaje sobre ${m.job_title}` : 'Escribe un mensaje'} className="h-[46px] w-full rounded-full border border-linea px-4 text-[16px] focus:border-rosa-accion focus:outline-none" />
           </label>
           {isCompany && !draft.trim() && (
             <button type="button" onClick={() => setTplOpen(true)} aria-label="Usar una plantilla" title="Plantillas"
