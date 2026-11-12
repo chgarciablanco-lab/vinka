@@ -21,6 +21,7 @@ import { CompanyContext, companyOption, homeCompany } from '../../components/Com
 import { pl } from '../../lib/text'
 import { CompanyPhotosEditor } from '../../components/CompanyPhotos'
 import { BillingBanner } from '../../components/BillingBanner'
+import { TodoBlock } from '../../components/TodoBlock'
 
 const STATUS = {
   draft: ['BORRADOR', 'bg-[#F1EDF0] text-[#3D2F4A]'], pending: ['ESPERA VERIFICACIÓN', 'bg-naranja-palido text-naranja-texto'],
@@ -98,6 +99,7 @@ export function CompanyPanel() {
       <div className="flex flex-col gap-3.5 px-5">
         <InstallBanner />
         {isAdmin && <BillingBanner billing={planInfo?.billing} />}
+        <TodoBlock companyId={company?.id} />
         {canManage && verified && (() => {
           const due = (jobs || []).filter((j) => { const pr = promos[j.id]; return j.status === 'published' && pr?.status === 'activa' && !pr.renewal && new Date(pr.ends_at) - Date.now() <= 3 * 86400000 && new Date(pr.ends_at) > Date.now() })
           if (!due.length) return null
@@ -136,7 +138,7 @@ export function CompanyPanel() {
           </div>
         )}
         <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-semibold">Vacantes</h2>
+          <h2 id="vacantes" className="scroll-mt-4 text-[17px] font-semibold">Vacantes</h2>
           {canManage && <span className="flex gap-3"><Link to="/importar/vacantes" className="flex h-11 items-center text-sm font-semibold text-tinta-3">Importar</Link><Link to="/vacantes/nueva" className="flex h-11 items-center text-sm font-semibold text-rosa-texto">+ Crear vacante</Link></span>}
         </div>
         {jobs == null ? <Spinner /> : jobs.length === 0 ? (
