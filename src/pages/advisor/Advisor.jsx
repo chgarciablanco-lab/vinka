@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
 import { Dossier, NextStep, TeamNotes } from '../../components/Dossier'
 import { TopIcons } from './Hub'
+import { markAdvisorRead, refreshAdvisorUnread, useAdvisorUnread } from '../../lib/advisorUnread'
 import { SERVICE_STATUS } from '../candidate/Advisory'
 
 const fmt = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
@@ -90,6 +91,8 @@ function Profile({ r }) {
 /** Panel del asesor/a: solo ve las asesorías que VINKA le asignó, sin datos de contacto */
 /** Conversación general con el equipo de VINKA (dudas, disponibilidad, temas que no son de una asesoría) */
 export function AdvisorTeam({ filter = null }) {
+  // Con el chat del equipo a la vista, sus mensajes quedan leídos
+  useEffect(() => { markAdvisorRead('team', true); const t = setInterval(() => refreshAdvisorUnread().then(() => markAdvisorRead('team')), 20000); return () => clearInterval(t) }, [])
   return (
     <Screen className="bg-[#FAF7F9]" wide>
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3 pt-2 lg:px-8 lg:pt-6"><div><h1 className="text-[22px] font-bold">{filter ? 'Chats' : 'Equipo VINKA'}</h1><p className="text-[13px] text-tinta-3">{filter ? 'Equipo VINKA: tus' : 'Tus'} notas y conversaciones con la administración. Incluye las notas de cada asesoría.</p></div>{filter && <TopIcons />}</div>
@@ -127,6 +130,14 @@ export default function AdvisorHome() {
   const [err, setErr] = useState('')
   const caso = new URLSearchParams(window.location.search).get('caso')
   const [open, setOpen] = useState(caso)
+  const unread = useAdvisorUnread()
+  // Con el caso abierto (y su chat a la vista), sus mensajes quedan leídos
+  useEffect(() => {
+    if (!open) return undefined
+    markAdvisorRead(`req:${open}`, true)
+    const t = setInterval(() => refreshAdvisorUnread().then(() => markAdvisorRead(`req:${open}`)), 20000)
+    return () => clearInterval(t)
+  }, [open])
   const hasData = !!list
   useEffect(() => { if (caso && hasData) setTimeout(() => document.getElementById(`caso-${caso}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100) }, [caso, hasData])
   const [note, setNote] = useState('')
@@ -160,7 +171,10 @@ export default function AdvisorHome() {
       <div key={r.id} id={`caso-${r.id}`} className={`card flex flex-col gap-2.5 p-4 ${r.id === caso ? 'ring-2 ring-morado' : ''}`}>
         <button className="flex items-start justify-between gap-2 text-left" onClick={() => setOpen(isOpen ? null : r.id)}>
           <span className="flex flex-col"><span className="text-[15px] font-semibold">{r.name}</span><span className="text-xs text-tinta-3">{r.service} · asignada el {fmt(r.created_at)}{r.messages ? ` · ${r.messages} ${r.messages === 1 ? 'mensaje' : 'mensajes'}` : ''}</span></span>
-          <span className={`pill shrink-0 ${st[1]}`}>{st[0]}</span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            {unread.by_request[r.id] > 0 && <span className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-rosa-accion px-1.5 text-[12px] font-bold text-white" aria-label={`${unread.by_request[r.id]} mensajes sin leer`}>{unread.by_request[r.id]}</span>}
+            <span className={`pill ${st[1]}`}>{st[0]}</span>
+          </span>
         </button>
         <NextStep next={r.next} />
         {isOpen && (

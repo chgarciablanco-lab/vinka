@@ -7,7 +7,7 @@ import { Calendar } from '../../components/Calendar'
 import { InterviewCard } from '../../components/InterviewCard'
 import { Chips, Empty, ErrorBox, Field, Sheet, Spinner, Svg, Toast } from '../../components/ui'
 import { Bell } from '../../components/Bell'
-import { VacTabs } from '../advisor/Hub'
+import { MeAvatar, VacTabs } from '../advisor/Hub'
 import { pl, plw } from '../../lib/text'
 
 const DURS = [20, 30, 45, 60]
@@ -62,7 +62,7 @@ export default function Agenda() {
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-end justify-between px-5 pb-3">
         <div><h1 className="text-[22px] font-bold">Agenda</h1><p className="text-[13px] text-tinta-3">Publica tus horarios libres y tus matches eligen uno. Todas las horas están en hora de Chile.</p>{outsideChile() && <p className="mt-1 rounded-lg bg-naranja-palido px-2 py-1 text-[12px] text-naranja-texto">Tu dispositivo está en otra zona horaria: aquí ves y creas los horarios en hora de Chile.</p>}</div>
-        <Bell />
+        <div className="flex items-center gap-2"><Bell /><MeAvatar /></div>
       </div>
       <VacTabs />
       <div className="flex flex-col gap-4 px-5">

@@ -6,6 +6,8 @@ import { colorFor, initials } from '../../lib/catalog'
 import { Avatar, BottomNav, Screen, Spinner, Svg } from '../../components/ui'
 import { Bell } from '../../components/Bell'
 import { TodoBlock } from '../../components/TodoBlock'
+import { useUnread } from '../../lib/unread'
+import { useAdvisorUnread } from '../../lib/advisorUnread'
 
 // Asesor/a de VINKA: un solo menú que junta asesorías, reclutamiento, comunidad y chats (sin cambiar de modo).
 
@@ -25,6 +27,14 @@ export function TopIcons() {
       <Link to="/cuenta" aria-label="Mi cuenta" className="rounded-full"><Avatar text={initials(name)} color={colorFor(name)} size={40} round /></Link>
     </div>
   )
+}
+
+/** Foto del asesor (lleva a la cuenta), para pantallas que ya tienen la campana */
+export function MeAvatar() {
+  const { profile } = useAuth()
+  if (profile?.role !== 'advisor') return null
+  const name = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+  return <Link to="/cuenta" aria-label="Mi cuenta" className="shrink-0 rounded-full"><Avatar text={initials(name)} color={colorFor(name)} size={40} round /></Link>
 }
 
 /** Pestañas dentro de «Vacantes» */
@@ -149,10 +159,15 @@ export function ChatFilter() {
   const { search, pathname } = useLocation()
   const nav = useNavigate()
   const cur = pathname === '/equipo' ? 'equipo' : new URLSearchParams(search).get('ver') || (company ? 'candidatos' : 'asesorias')
+  const { total: cand } = useUnread()
+  const adv = useAdvisorUnread()
+  const count = { candidatos: cand, asesorias: adv.asesorias, asesores: adv.asesores, equipo: adv.equipo }
   return (
     <div className="flex gap-1.5 overflow-x-auto px-5 pb-3" role="tablist" aria-label="Tipo de conversación">
       {FILTERS.filter(([k]) => company || k !== 'candidatos').map(([k, l]) => (
-        <button key={k} role="tab" aria-selected={cur === k} className={`chip h-9 shrink-0 text-[13px] ${cur === k ? 'chip-on' : ''}`} onClick={() => nav(k === 'equipo' ? '/equipo' : `/chats?ver=${k}`)}>{l}</button>
+        <button key={k} role="tab" aria-selected={cur === k} className={`chip h-9 shrink-0 gap-1.5 text-[13px] ${cur === k ? 'chip-on' : ''}`} onClick={() => nav(k === 'equipo' ? '/equipo' : `/chats?ver=${k}`)}>
+          {l}{count[k] > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rosa-accion px-1.5 text-[11px] font-bold leading-none text-white" aria-label={`${count[k]} sin leer`}>{count[k]}</span>}
+        </button>
       ))}
     </div>
   )
@@ -165,18 +180,21 @@ export function ChatsHub({ items, candidates }) {
   const ver = new URLSearchParams(search).get('ver') || (company ? 'candidatos' : 'asesorias')
   const [cases, setCases] = useState(null)
   const [threads, setThreads] = useState(null)
+  const adv = useAdvisorUnread()
+  const Badge = ({ n }) => (n > 0 ? <span className="flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-full bg-rosa-accion px-1.5 text-[12px] font-bold text-white" aria-label={`${n} sin leer`}>{n}</span> : null)
   useEffect(() => {
     if (ver === 'asesorias') supabase.rpc('advisor_requests').then(({ data }) => setCases(data || []))
     if (ver === 'asesores') {
       (async () => {
         const list = []
         const { data: mine } = await supabase.rpc('my_collaborations')
-        for (const c of mine || []) list.push({ key: 'i' + c.job_id, title: c.title, who: c.owner, to: `/vacantes/${c.job_id}/proceso?chat=me`, sub: 'Te invitó a su proceso' })
+        const { data: { user } } = await supabase.auth.getUser()
+        for (const c of mine || []) list.push({ key: 'i' + c.job_id, ck: `${c.job_id}:${user?.id}`, title: c.title, who: c.owner, to: `/vacantes/${c.job_id}/proceso?chat=me`, sub: 'Te invitó a su proceso' })
         const ids = (companies || []).map((c) => c.id)
         if (ids.length) {
           const { data: jobs } = await supabase.from('jobs').select('id, title').in('company_id', ids).neq('status', 'closed')
           const infos = await Promise.all((jobs || []).map((j) => supabase.rpc('job_collab_info', { p_job: j.id }).then(({ data }) => ({ j, data }))))
-          for (const { j, data } of infos) for (const c of data?.collaborators || []) list.push({ key: j.id + c.user_id, title: j.title, who: c.name, to: `/vacantes/${j.id}/proceso?chat=${c.user_id}`, sub: 'Invitado/a a tu proceso', at: c.last_at })
+          for (const { j, data } of infos) for (const c of data?.collaborators || []) list.push({ key: j.id + c.user_id, ck: `${j.id}:${c.user_id}`, title: j.title, who: c.name, to: `/vacantes/${j.id}/proceso?chat=${c.user_id}`, sub: 'Invitado/a a tu proceso', at: c.last_at })
         }
         setThreads(list)
       })()
@@ -192,6 +210,7 @@ export function ChatsHub({ items, candidates }) {
           <Link key={r.id} to={`/asesorias?caso=${r.id}`} className="card flex items-center gap-3 p-3">
             <Avatar text={initials(r.name)} color={colorFor(r.name || '')} size={42} round />
             <span className="flex min-w-0 flex-1 flex-col"><b className="truncate text-[15px]">{r.name}</b><span className="truncate text-[13px] text-tinta-3">{r.service} · {pl(r.messages)}</span></span>
+            <Badge n={adv.by_request[r.id]} />
             <Svg name="chevron" size={18} className="text-tinta-suave" />
           </Link>
         )))}
@@ -201,6 +220,7 @@ export function ChatsHub({ items, candidates }) {
           <Link key={t.key} to={t.to} className="card flex items-center gap-3 p-3">
             <Avatar text={initials(t.who)} color={colorFor(t.who || '')} size={42} round />
             <span className="flex min-w-0 flex-1 flex-col"><b className="truncate text-[15px]">{t.who}</b><span className="truncate text-[13px] text-tinta-3">{t.title} · {t.sub}</span></span>
+            <Badge n={adv.by_collab[t.ck]} />
             <Svg name="chevron" size={18} className="text-tinta-suave" />
           </Link>
         )))}

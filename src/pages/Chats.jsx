@@ -12,6 +12,7 @@ import { InterviewCard } from '../components/InterviewCard'
 import { Sparkle, callAi } from '../components/AiAssist'
 import { Bell } from '../components/Bell'
 import { dayNum, fmtDayShort, fmtTime } from '../lib/dates'
+import { MeAvatar } from './advisor/Hub'
 import { markRead, useUnread } from '../lib/unread'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -49,7 +50,7 @@ export function ChatList({ extra = null }) {
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24 lg:max-w-none lg:pb-4">
-      <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
+      <div className="safe-t flex items-center justify-between px-5 pb-3"><h1 className="text-[22px] font-bold">Chats</h1><div className="flex items-center gap-2"><StatusPill /><Bell /><MeAvatar /></div></div>
       {extra}
       <div className="flex flex-col gap-2 px-5">
         <NotifyCard compact />

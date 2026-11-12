@@ -21,7 +21,7 @@ import { CompanyContext, companyOption, homeCompany } from '../../components/Com
 import { pl } from '../../lib/text'
 import { CompanyPhotosEditor } from '../../components/CompanyPhotos'
 import { BillingBanner } from '../../components/BillingBanner'
-import { VacTabs } from '../advisor/Hub'
+import { MeAvatar, VacTabs } from '../advisor/Hub'
 import { TodoBlock } from '../../components/TodoBlock'
 
 const STATUS = {
@@ -96,7 +96,7 @@ export function CompanyPanel() {
       <div className="safe-t flex items-center justify-between gap-3 px-5 pb-3">
         <div className="flex min-w-0 flex-col"><span className="truncate text-[13px] text-tinta-suave">{isAdvisor ? homeCompany(companies, company)?.display_name : 'VINKA Company'}</span>
         <h1 className="truncate text-[22px] font-bold">{isAdvisor ? 'Vacantes' : homeCompany(companies, company)?.display_name}</h1></div>
-        <div className="flex items-center gap-2"><StatusPill /><Bell /></div>
+        <div className="flex items-center gap-2"><StatusPill /><Bell /><MeAvatar /></div>
       </div>
       <VacTabs />
       <div className="flex flex-col gap-3.5 px-5">
@@ -751,7 +751,7 @@ export function CompanyAccount() {
   }
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
-      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /></div></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /><MeAvatar /></div></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
           {company?.logo_path ? <img src={logoUrl(company.logo_path)} alt="Logo" className="h-[52px] w-[52px] shrink-0 rounded-xl border border-linea bg-white object-contain p-1" /> : <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />}

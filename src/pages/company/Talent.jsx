@@ -8,7 +8,7 @@ import { Bell } from '../../components/Bell'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
 import { norm, parseQuery } from '../../lib/search'
-import { VacTabs } from '../advisor/Hub'
+import { MeAvatar, VacTabs } from '../advisor/Hub'
 import { pl } from '../../lib/text'
 
 const STAGE_TXT = (s) => ({ guardado: 'Guardado', invitado: 'Invitado', postulante: 'Postuló' }[s] || colLabel(s))
@@ -191,7 +191,7 @@ export default function Talent() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-7xl lg:pb-10 lg:pt-4">
       <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3">
-        <div><h1 className="text-[22px] font-bold">Banco de talento</h1><p className="text-[13px] text-tinta-3">Personas que ya pasaron por tus procesos.</p></div><Bell />
+        <div><h1 className="text-[22px] font-bold">Banco de talento</h1><p className="text-[13px] text-tinta-3">Personas que ya pasaron por tus procesos.</p></div><div className="flex items-center gap-2"><Bell /><MeAvatar /></div>
       </div>
       <VacTabs />
       <div className="flex flex-col gap-3 px-5 lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-6">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
+import { markAdvisorRead } from '../../lib/advisorUnread'
 import { colorFor, initials } from '../../lib/catalog'
 import { TopIcons } from '../advisor/Hub'
 import { Avatar, ErrorBox, Screen, Sheet, Spinner, Svg, Toast } from '../../components/ui'
@@ -367,6 +368,9 @@ function CollabChat({ jobId, collab, name, other, onClose, onRemove }) {
   }, [jobId, collab])
   useEffect(() => { load(); const t = setInterval(load, 6000); return () => clearInterval(t) }, [load])
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [msgs?.length])
+  // Con el chat a la vista, lo del otro queda leído
+  const lastOther = (msgs || []).filter((m) => !m.mine).slice(-1)[0]?.id
+  useEffect(() => { if (lastOther) markAdvisorRead(`collab:${jobId}:${collab}`, true) }, [lastOther, jobId, collab])
   const send = async () => {
     if (!txt.trim()) return
     setBusy(true); setErr('')

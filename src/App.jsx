@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } fr
 import { AdvisorInicio, ChatFilter, ChatsHub, NoWorkspace } from './pages/advisor/Hub'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useUnread, useUnreadSync } from './lib/unread'
+import { useAdvisorUnread, useAdvisorUnreadSync } from './lib/advisorUnread'
 import { useAuth } from './lib/auth'
 import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner, Svg } from './components/ui'
@@ -137,6 +138,9 @@ export default function App() {
   const [unseen, setUnseen] = useState(0)
   useUnreadSync(session && profile ? session.user.id : null)
   const { total: unreadMsgs } = useUnread()
+  // Asesores: también sus asesorías, el equipo VINKA y los chats con otros asesores
+  useAdvisorUnreadSync(!!session && profile?.role === 'advisor')
+  const { total: advUnread } = useAdvisorUnread()
   // Chats: número de mensajes sin leer; si solo hay un match nuevo sin abrir, un punto
   const chatBadge = unreadMsgs > 0 ? unreadMsgs : unseen > 0
   const loc = useLocation()
@@ -187,7 +191,7 @@ export default function App() {
     if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
     const nav = [
       { to: '/', label: 'Inicio', icon: 'grid' }, { to: '/asesorias', label: 'Asesorías', icon: 'people' }, { to: '/vacantes', label: 'Vacantes', icon: 'building', also: ['/talento', '/agenda', '/vitrina'] },
-      { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge, also: ['/equipo'] },
+      { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: unreadMsgs + advUnread > 0 ? unreadMsgs + advUnread : unseen > 0, also: ['/equipo'] },
     ]
     const gestion = company ? [
       { section: 'Mi consultora' }, { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' },
