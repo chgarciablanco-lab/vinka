@@ -28,7 +28,8 @@ export default function Advisory() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
   const [chat, setChat] = useState(null)
-  const [dir, reloadDir] = useAdvisorDirectory() // asesores con perfil publicado
+  const [dir, reloadDir, dirFailed] = useAdvisorDirectory() // asesores con perfil publicado
+  const [busyAlt, setBusyAlt] = useState(false) // el elegido se quedó sin cupo al enviar
   const [change, setChange] = useState(null) // solicitud a la que se le cambia el asesor elegido
   const [view, setView] = useState(null)
 
@@ -42,14 +43,19 @@ export default function Advisory() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const open = (s) => { setPick(s); setErr(''); setForm({ goal: '', consent: false, advisor: null }) }
+  const open = (s) => { setPick(s); setErr(''); setBusyAlt(false); setForm({ goal: '', consent: false, advisor: null, mode: 'vinka' }) }
   const request = async () => {
     setErr('')
+    if (form.mode === 'asesor' && !form.advisor) return setErr('Elige a una persona o vuelve a «VINKA elige por mí».')
     if (!form.consent) return setErr('Para continuar, autoriza que un reclutador vea tu perfil y te contacte.')
-    setBusy(true)
+    setBusy(true); setBusyAlt(false)
     const { error } = await supabase.rpc('request_career_service', { p_service: pick.id, p_goal: form.goal, p_contact: 'chat', p_consent: form.consent, p_advisor: form.advisor || null })
     setBusy(false)
-    if (error) { reloadDir(); return setErr(errMsg(error)) }
+    if (error) {
+      reloadDir()
+      if (form.advisor && /no está disponible/.test(error.message || '')) setBusyAlt(true)
+      return setErr(errMsg(error))
+    }
     setPick(null); setToast('¡Solicitud enviada! Te escribiremos por el chat de tu asesoría.'); load()
   }
   const cancel = async (r) => {
@@ -62,6 +68,12 @@ export default function Advisory() {
     const { error } = await supabase.rpc('request_change_advisor', { p_request: r.id, p_advisor: advisorId })
     if (error) { reloadDir(); return setErr(errMsg(error)) }
     setChange(null); setView(null); setToast(advisorId ? 'Listo: cambiaste tu asesor/a' : 'Listo: VINKA elegirá a tu asesor/a'); load()
+  }
+  const answer = async (r, yes) => {
+    setErr('')
+    const { error } = await supabase.rpc('request_answer_proposal', { p_id: r.id, p_accept: yes })
+    if (error) { reloadDir(); return setErr(errMsg(error)) }
+    setToast(yes ? 'Listo: ya tienes asesor/a' : 'Propuesta rechazada'); load()
   }
   const byId = (id) => (dir || []).find((a) => a.id === id)
   const openReq = (id) => mine.find((r) => r.service_id === id && ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status))
@@ -92,8 +104,22 @@ export default function Advisory() {
                       <AdvisorPhoto a={byId(r.assigned_to)} size={36} /><span>Tu asesor/a: <b>{byId(r.assigned_to).display_name}</b> <span className="font-semibold text-rosa-texto">Ver perfil</span></span>
                     </button>
                   ) : <span className="text-sm">Tu asesor/a: <b>{r.assigned_name}</b>, reclutador/a de VINKA</span>)}
+                  {/* VINKA propone un reemplazo: nada cambia hasta que la persona acepte */}
+                  {r.proposed_advisor && ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status) && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-[#F3D9A4] bg-[#FFFAEE] p-3 text-sm">
+                      <span className="flex items-center gap-2.5">{byId(r.proposed_advisor) && <AdvisorPhoto a={byId(r.proposed_advisor)} size={36} />}
+                        <span><b>VINKA te propone a {byId(r.proposed_advisor)?.display_name || 'otra persona'}</b>{r.proposal_note ? `: ${r.proposal_note}` : ''}</span></span>
+                      {byId(r.proposed_advisor) && <button className="self-start text-[13px] font-semibold text-rosa-texto" onClick={() => setView(byId(r.proposed_advisor))}>Ver su perfil</button>}
+                      <span className="text-[12px] text-tinta-3">Nada cambia hasta que respondas.</span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button className="btn-sm h-10 bg-rosa-accion px-2 text-white" onClick={() => answer(r, true)}>Aceptar</button>
+                        <button className="btn-sm h-10 border border-linea bg-white px-2 text-[13px]" onClick={() => setChange(r)}>Elegir otro/a</button>
+                        <button className="btn-sm h-10 border border-linea bg-white px-2 text-[13px]" onClick={() => changeTo(r, null)}>VINKA elige</button>
+                      </div>
+                    </div>
+                  )}
                   {/* Antes de empezar: a quién eligió y qué hacer si ya no está disponible */}
-                  {!r.assigned_to && ['solicitada', 'pago_pendiente'].includes(r.status) && (
+                  {!r.assigned_to && !r.proposed_advisor && ['solicitada', 'pago_pendiente'].includes(r.status) && (
                     r.choice === 'asesor' && byId(r.preferred_advisor) ? (
                       <div className={`flex flex-col gap-2 rounded-xl p-3 text-sm ${byId(r.preferred_advisor).available ? 'bg-[#F7F0FB] text-[#4A2163]' : 'bg-naranja-palido text-naranja-texto'}`}>
                         <span className="flex items-center gap-2.5"><AdvisorPhoto a={byId(r.preferred_advisor)} size={32} />
@@ -171,7 +197,8 @@ export default function Advisory() {
         {pick && (
           <div className="flex flex-col gap-4">
             <div className="flex items-baseline justify-between rounded-xl bg-[#F7F0FB] px-4 py-3"><span className="text-sm font-semibold text-[#4A2163]">{pick.name}</span><span className="font-display text-xl font-bold text-[#4A2163]">{money(pick.price_clp)}</span></div>
-            <AdvisorChooser service={pick.id} list={dir} value={form.advisor} onChange={(id) => setForm((f) => ({ ...f, advisor: id }))} />
+            <AdvisorChooser service={pick.id} list={dir} value={form.advisor} onChange={(id) => { setBusyAlt(false); setForm((f) => ({ ...f, advisor: id })) }}
+              mode={form.mode} onMode={(m) => setForm((f) => ({ ...f, mode: m }))} failed={dirFailed} onRetry={reloadDir} />
             <label className="flex flex-col gap-1.5"><span className="label">¿Qué te gustaría lograr? (opcional)</span>
               <textarea className="textarea h-24" maxLength={1000} value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} placeholder="Ej.: quiero cambiarme de retail a un cargo administrativo en Talca" /></label>
             <p className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-[13px] leading-snug text-[#4A2163]">VINKA te escribirá por el chat de tu asesoría, dentro de la app, para coordinar el pago y empezar. No usamos WhatsApp, llamadas ni correos para la asesoría.</p>
@@ -181,6 +208,12 @@ export default function Advisory() {
             </label>
             <p className="hint">No pagas nada ahora. Te escribiremos por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.</p>
             <ErrorBox>{err}</ErrorBox>
+            {busyAlt && (
+              <div className="grid grid-cols-2 gap-2">
+                <button className="btn-sm h-10 border border-linea bg-white" onClick={() => { setBusyAlt(false); setErr(''); setForm((f) => ({ ...f, advisor: null, mode: 'asesor' })) }}>Elegir a otra persona</button>
+                <button className="btn-sm h-10 border border-linea bg-white" onClick={() => { setBusyAlt(false); setErr(''); setForm((f) => ({ ...f, advisor: null, mode: 'vinka' })) }}>Que VINKA elija</button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setPick(null)}>Cancelar</button><button className="btn" disabled={busy} onClick={request}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button></div>
           </div>
         )}

@@ -70,17 +70,28 @@ export function AdvisorSheet({ a, onClose, onPick, pickLabel }) {
 /** Directorio cargado una vez: perfiles publicados y su disponibilidad */
 export function useAdvisorDirectory() {
   const [list, setList] = useState(null)
-  const load = useCallback(() => supabase.rpc('advisor_directory', { p_service: null }).then(({ data, error }) => setList(error ? [] : data || [])), [])
+  const [failed, setFailed] = useState(false)
+  // Si falla (sin red), se avisa y se ofrece reintentar; se mantiene lo último conocido
+  const load = useCallback(() => supabase.rpc('advisor_directory', { p_service: null }).then(({ data, error }) => {
+    setFailed(!!error); if (!error) setList(data || []); else setList((l) => l || [])
+  }, () => { setFailed(true); setList((l) => l || []) }), [])
   useEffect(() => { load() }, [load])
-  return [list, load]
+  return [list, load, failed]
 }
 
 /** Paso «¿Quién te atiende?» dentro de la solicitud */
-export function AdvisorChooser({ service, list, value, onChange }) {
+export function AdvisorChooser({ service, list, value, onChange, mode, onMode, failed, onRetry }) {
   const [view, setView] = useState(null)
-  const [mode, setMode] = useState(value ? 'asesor' : 'vinka')
   const options = (list || []).filter((a) => (a.services || []).includes(service))
   const avail = options.filter((a) => a.available)
+  const setMode = (k) => { onMode(k); if (k === 'vinka') onChange(null) }
+  if (failed && !options.length) return (
+    <div role="alert" className="flex flex-col gap-2 rounded-xl border border-[#F4C7C3] bg-[#FEF3F2] p-3 text-[13px] text-[#912018]">
+      <span>No pudimos cargar a los asesores. Puedes reintentar o seguir con «VINKA elige por mí».</span>
+      <div className="flex gap-2"><button type="button" className="btn-sm h-9 border border-[#F4C7C3] bg-white" onClick={onRetry}>Reintentar</button>
+        <button type="button" className="btn-sm h-9 border border-[#F4C7C3] bg-white" onClick={() => setMode('vinka')}>Seguir con VINKA elige</button></div>
+    </div>
+  )
   if (!options.length) return null // sin perfiles publicados para este servicio: VINKA elige, como siempre
   return (
     <fieldset className="flex flex-col gap-2">
@@ -94,7 +105,8 @@ export function AdvisorChooser({ service, list, value, onChange }) {
       {mode === 'asesor' && (
         <div className="flex flex-col gap-2">
           {options.map((a) => <AdvisorCard key={a.id} a={a} picked={value === a.id} onView={setView} onPick={(x) => onChange(x.id)} />)}
-          {!value && <span className="text-[12px] text-tinta-3">Elige a una persona o vuelve a «VINKA elige por mí».</span>}
+          {avail.length === 0 && <span className="rounded-xl bg-naranja-palido px-3 py-2 text-[12px] text-naranja-texto">Ahora nadie tiene cupo para este servicio. Elige «VINKA elige por mí» y te asignamos apenas se libere alguien.</span>}
+          {!value && avail.length > 0 && <span className="text-[12px] text-tinta-3">Elige a una persona o vuelve a «VINKA elige por mí».</span>}
         </div>
       )}
       <AdvisorSheet a={view} onClose={() => setView(null)} onPick={(x) => { onChange(x.id); setView(null) }} />

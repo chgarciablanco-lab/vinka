@@ -432,11 +432,31 @@ function Advisory() {
     if (error) return setErr(errMsg(error))
     setEdit({ ...edit, [r.id]: undefined }); load()
   }
+  const [asg, setAsg] = useState(null) // { r, id, name, reason, consent, mode, text }
   const assign = async (r, advisorId) => {
     setErr('')
+    if (advisorId) {
+      // Antes de asignar: ¿la persona está disponible y el postulante está de acuerdo?
+      const { data: chk, error: e1 } = await supabase.rpc('admin_assign_check', { p_id: r.id, p_advisor: advisorId })
+      if (e1) return setErr(errMsg(e1))
+      if (chk?.reason || !chk?.consent) {
+        const name = advisors.find((a) => a.id === advisorId)?.name || 'esta persona'
+        return setAsg({ r, id: advisorId, name, reason: chk?.reason || null, consent: !!chk?.consent, mode: chk?.reason ? 'exception' : 'propose', text: '' })
+      }
+    }
     const { error } = await supabase.rpc('admin_assign_request', { p_id: r.id, p_advisor: advisorId || null })
     if (error) return setErr(errMsg(error))
     load()
+  }
+  const [asgErr, setAsgErr] = useState('')
+  const asgSend = async () => {
+    setAsgErr('')
+    const t = asg.text.trim()
+    const { error } = asg.mode === 'propose'
+      ? await supabase.rpc('admin_propose_advisor', { p_id: asg.r.id, p_advisor: asg.id, p_note: t })
+      : await supabase.rpc('admin_assign_request', { p_id: asg.r.id, p_advisor: asg.id, p_exception: t })
+    if (error) return setAsgErr(errMsg(error))
+    setAsg(null); load()
   }
   const saveSvc = async () => {
     setErr('')
@@ -483,14 +503,25 @@ function Advisory() {
             <span className="text-xs text-tinta-3">Coordinación y asesoría solo por el chat de VINKA (pestaña Conversación).</span>
             <NextStep next={r.next} />
             {r.goal && <span className="text-tinta-2">Objetivo: «{r.goal}»</span>}
+            {r.advisor_inactive && ['solicitada', 'pago_pendiente', 'en_curso', 'entregada'].includes(r.status) && (
+              <div role="alert" className="rounded-xl border border-[#F4C7C3] bg-[#FEF3F2] px-3 py-2 text-[13px] text-[#912018]">
+                <b>Asesor/a inactivo/a:</b> {r.advisor} ya no está activo/a. Reasigna este caso (propón a alguien al postulante o asígnalo como excepción).
+              </div>
+            )}
+            {r.proposed_id && ['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status) && (
+              <div className="rounded-xl bg-naranja-palido px-3 py-2 text-[13px] text-naranja-texto">
+                Propuesta enviada: <b>{r.proposed || 'otra persona'}</b> — esperando respuesta del postulante.
+              </div>
+            )}
             {['solicitada', 'pago_pendiente', 'en_curso'].includes(r.status) && (r.choice === 'asesor' || r.suggested_id) && (() => {
-              // Elección del postulante (o sugerencia de VINKA) y asignación con un toque
+              // Elección del postulante (o sugerencia de VINKA) y asignación con un toque, solo si no hay impedimento
               const target = r.choice === 'asesor' ? r.preferred_id : r.suggested_id
               const name = r.choice === 'asesor' ? r.preferred : advisors.find((a) => a.id === r.suggested_id)?.name
+              const issue = r.choice === 'asesor' ? r.preferred_issue : null
               return (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[#F7F0FB] px-3 py-2 text-[13px] text-[#4A2163]">
-                  <span className="flex-1">{r.choice === 'asesor' ? <>Eligió a <b>{name}</b>{r.preferred_available === false ? ' (ahora sin cupo o pausado)' : ''}</> : <>Dejó que VINKA elija · sugerido: <b>{name}</b> (menos casos en curso)</>}</span>
-                  {target && r.advisor_id !== target && <button className="btn-sm h-9 bg-morado text-white" onClick={() => assign(r, target)}>Asignar a {String(name || '').split(' ')[0]}</button>}
+                  <span className="flex-1">{r.choice === 'asesor' ? <>Eligió a <b>{name}</b>{issue ? <> · <span className="text-[#912018]">ahora no disponible: {issue}</span></> : ''}</> : <>Dejó que VINKA elija · sugerido: <b>{name}</b> (menos casos en curso)</>}</span>
+                  {target && !issue && r.advisor_id !== target && <button className="btn-sm h-9 bg-morado text-white" onClick={() => assign(r, target)}>Asignar a {String(name || '').split(' ')[0]}</button>}
                   {target && r.advisor_id === target && <span className="font-semibold">✓ Asignado</span>}
                 </div>
               )
@@ -526,6 +557,25 @@ function Advisory() {
         )
       })}
       {list.length > limit && <button className="btn-sec" onClick={() => setLimit(limit + 30)}>Ver más ({list.length - limit} restantes)</button>}
+      <Sheet open={!!asg} onClose={() => { setAsg(null); setAsgErr('') }} title={asg ? `Asignar a ${asg.name}` : ''}>
+        {asg && (
+          <div className="flex flex-col gap-3 pb-5 text-sm">
+            <span className="rounded-xl bg-[#FAF7F9] px-3 py-2 text-[13px] text-tinta-2">
+              {asg.reason ? <>No se puede asignar directo: <b>{asg.reason}</b>.</> : <>El postulante eligió a otra persona{asg.r.preferred ? <> (<b>{asg.r.preferred}</b>)</> : ''}. No se cambia sin su acuerdo.</>}
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button disabled={!!asg.reason} className={`btn-sm h-10 border ${asg.mode === 'propose' ? 'border-morado bg-[#F7F0FB] font-semibold' : 'border-linea bg-white'} disabled:opacity-40`} onClick={() => setAsg({ ...asg, mode: 'propose' })}>Proponer al postulante</button>
+              <button className={`btn-sm h-10 border ${asg.mode === 'exception' ? 'border-morado bg-[#F7F0FB] font-semibold' : 'border-linea bg-white'}`} onClick={() => setAsg({ ...asg, mode: 'exception' })}>Asignar como excepción</button>
+            </div>
+            {asg.reason && <span className="text-[12px] text-tinta-3">Solo se puede proponer a alguien disponible. Si igual necesitas asignarlo, usa la excepción.</span>}
+            <textarea className="input min-h-[90px] py-2" maxLength={500} value={asg.text} onChange={(e) => setAsg({ ...asg, text: e.target.value })}
+              placeholder={asg.mode === 'propose' ? 'Mensaje para el postulante: por qué le propones a esta persona (mín. 10 caracteres)' : 'Motivo de la excepción (mín. 20 caracteres). Queda registrado y el postulante lo verá.'} />
+            <span className="text-[11px] text-tinta-suave">{asg.text.trim().length} / {asg.mode === 'propose' ? 10 : 20} caracteres mínimos</span>
+            <ErrorBox>{asgErr}</ErrorBox>
+            <button className="btn h-11" disabled={asg.text.trim().length < (asg.mode === 'propose' ? 10 : 20)} onClick={asgSend}>{asg.mode === 'propose' ? 'Enviar propuesta' : 'Asignar como excepción'}</button>
+          </div>
+        )}
+      </Sheet>
       <div className="card flex flex-col gap-2 p-4">
         <span className="text-[15px] font-semibold">Servicios y precios</span>
         {services.map((s) => svc?.id === s.id ? (
