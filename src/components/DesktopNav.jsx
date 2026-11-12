@@ -30,7 +30,9 @@ export function DesktopNav({ items }) {
             className={({ isActive }) => `relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${isActive ? 'bg-rosa-palido text-rosa-oscuro' : 'text-tinta-2 hover:bg-[#F7F1F5]'}`}>
             <Svg name={it.icon} size={19} />
             {it.label}
-            {it.badge ? <span className="ml-auto h-2.5 w-2.5 rounded-full bg-naranja" aria-label="Novedades" /> : null}
+            {typeof it.badge === 'number' && it.badge > 0
+              ? <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rosa-accion px-1.5 text-[11px] font-bold text-white" aria-label={`${it.badge} sin leer`}>{it.badge > 99 ? '99+' : it.badge}</span>
+              : it.badge ? <span className="ml-auto h-2.5 w-2.5 rounded-full bg-naranja" aria-label="Novedades" /> : null}
           </NavLink>
         ))}
       </nav>

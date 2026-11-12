@@ -181,7 +181,9 @@ export function BottomNav({ items }) {
         <NavLink key={it.to} to={it.to} className={({ isActive }) => `relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold ${isActive ? 'text-rosa-texto' : 'text-tinta-suave'}`}>
           <Svg name={it.icon} />
           {it.label}
-          {it.badge ? <span className="absolute right-[calc(50%-20px)] top-0 h-2.5 w-2.5 rounded-full bg-naranja" aria-label="Novedades" /> : null}
+          {typeof it.badge === 'number' && it.badge > 0
+            ? <span className="absolute left-[calc(50%+4px)] -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rosa-accion px-1 text-[11px] font-bold leading-none text-white" aria-label={`${it.badge} sin leer`}>{it.badge > 99 ? '99+' : it.badge}</span>
+            : it.badge ? <span className="absolute right-[calc(50%-20px)] top-0 h-2.5 w-2.5 rounded-full bg-naranja" aria-label="Novedades" /> : null}
         </NavLink>
       ))}
     </nav>

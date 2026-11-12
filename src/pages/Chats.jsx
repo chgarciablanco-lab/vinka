@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -12,6 +12,7 @@ import { InterviewCard } from '../components/InterviewCard'
 import { Sparkle, callAi } from '../components/AiAssist'
 import { Bell } from '../components/Bell'
 import { dayNum, fmtDayShort, fmtTime } from '../lib/dates'
+import { markRead, useUnread } from '../lib/unread'
 
 const fmt = (d) => new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const lastAt = (m) => new Date(m.last_at || m.created_at).getTime()
@@ -42,6 +43,7 @@ export function ChatList() {
     supabase.rpc('my_matches').then(({ data, error }) => { if (error) setErr(errMsg(error)); setRows(data || []) })
   }, [])
   const isCompany = profile?.role === 'company'
+  const { byMatch } = useUnread()
   const pres = usePresence(isCompany ? { users: (rows || []).filter((m) => !m.closed).map((m) => m.candidate_id) } : { companies: (rows || []).filter((m) => !m.closed).map((m) => m.company_id) })
   const [ivs, setIvs] = useState([])
   useEffect(() => { supabase.rpc('my_interviews').then(({ data }) => setIvs((data || []).filter((x) => x.status === 'confirmada' && new Date(x.ends_at) > new Date()))) }, [])
@@ -75,15 +77,19 @@ export function ChatList() {
           const m = g.latest
           const name = isCompany ? m.candidate_name : m.company_name
           const jobs = (g.open.length ? g.open : g.list).map((x) => x.job_title)
+          const unread = g.list.reduce((a, x) => a + (byMatch[x.match_id]?.n || 0), 0)
+          // Si hay no leídos, se abre en la vacante que los tiene
+          const target = g.list.find((x) => byMatch[x.match_id]) || g.main
           return (
-            <Link key={g.key} to={`/chats/${g.main.match_id}`} className="card flex items-center gap-3 p-3.5">
+            <Link key={g.key} to={`/chats/${target.match_id}`} className={`card flex items-center gap-3 p-3.5 ${unread ? 'border-rosa-accion/40' : ''}`}>
               <WithDot p={pres[isCompany ? m.candidate_id : m.company_id]} size={14}><Avatar text={initials(name)} color={isCompany ? '#302538' : colorFor(name)} size={46} round={isCompany} /></WithDot>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex justify-between gap-2"><span className="truncate text-[15px] font-semibold">{name}</span>
-                  <span className="shrink-0 text-[11px] text-tinta-suave">{fmt(m.last_at || m.created_at)}</span></span>
+                  <span className={`shrink-0 text-[11px] ${unread ? 'font-semibold text-rosa-texto' : 'text-tinta-suave'}`}>{fmt(m.last_at || m.created_at)}</span></span>
                 {!g.closed && <PresenceLine p={pres[isCompany ? m.candidate_id : m.company_id]} company={!isCompany} />}
                 <span className="truncate text-xs font-medium text-rosa-texto">{jobs.length > 1 ? `${jobs.length} vacantes: ${jobs.join(' · ')}` : jobs[0]}</span>
-                <span className="truncate text-[13px] text-tinta-3">{g.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
+                <span className="flex items-center gap-2"><span className={`min-w-0 flex-1 truncate text-[13px] ${unread ? 'font-semibold text-tinta' : 'text-tinta-3'}`}>{g.closed ? 'Conversación cerrada' : m.last_message || '¡Nuevo match! Saluda'}</span>
+                  {unread > 0 && <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-rosa-accion px-1.5 text-[11px] font-bold text-white" aria-label={`${unread} sin leer`}>{unread > 99 ? '99+' : unread}</span>}</span>
               </div>
             </Link>
           )
@@ -101,6 +107,10 @@ export function ChatRoom() {
   const [m, setM] = useState(null)
   const [sibs, setSibs] = useState([]) // todas las vacantes con esta misma empresa/persona (incluida la actual)
   const [allMsgs, setAllMsgs] = useState([])
+  const { byMatch } = useUnread()
+  const [firstNew, setFirstNew] = useState(null) // dónde empezaban los no leídos al abrir (para la línea «Mensajes nuevos»)
+  const [below, setBelow] = useState(0) // mensajes nuevos que llegaron mientras mirabas más arriba
+  const listRef = useRef()
   const [draft, setDraft] = useState('')
   const [err, setErr] = useState('')
   const [menu, setMenu] = useState(false)
@@ -151,7 +161,10 @@ export function ChatRoom() {
     supabase.from('messages').select('*').in('match_id', ids).order('created_at').then(({ data }) => setAllMsgs(data || []))
     const ch = supabase.channel(`chat-${ids.join('-').slice(0, 180)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: ids.length > 1 ? `match_id=in.(${ids.join(',')})` : `match_id=eq.${ids[0]}` },
-        (p) => setAllMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new])))
+        (p) => {
+          setAllMsgs((prev) => (prev.some((x) => x.id === p.new.id) ? prev : [...prev, p.new]))
+          if (p.new.sender_id !== user?.id && !atBottom()) setBelow((n) => n + 1)
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews', filter: `match_id=eq.${id}` }, () => loadIvs())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -159,7 +172,43 @@ export function ChatRoom() {
   const msgs = allMsgs.filter((x) => x.match_id === id) // los de la vacante elegida (para la regla «la empresa escribe primero»)
   const multi = sibs.length > 1
   const jobOf = Object.fromEntries(sibs.map((x) => [x.match_id, x.job_title]))
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [allMsgs.length])
+  // ¿Se está viendo el final de la conversación?
+  const atBottom = () => {
+    const el = listRef.current
+    return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
+  // Al abrir: recordar dónde empezaban los no leídos (antes de marcarlos) para mostrar la línea «Mensajes nuevos»
+  useEffect(() => {
+    if (firstNew !== null || !sibs.length) return
+    const firsts = sibs.map((x) => byMatch[x.match_id]?.first).filter(Boolean).sort()
+    setFirstNew(firsts[0] || '')
+  }, [sibs, byMatch, firstNew])
+  // Marcar leído solo hasta el último mensaje mostrado, con la pantalla visible y viendo el final
+  const lastShown = allMsgs.length ? allMsgs[allMsgs.length - 1].created_at : null
+  const marked = useRef('')
+  const readNow = useCallback(() => {
+    if (!lastShown || !sibKey || !atBottom()) return
+    setBelow(0)
+    if (marked.current === `${sibKey}|${lastShown}`) return // ya marcado hasta aquí
+    marked.current = `${sibKey}|${lastShown}`
+    markRead(sibKey.split(','), lastShown)
+  }, [lastShown, sibKey])
+  useEffect(() => { readNow() }, [readNow])
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') readNow() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [readNow])
+  // Al abrir se baja al final; después solo si ya estabas abajo o si el mensaje es tuyo. Luego se marca lo que quedó a la vista.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (!allMsgs.length) return
+    if (!opened.current || atBottom() || allMsgs[allMsgs.length - 1]?.sender_id === user?.id) {
+      opened.current = true
+      endRef.current?.scrollIntoView({ block: 'end' })
+      requestAnimationFrame(() => readNow())
+    }
+  }, [allMsgs.length]) // eslint-disable-line
 
   const send = async (e) => {
     e.preventDefault()
@@ -216,6 +265,7 @@ export function ChatRoom() {
               <button key={x.match_id} onClick={() => x.match_id !== id && nav(`/chats/${x.match_id}`, { replace: true })} aria-pressed={x.match_id === id}
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${x.match_id === id ? 'border-rosa-accion bg-rosa-palido text-rosa-oscuro' : 'border-linea bg-white text-tinta-3'}`}>
                 {x.job_title}{x.closed ? ' · cerrada' : ''}
+                {byMatch[x.match_id] && x.match_id !== id && <span className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rosa-accion px-1 align-middle text-[10px] font-bold text-white" aria-label={`${byMatch[x.match_id].n} sin leer`}>{byMatch[x.match_id].n}</span>}
               </button>
             ))}
           </div>
@@ -276,21 +326,26 @@ export function ChatRoom() {
           <span className="text-sm font-semibold text-naranja-texto">{!isCompany && offer.status === 'enviada' ? 'Responder' : 'Ver'}</span>
         </Link>
       )}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
+      <div ref={listRef} onScroll={() => { if (atBottom()) readNow() }} className="relative flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3.5">
         <div className="self-center rounded-xl border border-rosa-borde bg-white px-3 py-2 text-center text-xs leading-relaxed text-tinta-3">
           {multi ? <>Tienen match en {sibs.length} vacantes; aquí ves la conversación de todas.</> : <>Match del {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · Ambos se interesaron en esta vacante.</>}<br />VINKA nunca te pedirá pagar para postular.
         </div>
         {allMsgs.map((x, i) => {
           const mine = x.sender_id === user.id
           const tag = multi && (i === 0 || allMsgs[i - 1].match_id !== x.match_id)
+          const fn = firstNew ? new Date(firstNew).getTime() : 0
+          const divider = fn > 0 && !mine && new Date(x.created_at).getTime() >= fn && (i === 0 || new Date(allMsgs[i - 1].created_at).getTime() < fn)
           return (
-            <div key={x.id} className={`flex max-w-[80%] flex-col gap-1 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
+            <Fragment key={x.id}>
+            {divider && <div className="flex items-center gap-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-rosa-texto"><span className="h-px flex-1 bg-rosa-accion/40" />Mensajes nuevos<span className="h-px flex-1 bg-rosa-accion/40" /></div>}
+            <div className={`flex max-w-[80%] flex-col gap-1 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
               {tag && <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${x.match_id === id ? 'bg-rosa-palido text-rosa-oscuro' : 'bg-[#F4EEF2] text-tinta-3'}`}>{jobOf[x.match_id] || 'Vacante'}</span>}
               <div className={`whitespace-pre-wrap break-words px-3 py-2.5 text-sm leading-snug ${mine ? 'rounded-2xl rounded-br-[4px] bg-rosa-accion text-white' : 'rounded-2xl rounded-bl-[4px] border border-[#EEE3EA] bg-white'}`}>
                 {x.body}
                 <div className={`mt-1 text-[10px] ${mine ? 'text-white/80' : 'text-tinta-suave'}`}>{fmt(x.created_at)}</div>
               </div>
             </div>
+            </Fragment>
           )
         })}
         {/* Datos de contacto: solo con consentimiento del candidato */}
@@ -309,6 +364,12 @@ export function ChatRoom() {
           </div>
         )}
         <div ref={endRef} />
+        {below > 0 && (
+          <button onClick={() => { endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); setTimeout(readNow, 400) }}
+            className="sticky bottom-1 self-center rounded-full bg-rosa-accion px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+            {below === 1 ? 'Mensaje nuevo' : `${below} mensajes nuevos`} ↓
+          </button>
+        )}
       </div>
       <ErrorBox>{err}</ErrorBox>
       {m.closed ? (

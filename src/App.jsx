@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MatchWatcher } from './components/MatchWatcher'
+import { useUnread, useUnreadSync } from './lib/unread'
 import { useAuth } from './lib/auth'
 import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner, Svg } from './components/ui'
@@ -126,6 +127,10 @@ export default function App() {
   const { session, profile, candidate, company, isAdmin, advisor, loading, recovery } = useAuth()
   useHeartbeat(!!session && !!profile && profile.show_online !== false)
   const [unseen, setUnseen] = useState(0)
+  useUnreadSync(session && profile ? session.user.id : null)
+  const { total: unreadMsgs } = useUnread()
+  // Chats: número de mensajes sin leer; si solo hay un match nuevo sin abrir, un punto
+  const chatBadge = unreadMsgs > 0 ? unreadMsgs : unseen > 0
   const loc = useLocation()
 
   if (loading || (session && !profile)) return <div className="flex h-full"><Spinner /></div>
@@ -237,11 +242,11 @@ export default function App() {
     if (!candidate?.onboarding_done) return wrap(<Routes>{common}<Route path="*" element={<Onboarding />} /></Routes>)
     const nav = [
       { to: '/', label: 'Explorar', icon: 'card' }, { to: '/intereses', label: 'Intereses', icon: 'swap' },
-      { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/perfil', label: 'Perfil', icon: 'user' }, ...adminItem,
+      { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge }, { to: '/perfil', label: 'Perfil', icon: 'user' }, ...adminItem,
     ]
     const deskNav = [
       { to: '/', label: 'Explorar vacantes', icon: 'card' }, { to: '/intereses', label: 'Intereses', icon: 'swap' },
-      { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
+      { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge },
       { section: 'Mi perfil' },
       { to: '/perfil', label: 'Perfil', icon: 'user' }, { to: '/asesoria', label: 'Asesoría', icon: 'people' }, { to: '/visibilidad', label: 'Perfil destacado', icon: 'star' },
       { to: '/avisos', label: 'Avisos', icon: 'bell' },
@@ -282,11 +287,11 @@ export default function App() {
   if (!company) return wrap(<Routes>{common}{isAdmin && <Route path="/admin" element={<Admin />} />}<Route path="*" element={<CompanyMissing />} /></Routes>)
   const nav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
-    { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
+    { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge }, { to: '/vitrina', label: 'Empresa', icon: 'building' }, ...adminItem,
   ]
   const deskNav = [
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
-    { to: '/chats', label: 'Chats', icon: 'chat', badge: unseen > 0 },
+    { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge },
     { section: 'Gestión' },
     { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
     { to: '/plan', label: 'Plan y uso', icon: 'chart' },

@@ -6,6 +6,7 @@ import { colorFor, initials } from '../../lib/catalog'
 import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg } from '../../components/ui'
 import { InterviewCard } from '../../components/InterviewCard'
 import { fmtDayShort, fmtTime } from '../../lib/dates'
+import { useUnread } from '../../lib/unread'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
 import { InstallBanner } from '../../components/InstallBanner'
@@ -43,6 +44,7 @@ export default function Interests() {
   const [ivs, setIvs] = useState([])
   const [offers, setOffers] = useState([])
   const [ivOpen, setIvOpen] = useState(null)
+  const { byMatch } = useUnread()
 
   const load = useCallback(async () => {
     const [a, b, c, d] = await Promise.all([
@@ -120,7 +122,7 @@ export default function Interests() {
               </div>
             )}
             {tab === 'match' && <ProcessSteps r={r} ivs={ivs} offers={offers} onInterview={setIvOpen} />}
-            {tab === 'match' && <Link to={`/chats/${r.match_id}`} className="btn-sm bg-rosa-palido text-rosa-oscuro">Abrir chat</Link>}
+            {tab === 'match' && <Link to={`/chats/${r.match_id}`} className={`btn-sm ${byMatch[r.match_id] ? 'bg-rosa-accion text-white' : 'bg-rosa-palido text-rosa-oscuro'}`}>{byMatch[r.match_id] ? `Abrir chat · ${byMatch[r.match_id].n} sin leer` : 'Abrir chat'}</Link>}
             {tab === 'saved' && r.status !== 'pendiente' && <button className="btn-sm self-start border border-linea bg-white" onClick={() => unsave(r.job_id)}>Quitar de guardadas</button>}
             {tab === 'saved' && r.status === 'pendiente' && (
               <div className="grid grid-cols-2 gap-2">
