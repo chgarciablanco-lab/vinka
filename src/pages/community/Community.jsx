@@ -198,12 +198,16 @@ function Post({ p, admin, onChange }) {
   )
 }
 
-/** En el proceso de una vacante: asesores invitados y su chat interno */
-export function CollabBar({ jobId }) {
+const STAGE_L = { postulante: 'Postulantes', match: 'Match', contacto: 'Contacto', entrevista: 'Entrevista', oferta: 'Oferta', contratado: 'Contratado', descartado: 'Descartado' }
+export const suggestionText = (x) => (x.action === 'avanzar' ? `sugiere avanzar a ${STAGE_L[x.to_stage] || x.to_stage}` : 'sugiere descartar')
+
+/** En el proceso de una vacante: asesores invitados, sus sugerencias (con visto bueno) y el chat interno */
+export function CollabBar({ jobId, suggestions = [], onChange }) {
   const nav = useNavigate()
   const { search } = useLocation()
   const [info, setInfo] = useState(null)
-  const [chat, setChat] = useState(null) // { collab, name }
+  const [chat, setChat] = useState(null) // { collab, name, other }
+  const [decide, setDecide] = useState(null)
   const [err, setErr] = useState('')
   const load = useCallback(() => supabase.rpc('job_collab_info', { p_job: jobId }).then(({ data, error }) => { if (!error) setInfo(data) }), [jobId])
   useEffect(() => { load() }, [load])
@@ -212,8 +216,8 @@ export function CollabBar({ jobId }) {
   useEffect(() => {
     const q = new URLSearchParams(search).get('chat')
     if (!q || !info) return
-    if (info.role === 'invitado') setChat({ collab: user?.id, name: info.owner })
-    else { const c = (info.collaborators || []).find((x) => x.user_id === q); if (c) setChat({ collab: c.user_id, name: c.name, removable: true }) }
+    if (info.role === 'invitado') setChat({ collab: user?.id, name: info.owner, other: info.owner_id })
+    else { const c = (info.collaborators || []).find((x) => x.user_id === q); if (c) setChat({ collab: c.user_id, name: c.name, other: c.user_id, removable: true }) }
   }, [search, info, user])
   if (!info) return null
   const remove = async (uid, self) => {
@@ -223,39 +227,144 @@ export function CollabBar({ jobId }) {
     setChat(null)
     if (self) nav('/comunidad'); else load()
   }
+  const pending = suggestions.filter((x) => x.status === 'pendiente')
   if (info.role === 'invitado') return (
     <div className="mt-2 flex flex-col gap-2 rounded-2xl bg-[#FFFAEE] px-3.5 py-2.5 text-[13px] text-tinta-2">
-      <span><b>{info.owner}</b> te invitó a ver este proceso desde la Comunidad. Puedes revisarlo, pero solo su equipo mueve candidatos.</span>
+      <span><b>{info.owner}</b> te invitó a este proceso. Abre a un postulante para sugerir avanzarlo o descartarlo: {info.owner} lo aprueba con un check.</span>
+      {suggestions.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {suggestions.slice(0, 4).map((x) => (
+            <li key={x.id} className="flex flex-wrap gap-x-1.5"><b>{x.candidate}</b>· {x.action === 'avanzar' ? `avanzar a ${STAGE_L[x.to_stage]}` : 'descartar'} ·
+              <span className={x.status === 'aprobada' ? 'font-semibold text-[#1E6B3F]' : x.status === 'rechazada' ? 'font-semibold text-[#912018]' : 'text-tinta-3'}>{x.status === 'pendiente' ? 'esperando su ✓' : x.status === 'aprobada' ? '✓ aprobada' : '✗ no aprobada'}</span></li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap gap-2">
-        <button className="btn-sm h-10 bg-rosa-accion text-white" onClick={() => setChat({ collab: user?.id, name: info.owner })}><Svg name="chat" size={16} />&nbsp;Chat con {info.owner}</button>
+        <button className="btn-sm h-10 bg-rosa-accion text-white" onClick={() => setChat({ collab: user?.id, name: info.owner, other: info.owner_id })}><Svg name="chat" size={16} />&nbsp;Chat y tareas con {info.owner}</button>
         <button className="btn-sm h-10 border border-linea bg-white" onClick={() => remove(user?.id, true)}>Salir del proceso</button>
       </div>
       <ErrorBox>{err}</ErrorBox>
-      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} onClose={() => setChat(null)} />}
+      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} other={chat.other} onClose={() => setChat(null)} />}
     </div>
   )
-  if (!info.collaborators?.length) return null
+  if (!info.collaborators?.length && !pending.length) return null
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
-      <span className="text-tinta-3">Asesores invitados:</span>
-      {info.collaborators.map((c) => (
-        <button key={c.user_id} className="btn-sm h-9 border border-linea bg-white" onClick={() => setChat({ collab: c.user_id, name: c.name, removable: true })}><Svg name="chat" size={15} />&nbsp;{c.name}</button>
-      ))}
+    <div className="mt-2 flex flex-col gap-2">
+      {pending.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-2xl border border-[#F3D9A4] bg-[#FFFAEE] p-3 text-[13px]">
+          <b>Sugerencias por revisar · {pending.length}</b>
+          {pending.map((x) => (
+            <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
+              <span className="min-w-0 flex-1"><b>{x.by_name}</b> {suggestionText(x)} a <b>{x.candidate}</b>{x.note ? <span className="block text-tinta-3">«{x.note}»</span> : null}</span>
+              <span className="flex gap-1.5">
+                <button className="btn-sm h-9 border border-linea bg-white px-3" onClick={() => setDecide({ x, ok: false })}>✗ No</button>
+                <button className="btn-sm h-9 bg-[#1E6B3F] px-3 text-white" onClick={() => setDecide({ x, ok: true })}>✓ Aprobar</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {info.collaborators?.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="text-tinta-3">Asesores invitados:</span>
+          {info.collaborators.map((c) => (
+            <button key={c.user_id} className="btn-sm h-9 border border-linea bg-white" onClick={() => setChat({ collab: c.user_id, name: c.name, other: c.user_id, removable: true })}><Svg name="chat" size={15} />&nbsp;{c.name}</button>
+          ))}
+        </div>
+      )}
       <ErrorBox>{err}</ErrorBox>
-      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} onClose={() => setChat(null)} onRemove={chat.removable ? () => remove(chat.collab, false) : null} />}
+      {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} other={chat.other} onClose={() => setChat(null)} onRemove={chat.removable ? () => remove(chat.collab, false) : null} />}
+      {decide && <DecideSheet item={decide} onClose={() => setDecide(null)} onDone={() => { setDecide(null); onChange?.() }} />}
     </div>
   )
 }
 
-function CollabChat({ jobId, collab, name, onClose, onRemove }) {
+function DecideSheet({ item, onClose, onDone }) {
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const { x, ok } = item
+  const send = async () => {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('collab_decide', { p_suggestion: x.id, p_approve: ok, p_note: note.trim() })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    onDone()
+  }
+  return (
+    <Sheet open onClose={onClose} title={ok ? 'Aprobar sugerencia' : 'No aprobar sugerencia'}>
+      <div className="flex flex-col gap-2.5">
+        <p className="text-sm leading-snug text-tinta-2"><b>{x.by_name}</b> {suggestionText(x)} a <b>{x.candidate}</b>.
+          {ok ? (x.action === 'avanzar' ? ` Al aprobar, pasa a ${STAGE_L[x.to_stage]} en tu proceso.` : ' Al aprobar, queda descartado/a.') : ' El postulante queda donde está.'}</p>
+        <textarea className="textarea h-20" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={`Mensaje para ${x.by_name} (opcional)`} />
+        <span className="text-[12px] text-tinta-suave">Queda registrado en el historial del postulante y en el chat.</span>
+        <ErrorBox>{err}</ErrorBox>
+        <button className="btn" disabled={busy} onClick={send}>{busy ? 'Guardando…' : ok ? '✓ Aprobar' : '✗ No aprobar'}</button>
+      </div>
+    </Sheet>
+  )
+}
+
+/** Ficha del postulante, para el asesor invitado: sugerir avanzar o descartar */
+export function SuggestBox({ jobId, candidateId }) {
+  const [list, setList] = useState(null)
+  const [mode, setMode] = useState(null)
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => supabase.rpc('collab_suggestions_for_job', { p_job: jobId }).then(({ data }) => setList((data || []).filter((x) => x.candidate_id === candidateId))), [jobId, candidateId])
+  useEffect(() => { load() }, [load])
+  const send = async () => {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('collab_suggest', { p_job: jobId, p_candidate: candidateId, p_action: mode, p_note: note.trim() })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setMode(null); setNote(''); load()
+  }
+  if (list == null) return null
+  const pending = list.find((x) => x.status === 'pendiente')
+  const last = list.find((x) => x.status !== 'pendiente')
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-[#F3D9A4] bg-[#FFFAEE] p-3 text-[13px]">
+      <b>Tu sugerencia al responsable</b>
+      {pending ? <span>Sugeriste {pending.action === 'avanzar' ? `avanzar a ${STAGE_L[pending.to_stage]}` : 'descartar'}. Esperando su ✓.</span> : mode ? (
+        <>
+          <span>{mode === 'avanzar' ? 'Sugerir que avance a la siguiente etapa.' : 'Sugerir descartar a esta persona.'} El responsable decide con un check.</span>
+          <textarea className="textarea h-20 bg-white" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿Por qué? (opcional)" />
+          <ErrorBox>{err}</ErrorBox>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="btn-sm h-10 border border-linea bg-white" onClick={() => setMode(null)}>Cancelar</button>
+            <button className="btn-sm h-10 bg-rosa-accion text-white" disabled={busy} onClick={send}>{busy ? 'Enviando…' : 'Enviar sugerencia'}</button>
+          </div>
+        </>
+      ) : (
+        <>
+          {last && <span className="text-tinta-3">Última: {last.action === 'avanzar' ? 'avanzar' : 'descartar'} · {last.status === 'aprobada' ? '✓ aprobada' : '✗ no aprobada'}{last.response ? ` («${last.response}»)` : ''}</span>}
+          <div className="grid grid-cols-2 gap-2">
+            <button className="btn-sm h-10 border border-linea bg-white" onClick={() => setMode('descartar')}>Sugerir descartar</button>
+            <button className="btn-sm h-10 bg-[#1E6B3F] text-white" onClick={() => setMode('avanzar')}>Sugerir avanzar</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function CollabChat({ jobId, collab, name, other, onClose, onRemove }) {
+  const { user } = useAuth()
   const [msgs, setMsgs] = useState(null)
+  const [tasks, setTasks] = useState([])
   const [txt, setTxt] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [task, setTask] = useState(null) // { title, assignee, due }
   const end = useRef(null)
-  const load = useCallback(() => supabase.rpc('collab_thread', { p_job: jobId, p_collab: collab }).then(({ data, error }) => {
-    if (error) { setErr(errMsg(error)); setMsgs((m) => m || []) } else setMsgs(data || [])
-  }), [jobId, collab])
+  const load = useCallback(() => {
+    supabase.rpc('collab_thread', { p_job: jobId, p_collab: collab }).then(({ data, error }) => {
+      if (error) { setErr(errMsg(error)); setMsgs((m) => m || []) } else setMsgs(data || [])
+    })
+    supabase.rpc('collab_task_list', { p_job: jobId, p_collab: collab }).then(({ data }) => setTasks(data || []))
+  }, [jobId, collab])
   useEffect(() => { load(); const t = setInterval(load, 6000); return () => clearInterval(t) }, [load])
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [msgs?.length])
   const send = async () => {
@@ -266,15 +375,59 @@ function CollabChat({ jobId, collab, name, onClose, onRemove }) {
     if (error) return setErr(errMsg(error))
     setTxt(''); load()
   }
+  const saveTask = async () => {
+    if (!task.title.trim()) return
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('collab_task_create', { p_job: jobId, p_collab: collab, p_title: task.title.trim(), p_assignee: task.assignee, p_due: task.due || null })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setTask(null); load()
+  }
+  const toggle = async (t) => {
+    const { error } = await supabase.rpc('collab_task_done', { p_task: t.id, p_done: !t.done })
+    if (error) setErr(errMsg(error)); else load()
+  }
+  const newTask = (title = '') => setTask({ title: title.slice(0, 300), assignee: other || user?.id, due: '' })
+  const open = tasks.filter((t) => !t.done)
   return (
     <Sheet open onClose={onClose} title={`Chat con ${name}`}>
       <div className="flex flex-col gap-2.5">
-        <p className="text-[12px] leading-snug text-tinta-3">Conversación privada entre ustedes sobre este proceso: compartan ideas y repártanse tareas.</p>
-        <div className="flex max-h-[50vh] min-h-[8rem] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#FAF7F9] p-2.5">
-          {msgs == null ? <Spinner /> : msgs.length === 0 ? <span className="m-auto text-[13px] text-tinta-3">Aún no hay mensajes.</span> : msgs.map((m) => (
-            <div key={m.id} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.mine ? 'self-end bg-rosa-accion text-white' : 'self-start bg-white'}`}>
+        <section className="flex flex-col gap-1.5 rounded-xl border border-linea p-2.5">
+          <div className="flex items-center justify-between"><b className="text-[13px]">Tareas · {open.length} pendiente{open.length === 1 ? '' : 's'}</b>
+            {!task && <button className="text-[13px] font-semibold text-rosa-texto" onClick={() => newTask()}>+ Nueva tarea</button>}</div>
+          {tasks.map((t) => (
+            <label key={t.id} className="flex items-start gap-2 text-[13px]">
+              <input type="checkbox" checked={t.done} onChange={() => toggle(t)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#1E6B3F]" aria-label={`Marcar «${t.title}»`} />
+              <span className={t.done ? 'text-tinta-suave line-through' : ''}>{t.title} <span className="text-tinta-3">· {t.mine ? 'tú' : t.assignee}{t.due_on ? ` · ${new Date(t.due_on + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}` : ''}</span></span>
+            </label>
+          ))}
+          {task && (
+            <div className="flex flex-col gap-1.5">
+              <input className="input h-10" maxLength={300} value={task.title} onChange={(e) => setTask({ ...task, title: e.target.value })} placeholder="Ej.: Llamar a Rocío para validar referencias" aria-label="Tarea" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <select className="input h-10" value={task.assignee} onChange={(e) => setTask({ ...task, assignee: e.target.value })} aria-label="A cargo de">
+                  <option value={user?.id}>A cargo: yo</option>
+                  {other && other !== user?.id && <option value={other}>A cargo: {name}</option>}
+                </select>
+                <input className="input h-10" type="date" value={task.due} onChange={(e) => setTask({ ...task, due: e.target.value })} aria-label="Para cuándo" />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button className="btn-sm h-10 border border-linea bg-white" onClick={() => setTask(null)}>Cancelar</button>
+                <button className="btn-sm h-10 bg-rosa-accion text-white" disabled={busy || !task.title.trim()} onClick={saveTask}>Crear tarea</button>
+              </div>
+            </div>
+          )}
+        </section>
+        <div className="flex max-h-[45vh] min-h-[8rem] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#FAF7F9] p-2.5">
+          {msgs == null ? <Spinner /> : msgs.length === 0 ? <span className="m-auto text-[13px] text-tinta-3">Aún no hay mensajes.</span> : msgs.map((m) => m.kind === 'evento' ? (
+            <div key={m.id} className="self-center rounded-full bg-white px-3 py-1 text-center text-[12px] text-tinta-2 shadow-sm">
+              <b>{m.mine ? 'Tú' : m.sender}</b> · {m.body.charAt(0).toLowerCase() + m.body.slice(1)} <span className="text-tinta-suave">· {new Date(m.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ) : (
+            <div key={m.id} className={`group max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.mine ? 'self-end bg-rosa-accion text-white' : 'self-start bg-white'}`}>
               <p className="whitespace-pre-line leading-snug">{m.body}</p>
-              <span className={`text-[11px] ${m.mine ? 'text-white/80' : 'text-tinta-suave'}`}>{m.mine ? '' : `${m.sender} · `}{new Date(m.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              <span className={`flex items-center gap-2 text-[11px] ${m.mine ? 'text-white/80' : 'text-tinta-suave'}`}>{m.mine ? '' : `${m.sender} · `}{new Date(m.created_at).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                <button className="font-semibold underline" onClick={() => newTask(m.body)}>Hacer tarea</button></span>
             </div>
           ))}
           <span ref={end} />

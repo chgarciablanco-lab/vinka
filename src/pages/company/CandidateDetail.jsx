@@ -11,6 +11,7 @@ import { BulkSheet, StagePicker } from './Pipeline'
 import { usePresence } from '../../lib/presence'
 import { PresenceLine, WithDot } from '../../components/Presence'
 import { pl } from '../../lib/text'
+import { SuggestBox } from '../community/Community'
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtDT = (d) => `${new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · ${fmtTime(d)}`
@@ -173,6 +174,9 @@ const EV = {
   note: () => 'Agregó una nota', evaluation: (x) => `${x.updated ? 'Actualizó' : 'Agregó'} una evaluación (${x.overall}/5)`,
   offer_sent: () => 'Envió la carta oferta', offer_accepted: () => 'Aceptó la oferta', offer_rejected: () => 'Rechazó la oferta',
   ai: (x) => `Usó la IA: ${AI_TASK[x.task] || 'asistente'}`,
+  // Asesores invitados desde la Comunidad
+  collab_suggest: (x) => `Sugirió ${x.action === 'avanzar' ? `avanzar a ${colLabel(x.to)}` : 'descartar'}${x.note ? `: «${x.note}»` : ''}`,
+  collab_decided: (x) => `${x.approved ? '✓ Aprobó' : '✗ No aprobó'} la sugerencia de ${x.by} (${x.action === 'avanzar' ? `avanzar a ${colLabel(x.to)}` : 'descartar'})${x.note ? `: «${x.note}»` : ''}`,
 }
 const AI_TASK = { candidate_fit: 'calce con la vacante', interview_questions: 'preguntas de entrevista', interview_notes: 'ordenar apuntes de entrevista' }
 function History({ events }) {
@@ -490,6 +494,7 @@ export default function CandidateDetail({ panel }) {
         )}
         {d.offer && <OfferSummary o={d.offer} onWithdraw={canManage ? withdraw : null} onApprove={isAdmin || company?.member_role === 'client' ? approveOffer : null} />}
 
+        {collab && !ext && <SuggestBox jobId={jobId} candidateId={cid} />}
         {tab === 'perfil' && !ext && (
           <div className="flex flex-col gap-4">
             {d.knocked_out && <div className="rounded-xl border border-[#F4C7C3] bg-[#FEF3F2] p-3 text-sm text-[#912018]"><b>No cumple una pregunta eliminatoria.</b> Revisa las respuestas antes de decidir.</div>}

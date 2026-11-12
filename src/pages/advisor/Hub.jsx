@@ -47,11 +47,13 @@ export function AdvisorInicio() {
   const { search } = useLocation()
   const [cases, setCases] = useState(null)
   const [collabs, setCollabs] = useState([])
+  const [inbox, setInbox] = useState({ tasks: [], suggestions: [] })
   const caso = new URLSearchParams(search).get('caso')
   useEffect(() => {
     if (caso) return
     supabase.rpc('advisor_requests').then(({ data }) => setCases(data || []))
     supabase.rpc('my_collaborations').then(({ data }) => setCollabs((data || []).filter((c) => !c.closed)))
+    supabase.rpc('collab_inbox').then(({ data, error }) => { if (!error && data) setInbox(data) })
   }, [caso])
   // Avisos antiguos de asesorías apuntan a «/?caso=…»
   if (caso) return <Navigate to={`/asesorias?caso=${caso}`} replace />
@@ -88,6 +90,24 @@ export function AdvisorInicio() {
         </section>
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">Comunidad</h2><Link to="/comunidad" className="text-[13px] font-semibold text-rosa-texto">Ir al muro</Link></div>
+          {(inbox.suggestions.length > 0 || inbox.tasks.length > 0) && (
+            <div className="card flex flex-col gap-1 p-2">
+              {inbox.suggestions.map((x) => (
+                <Link key={x.id} to={`/vacantes/${x.job_id}/proceso`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#FAF7F9]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF4D6] text-[#7A5200]"><Svg name="check" size={18} /></span>
+                  <span className="flex min-w-0 flex-1 flex-col"><b className="truncate text-sm">{x.by} sugiere {x.action === 'avanzar' ? 'avanzar' : 'descartar'} a {x.candidate}</b><span className="truncate text-xs text-tinta-3">{x.job} · necesita tu ✓</span></span>
+                  <Svg name="chevron" size={18} className="text-tinta-suave" />
+                </Link>
+              ))}
+              {inbox.tasks.map((t) => (
+                <Link key={t.id} to={t.url} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[#FAF7F9]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="doc" size={18} /></span>
+                  <span className="flex min-w-0 flex-1 flex-col"><b className="truncate text-sm">{t.title}</b><span className="truncate text-xs text-tinta-3">Tarea · {t.job}{t.due_on ? ` · ${fmtDue(t.due_on + 'T23:59:00')}` : ''}</span></span>
+                  <Svg name="chevron" size={18} className="text-tinta-suave" />
+                </Link>
+              ))}
+            </div>
+          )}
           {collabs.length > 0 ? (
             <div className="card flex flex-col gap-1 p-2">
               {collabs.map((c) => (
