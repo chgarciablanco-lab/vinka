@@ -71,6 +71,8 @@ const Clients = lz(() => import('./pages/company/Clients'))
 const Advisory = lz(() => import('./pages/candidate/Advisory'))
 const Visibility = lz(() => import('./pages/candidate/Visibility'))
 const Promote = lz(() => import('./pages/company/Promote'))
+const CommunityHome = lz(() => import('./pages/community/Community'))
+const CommunitySearch = lz(() => import('./pages/community/Community'), 'CommunitySearch')
 
 function PendingInvite() {
   const nav = useNavigate()
@@ -187,15 +189,19 @@ export default function App() {
   if (isAdvisor && (!advisor?.active || !advisor.terms_accepted_at || actsAs !== 'company')) {
     if (!advisor?.active) return wrap(<Routes><Route path="*" element={<AdminAccount subtitle="Tu cuenta de asesor/a no está activa. Escribe a VINKA si crees que es un error." hint="" />} /></Routes>)
     if (!advisor.terms_accepted_at) return wrap(<Routes><Route path="*" element={<AdvisorTerms />} /></Routes>)
-    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, ...(company ? [{ to: '/modo/reclutamiento', label: 'Reclutamiento', icon: 'building' }] : []), { to: '/equipo', label: 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
+    const nav = [{ to: '/', label: 'Asesorías', icon: 'people' }, ...(company ? [{ to: '/modo/reclutamiento', label: 'Reclutar', icon: 'building' }] : []), { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/equipo', label: company ? 'Equipo' : 'Equipo VINKA', icon: 'chat' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }]
+    // En el celular las etiquetas van cortas para que quepan las seis; en el computador, completas
+    const deskNav = nav.map((it) => (it.to === '/equipo' ? { ...it, label: 'Equipo VINKA' } : it.to === '/modo/reclutamiento' ? { ...it, label: 'Reclutamiento' } : it))
     return (
       <>
-      <DesktopNav items={nav} />
+      <DesktopNav items={deskNav} />
       <div className="desk h-full lg:pl-64">
       {wrap(
       <Routes>
         <Route path="/" element={<WithNav items={nav}><AdvisorHome /></WithNav>} />
         <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam /></WithNav>} />
+        <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />
+        <Route path="/comunidad/:id" element={<CommunitySearch />} />
         {modeRoute}
         <Route path="/cuenta" element={<WithNav items={nav}><AdminAccount subtitle="Asesor/a de VINKA" hint="Tu cuenta la entregó VINKA. Si olvidas tu contraseña, pide una nueva a administración." /></WithNav>} />
         <Route path="/avisos" element={<Notifications />} />
@@ -216,7 +222,7 @@ export default function App() {
     const deskNav = [
       { to: '/', label: 'Negocio y planes', icon: 'chart' }, { to: '/promociones', label: 'Destacados', icon: 'star' },
       { section: 'Asesorías' },
-      { to: '/asesorias', label: 'Solicitudes', icon: 'chat' }, { to: '/asesores', label: 'Asesores', icon: 'star' },
+      { to: '/asesorias', label: 'Solicitudes', icon: 'chat' }, { to: '/asesores', label: 'Asesores', icon: 'star' }, { to: '/comunidad', label: 'Comunidad', icon: 'people' },
       { section: 'Usuarios' },
       { to: '/postulantes', label: 'Postulantes', icon: 'people' }, { to: '/usuarios-empresas', label: 'Usuarios de empresas', icon: 'building' },
       { section: 'Empresas' },
@@ -235,6 +241,7 @@ export default function App() {
         <Route path="/usuarios-empresas" element={<WithNav items={nav}><Admin section="companyusers" /></WithNav>} />
         <Route path="/equipo-vinka" element={<WithNav items={nav}><Admin section="staff" /></WithNav>} />
         <Route path="/asesores" element={<WithNav items={nav}><Admin section="advisors" /></WithNav>} />
+        <Route path="/comunidad" element={<WithNav items={nav}><Admin section="community" /></WithNav>} />
         <Route path="/promociones" element={<WithNav items={nav}><Admin section="promos" /></WithNav>} />
         <Route path="/verificar" element={<WithNav items={nav}><Admin section="pending" /></WithNav>} />
         <Route path="/empresas" element={<WithNav items={nav}><Admin section="all" /></WithNav>} />
@@ -312,7 +319,7 @@ export default function App() {
     ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
     { to: '/vitrina', label: 'Empresa', icon: 'building' },
     { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
-    ...(isAdvisor ? [{ section: 'Asesor/a de VINKA' }, { to: '/modo/asesorias', label: 'Ir a mis asesorías', icon: 'swap' }] : []),
+    ...(isAdvisor ? [{ section: 'Asesor/a de VINKA' }, { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/modo/asesorias', label: 'Ir a mis asesorías', icon: 'swap' }] : []),
   ]
   return (
     <>
@@ -324,6 +331,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<WithNav items={nav}><CompanyPanel /></WithNav>} />
       {modeRoute}
+      {isAdvisor && <Route path="/comunidad" element={<WithNav items={nav}><CommunityHome /></WithNav>} />}
+      {isAdvisor && <Route path="/comunidad/:id" element={<CommunitySearch />} />}
       <Route path="/vacantes/nueva" element={<JobForm />} />
       <Route path="/vacantes/:id" element={<JobForm />} />
       <Route path="/vacantes/:id/candidatos" element={<JobCandidates />} />
