@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
-import { CandidateDossier } from '../../components/Dossier'
+import { CandidateDossier, ServiceProgress, ServiceTimeline } from '../../components/Dossier'
 
 // Texto del botón cuando ya hay una solicitud abierta de ese servicio
 const PENDING_TXT = { solicitada: 'Ya la solicitaste', pago_pendiente: 'Pago pendiente', en_curso: 'Asesoría en curso', entregada: 'En revisión de VINKA' }
@@ -77,10 +77,20 @@ export default function Advisory() {
                   </div>
                   {st[2] && <p className="text-sm text-tinta-2">{st[2]}</p>}
                   {r.assigned_name && r.status !== 'cancelada' && <span className="text-sm">Tu asesor/a: <b>{r.assigned_name}</b>, reclutador/a de VINKA</span>}
+                  {/* Avance a la vista, sin abrir nada: qué incluye, qué falta y cuándo corresponde */}
+                  {['solicitada', 'pago_pendiente'].includes(r.status) && (services || []).find((s) => s.id === r.service_id)?.includes?.length > 0 && (
+                    <div className="flex flex-col gap-1 rounded-xl border border-linea bg-white p-3">
+                      <span className="text-[13px] font-semibold">Lo que incluye tu asesoría</span>
+                      {(services || []).find((s) => s.id === r.service_id).includes.map((x) => <span key={x} className="flex gap-2 text-sm"><Svg name="check" size={16} className="mt-0.5 shrink-0 text-tinta-suave" />{x}</span>)}
+                      <span className="text-[11px] text-tinta-suave">Los plazos empiezan a correr cuando VINKA confirme el pago.</span>
+                    </div>
+                  )}
+                  {['en_curso', 'entregada', 'aprobada'].includes(r.status) && <ServiceProgress requestId={r.id} as="candidate" />}
+                  {['en_curso', 'entregada'].includes(r.status) && <ServiceTimeline requestId={r.id} />}
                   {r.admin_note && <div className="rounded-xl bg-[#F7F0FB] px-3 py-2.5 text-sm leading-relaxed text-[#4A2163]"><b>Mensaje del reclutador:</b> {r.admin_note}</div>}
                   {r.status !== 'cancelada' && (
                     <button className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => setChat(chat === r.id ? null : r.id)}>
-                      <Svg name="chat" size={16} className="mr-1.5" />{chat === r.id ? 'Ocultar detalle' : 'Conversación, sesiones, CV y ofertas'}
+                      <Svg name="chat" size={16} className="mr-1.5" />{chat === r.id ? 'Ocultar conversación y archivos' : 'Conversación, CV, sesiones y ofertas'}
                     </button>
                   )}
                   {chat === r.id && <CandidateDossier r={r} />}

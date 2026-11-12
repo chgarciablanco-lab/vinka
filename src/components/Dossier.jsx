@@ -288,13 +288,13 @@ export function ServiceTimeline({ requestId }) {
   )
 }
 
-export function ServiceProgress({ requestId, as, onLoad }) {
+export function ServiceProgress({ requestId, as, onLoad, refresh = 0 }) {
   const [items, setItems] = useState(null)
   useEffect(() => {
     supabase.rpc('service_progress', { p_id: requestId }).then(({ data }) => { setItems(data || []); onLoad?.(data || []) })
     const t = setInterval(() => supabase.rpc('service_progress', { p_id: requestId }).then(({ data }) => { setItems(data || []); onLoad?.(data || []) }), 20000)
     return () => clearInterval(t)
-  }, [requestId]) // eslint-disable-line
+  }, [requestId, refresh]) // eslint-disable-line
   if (!items || items.length === 0) return null
   const done = items.filter((x) => x.ok).length
   return (
@@ -306,7 +306,53 @@ export function ServiceProgress({ requestId, as, onLoad }) {
           <span className={`shrink-0 text-xs font-semibold ${x.ok ? 'text-[#1E6B3F]' : 'text-tinta-3'}`}>{x.have} de {x.need}</span>
         </span>
       ))}
-      {as !== 'candidate' && done < items.length && <span className="text-[11px] text-tinta-suave">Se cuenta solo: CV enviado por el chat, sesiones marcadas como realizadas, ofertas sugeridas y seguimientos registrados en el historial.</span>}
+      {as !== 'candidate' && done < items.length && <span className="text-[11px] text-tinta-suave">Se cuenta solo: CV mejorado en Word y en PDF (subido en «Entregables», en la pestaña CV o por el chat), sesiones marcadas como realizadas, ofertas sugeridas y seguimientos registrados en el historial.</span>}
+    </div>
+  )
+}
+
+/**
+ * Entregables del asesor/a: el CV mejorado en Word y en PDF se sube aquí mismo, sin cambiar de pestaña.
+ * Queda como versión mejorada del CV de la persona (igual que en la pestaña CV) y cuenta para poder entregar.
+ */
+export function Deliverables({ requestId, onChange }) {
+  const [items, setItems] = useState(null)
+  const [cand, setCand] = useState(null)
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  const word = useRef(); const pdf = useRef()
+  const load = useCallback(() => {
+    supabase.rpc('service_progress', { p_id: requestId }).then(({ data }) => setItems((data || []).filter((x) => x.key.startsWith('advisor_files'))))
+  }, [requestId])
+  useEffect(() => { load(); supabase.rpc('request_cvs', { p_request: requestId }).then(({ data }) => setCand(data?.candidate_id || null)) }, [load, requestId])
+  if (!items || items.length === 0) return null
+  const onFile = (kind) => async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ''
+    if (!f) return
+    const ok = kind === 'word' ? /\.(docx?|DOCX?)$/.test(f.name) : /\.(pdf|PDF)$/.test(f.name)
+    if (!ok) return setErr(kind === 'word' ? 'Ese archivo no es Word (.docx o .doc).' : 'Ese archivo no es PDF.')
+    if (!cand) return setErr('No pudimos identificar a la persona. Recarga la página.')
+    setBusy(kind); setErr('')
+    try { await uploadCv(cand, f, { requestId, note: kind === 'word' ? 'CV mejorado (Word)' : 'CV mejorado (PDF)' }); load(); onChange?.() } catch (x) { setErr(x.message) } finally { setBusy('') }
+  }
+  const slot = (key, label, ref, kind, accept) => {
+    const it = items.find((x) => x.key === key)
+    if (!it) return null
+    return (
+      <div className={`flex items-center gap-3 rounded-xl border p-3 ${it.ok ? 'border-[#A9D9BC] bg-[#EFF9F2]' : 'border-dashed border-[#D9CCE6] bg-[#FBF7FD]'}`}>
+        <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${it.ok ? 'bg-[#1E6B3F] text-white' : 'bg-white text-tinta-3'}`}>{it.ok ? '✓' : kind === 'word' ? 'W' : 'PDF'}</span>
+        <span className="flex min-w-0 flex-1 flex-col"><span className="text-sm font-semibold">{label}</span><span className="text-xs text-tinta-3">{it.ok ? 'Listo. Puedes subir otra versión si la corriges.' : 'Pendiente'}</span></span>
+        <input ref={ref} type="file" accept={accept} className="hidden" onChange={onFile(kind)} />
+        <button className={`btn-sm shrink-0 ${it.ok ? 'border border-linea bg-white' : 'bg-morado text-white'}`} disabled={!!busy} onClick={() => ref.current?.click()}>{busy === kind ? 'Subiendo…' : it.ok ? 'Reemplazar' : 'Subir'}</button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[13px] font-semibold">Entregables</span>
+      {slot('advisor_files_word', 'CV mejorado en Word', word, 'word', '.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword')}
+      {slot('advisor_files_pdf', 'CV mejorado en PDF', pdf, 'pdf', '.pdf,application/pdf')}
+      <ErrorBox>{err}</ErrorBox>
     </div>
   )
 }
@@ -371,10 +417,11 @@ export function TeamNotes({ advisorId = null, requestId = null, as }) {
 }
 
 /** Expediente completo de una asesoría para el asesor/a o la administración */
-export function Dossier({ r, as, counts = {} }) {
+export function Dossier({ r, as, counts = {}, onProgress }) {
   const closed = ['aprobada', 'cancelada'].includes(r.status)
   const canEdit = !closed && (as === 'admin' || r.status !== 'cancelada')
   const [tab, setTab] = useState('chat')
+  const [bump, setBump] = useState(0)
   const tabs = [
     ['chat', 'Chat con la persona', counts.messages], ['cv', 'CV', counts.cvs], ['ofertas', 'Búsquedas y ofertas', counts.picks],
     ['sesiones', 'Sesiones', counts.sessions], ['historial', 'Historial', counts.logs], ['notas', 'Notas con VINKA', counts.notes],
@@ -382,10 +429,11 @@ export function Dossier({ r, as, counts = {} }) {
   return (
     <div className="flex flex-col gap-3">
       <ServiceTimeline requestId={r.id} />
-      <ServiceProgress requestId={r.id} as={as} />
+      <ServiceProgress requestId={r.id} as={as} refresh={bump} />
+      {canEdit && ['en_curso', 'entregada'].includes(r.status) && <Deliverables requestId={r.id} onChange={() => { setBump((n) => n + 1); onProgress?.() }} />}
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
       {tab === 'chat' && <ServiceChat requestId={r.id} as={as} disabled={r.status === 'cancelada'} advisorName={r.assigned_name || r.advisor || ''} />}
-      {tab === 'cv' && <CvTab requestId={r.id} canUpload={canEdit} />}
+      {tab === 'cv' && <CvTab key={bump} requestId={r.id} canUpload={canEdit} />}
       {tab === 'ofertas' && <PicksTab requestId={r.id} canEdit={canEdit} />}
       {tab === 'sesiones' && <SessionsTab requestId={r.id} canEdit={canEdit} />}
       {tab === 'historial' && <LogTab requestId={r.id} canEdit={canEdit} />}
@@ -400,8 +448,6 @@ export function CandidateDossier({ r }) {
   const tabs = [['chat', 'Conversación'], ['cv', 'Mi CV'], ['sesiones', 'Sesiones'], ['ofertas', 'Ofertas sugeridas'], ['historial', 'Avance']]
   return (
     <div className="flex flex-col gap-3">
-      {!['aprobada', 'cancelada'].includes(r.status) && <ServiceTimeline requestId={r.id} />}
-      {['en_curso', 'entregada', 'aprobada'].includes(r.status) && <ServiceProgress requestId={r.id} as="candidate" />}
       <Tabs tabs={tabs} tab={tab} setTab={setTab} />
       {tab === 'chat' && <ServiceChat requestId={r.id} as="candidate" disabled={r.status === 'cancelada'} advisorName={r.assigned_name || ''} />}
       {tab === 'cv' && <CvTab requestId={r.id} canUpload={false} asCandidate />}

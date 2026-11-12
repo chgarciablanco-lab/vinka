@@ -98,12 +98,12 @@ export function AdvisorTeam() {
 }
 
 /** Entregar: el botón solo se habilita cuando está listo todo lo que se vendió (lo mismo que valida la base de datos) */
-function DeliverButton({ r, note, setNote, onDeliver }) {
+function DeliverButton({ r, note, setNote, onDeliver, refresh = 0 }) {
   const [items, setItems] = useState(null)
   useEffect(() => {
     const get = () => supabase.rpc('service_progress', { p_id: r.id }).then(({ data }) => setItems(data || []))
     get(); const t = setInterval(get, 20000); return () => clearInterval(t)
-  }, [r.id])
+  }, [r.id, refresh])
   const missing = (items || []).filter((x) => !x.ok)
   const ready = items != null && missing.length === 0
   return (
@@ -128,6 +128,7 @@ export default function AdvisorHome() {
   const hasData = !!list
   useEffect(() => { if (caso && hasData) setTimeout(() => document.getElementById(`caso-${caso}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100) }, [caso, hasData])
   const [note, setNote] = useState('')
+  const [prog, setProg] = useState(0)
   const [toast, setToast] = useState('')
   const [q, setQ] = useState('')
   const [fst, setFst] = useState('activas')
@@ -167,12 +168,12 @@ export default function AdvisorHome() {
             {r.status !== 'en_curso' && r.status !== 'entregada' && <div className="rounded-xl bg-naranja-palido px-3 py-2.5 text-xs text-naranja-texto">VINKA está coordinando el pago. Puedes presentarte por el chat, pero la asesoría comienza cuando la solicitud pase a «En curso».</div>}
             <Profile r={r} />
             {r.service_id === 'completa' && <div className="rounded-xl bg-[#EFF9F2] px-3 py-2.5 text-xs leading-snug text-[#134A2B]"><b>Seguimiento de 2 semanas:</b> por el chat de esta asesoría. Registra cada seguimiento en el historial (tipo «Seguimiento»).</div>}
-            <Dossier r={r} as="advisor" counts={{ messages: r.messages }} />
+            <Dossier r={r} as="advisor" counts={{ messages: r.messages }} onProgress={() => setProg((n) => n + 1)} />
             {r.status === 'en_curso' && (
               <div className="flex flex-col gap-2 border-t border-[#F1E7ED] pt-3">
                 <span className="text-[13px] font-semibold">¿Terminaste la asesoría?</span>
                 <span className="text-xs text-tinta-3">Solo puedes entregar cuando arriba esté listo todo lo que se vendió. VINKA revisa la calidad y recién ahí la persona recibe el aviso de «terminada».</span>
-                <DeliverButton r={r} note={note} setNote={setNote} onDeliver={() => deliver(r)} />
+                <DeliverButton r={r} note={note} setNote={setNote} onDeliver={() => deliver(r)} refresh={prog} />
               </div>
             )}
           </>
