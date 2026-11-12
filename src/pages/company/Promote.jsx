@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { FeaturedBadge, PROMO_STATUS, SOURCE_TXT, clp, daysLeft, iva } from '../../lib/promo'
 import { pl, plw } from '../../lib/text'
+import { Checkout } from '../../components/Checkout'
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '—')
 
@@ -30,6 +31,7 @@ export default function Promote() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
   const canManage = ['owner', 'admin', 'recruiter'].includes(company?.member_role)
+  const [payId, setPayId] = useState(null) // destacado que se está pagando
 
   const load = useCallback(() => {
     supabase.rpc('job_promotions', { p_job: id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) })
@@ -42,6 +44,7 @@ export default function Promote() {
     setBusy(false)
     if (error) return setErr(errMsg(error))
     setPick('')
+    if (data?.status === 'solicitada' && data?.id) { setPayId(data.id); load(); return } // pagar al tiro con tarjeta
     setToast(data?.renewed ? `¡Renovado! Ahora termina el ${fmt(data.ends_at)}.` : data?.renewal ? 'Renovación solicitada. Al confirmarse el pago, los días se suman al final del destacado actual.'
       : data?.status === 'activa' ? `¡Listo! Tu vacante está destacada por ${data.days} días.` : 'Solicitud enviada. VINKA te contactará para el pago y la activará apenas se confirme.')
     load()
@@ -81,7 +84,8 @@ export default function Promote() {
               </div>
               {open.status === 'activa' && <span className="text-sm">{plw(daysLeft(open.ends_at), 'Queda', 'Quedan')} <b>{pl(daysLeft(open.ends_at), 'día', 'días')}</b> · termina el {fmt(open.ends_at)} · {SOURCE_TXT[open.source]}</span>}
               {open.status === 'pausada' && <span className="text-sm text-tinta-2">{open.paused_by === 'job' ? 'Está en pausa porque la vacante no está publicada. Al volver a publicarla, sigue con los días que le quedaban.' : 'VINKA lo pausó. Escríbenos si tienes dudas.'}</span>}
-              {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} ({clp(open.net)} + IVA {clp(open.iva)}). VINKA te contactará para el pago; se activa apenas se confirme.</span>}
+              {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} ({clp(open.net)} + IVA {clp(open.iva)}). Pendiente de pago: se activa apenas se apruebe.</span>}
+              {open.status === 'solicitada' && canManage && <button className="btn self-start" onClick={() => setPayId(open.id)}>Pagar {clp(open.total)} con tarjeta</button>}
               {open.status !== 'solicitada' && <Results r={open.results} days={Math.max(1, open.days - (open.status === 'activa' ? daysLeft(open.ends_at) : 0))} baseline={d.baseline?.actions_per_day} />}
               {canManage && <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(open.id, open.status === 'solicitada')}>{open.status === 'solicitada' ? 'Cancelar solicitud' : 'Detener destacado'}</button>}
             </div>
@@ -93,7 +97,8 @@ export default function Promote() {
           {renewal && (
             <div className="card flex flex-col gap-2 border-2 border-[#F5C892] bg-naranja-palido/40 p-4">
               <span className="text-[15px] font-semibold">Renovación solicitada</span>
-              <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} con IVA. Apenas VINKA confirme el pago, se suman al final del destacado actual: no pierdes días.</span>
+              <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} con IVA. Al aprobarse el pago, se suman al final del destacado actual: no pierdes días.</span>
+              {canManage && <button className="btn self-start" onClick={() => setPayId(renewal.id)}>Pagar {clp(renewal.total)} con tarjeta</button>}
               {canManage && <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(renewal.id, true)}>Cancelar renovación</button>}
             </div>
           )}
@@ -111,8 +116,8 @@ export default function Promote() {
                   </button>
                 ))}
               </div>
-              <button className={d.plan.credits > 0 && left > 0 ? 'btn-sec' : 'btn'} disabled={!pick || busy} onClick={() => ask(false)}>Solicitar renovación pagada</button>
-              <span className="text-xs text-tinta-3">El pago se coordina con VINKA (transferencia). Al confirmarse, se suma al final.</span>
+              <button className={d.plan.credits > 0 && left > 0 ? 'btn-sec' : 'btn'} disabled={!pick || busy} onClick={() => ask(false)}>Renovar y pagar con tarjeta</button>
+              <span className="text-xs text-tinta-3">Pagas con tarjeta y los días se suman al final al aprobarse el pago.</span>
             </div>
           )}
           {lastEnded && canManage && published && (
@@ -140,8 +145,8 @@ export default function Promote() {
                       </button>
                     ))}
                   </div>
-                  {product && <p className="text-sm text-tinta-2">{product.name}: {clp(product.price_clp)} + IVA {clp(iva(product.price_clp))} = <b>{clp(product.price_clp + iva(product.price_clp))}</b>. Por ahora el pago se coordina con VINKA (transferencia); empieza a correr al activarse.</p>}
-                  <button className="btn" disabled={!pick || busy} onClick={() => ask(false)}>Solicitar destacado</button>
+                  {product && <p className="text-sm text-tinta-2">{product.name}: {clp(product.price_clp)} + IVA {clp(iva(product.price_clp))} = <b>{clp(product.price_clp + iva(product.price_clp))}</b>. Pagas con tarjeta y empieza a correr apenas se aprueba el pago.</p>}
+                  <button className="btn" disabled={!pick || busy} onClick={() => ask(false)}>Continuar al pago</button>
                   {d.plan.credits === 0 && <Link to="/plan" className="text-xs font-semibold text-rosa-texto">Los planes Pyme, Equipo y Empresa incluyen destacados cada mes ›</Link>}
                 </div>
               </>
@@ -162,6 +167,7 @@ export default function Promote() {
           ))}
         </div>
       </div>
+      {payId && <Checkout kind="promocion" refId={payId} onClose={() => { setPayId(null); load() }} onDone={() => { setPayId(null); setToast('Pago aprobado: tu vacante ya está destacada'); load() }} />}
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>
   )

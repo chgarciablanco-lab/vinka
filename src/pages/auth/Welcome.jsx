@@ -28,7 +28,7 @@ const EMPRESAS = [
 ]
 const FAQ = [
   ['¿Cuánto cuesta para quienes buscan trabajo?', 'Nada. Crear tu perfil, postular, hacer match y conversar con empresas es gratis. La asesoría con reclutador es un servicio opcional.'],
-  ['¿Cómo pago una asesoría?', 'Al solicitarla no pagas nada. Un reclutador de VINKA te contacta, confirma el servicio y te envía los datos para pagar por transferencia o tarjeta. La asesoría comienza al confirmar el pago.'],
+  ['¿Cómo pago una asesoría?', 'Al solicitarla no pagas nada. Un reclutador de VINKA te contacta, confirma el servicio y luego pagas con tarjeta desde la app. La asesoría comienza apenas se aprueba el pago.'],
   ['¿Qué es un perfil o una oferta destacada?', 'Es opcional: aparece entre los primeros resultados, con una etiqueta, solo donde ya calza. No cambia cómo se evalúa a nadie, no oculta a los demás y se puede desactivar cuando quieras.'],
   ['¿La asesoría me da ventaja ante las empresas?', 'No. Las empresas no saben si contrataste una asesoría y no cambia tus matches. Te ayuda a presentarte mejor y a buscar con un plan.'],
   ['¿Cómo funciona la prueba para empresas?', 'Toda empresa nueva parte con 30 días del plan Pyme. Si no eliges un plan, pasa al plan Gratis sin perder nada.'],

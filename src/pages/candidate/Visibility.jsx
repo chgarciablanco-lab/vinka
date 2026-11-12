@@ -4,6 +4,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { FeaturedBadge, PROMO_STATUS, SOURCE_TXT, clp, daysLeft } from '../../lib/promo'
 import { pl, plw } from '../../lib/text'
+import { Checkout } from '../../components/Checkout'
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : '—')
 
@@ -15,6 +16,7 @@ export default function Visibility() {
   const [ok, setOk] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
+  const [payId, setPayId] = useState(null)
 
   const load = useCallback(() => { supabase.rpc('my_profile_promotion').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [])
   useEffect(() => { load() }, [load])
@@ -25,6 +27,7 @@ export default function Visibility() {
     setBusy(false)
     if (error) return setErr(errMsg(error))
     setPick(''); setOk(false)
+    if (data?.status === 'solicitada' && data?.id) { setPayId(data.id); load(); return }
     setToast(data?.renewal ? 'Renovación solicitada. Al confirmarse el pago, los días se suman al final de tu destacado actual.' : 'Solicitud enviada. VINKA te contactará para el pago y lo activará apenas se confirme.'); load()
   }
   const stop = async (id, pending) => {
@@ -55,7 +58,7 @@ export default function Visibility() {
         <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" checked={ok} onChange={(e) => setOk(e.target.checked)} />
         <span>Acepto que VINKA muestre mi perfil con más frecuencia a empresas verificadas durante este período. Puedo desactivarlo cuando quiera.</span>
       </label>
-      {product && <p className="text-sm text-tinta-2">{product.name}: <b>{clp(product.price_clp)}</b>, pago único con IVA incluido. Por ahora el pago se coordina con VINKA.</p>}
+      {product && <p className="text-sm text-tinta-2">{product.name}: <b>{clp(product.price_clp)}</b>, pago único con IVA incluido. Pagas con tarjeta en el paso siguiente.</p>}
       <button className="btn" disabled={!pick || !ok || busy} onClick={ask}>{label}</button>
     </>
   )
@@ -80,7 +83,8 @@ export default function Visibility() {
           <div className="card flex flex-col gap-3 border-2 border-[#E6C66A] p-4">
             <div className="flex items-center justify-between gap-2"><span className="text-[15px] font-semibold">Tu perfil destacado</span><span className={`pill ${PROMO_STATUS[open.status][1]}`}>{PROMO_STATUS[open.status][0]}</span></div>
             {open.status === 'activa' && <span className="text-sm">{plw(daysLeft(open.ends_at), 'Queda', 'Quedan')} <b>{pl(daysLeft(open.ends_at), 'día', 'días')}</b> · termina el {fmt(open.ends_at)}</span>}
-            {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} (IVA incluido). VINKA te contactará para el pago; empieza a correr cuando se active.</span>}
+            {open.status === 'solicitada' && <span className="text-sm text-tinta-2">Total {clp(open.total)} (IVA incluido). Pendiente de pago: empieza a correr apenas se apruebe.</span>}
+            {open.status === 'solicitada' && <button className="btn self-start" onClick={() => setPayId(open.id)}>Pagar {clp(open.total)} con tarjeta</button>}
             {open.status === 'pausada' && <span className="text-sm text-tinta-2">{open.paused_by === 'profile' ? 'Está en pausa porque ocultaste tu perfil. Al volver a mostrarlo sigue con los días que le quedaban.' : 'VINKA lo pausó. Escríbenos si tienes dudas.'}</span>}
             {open.status !== 'solicitada' && (
               <div className="grid grid-cols-3 gap-2 text-center">
@@ -99,20 +103,21 @@ export default function Visibility() {
           </div>
         ) : (
           <div className="card flex flex-col gap-3 p-4">
-            {chooser('Elige cuántos días', 'Solicitar perfil destacado')}
+            {chooser('Elige cuántos días', 'Continuar al pago')}
           </div>
         )}
         {renewal && (
           <div className="card flex flex-col gap-2 border-2 border-[#F5C892] p-4">
             <span className="text-[15px] font-semibold">Renovación solicitada</span>
-            <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} (IVA incluido). Apenas VINKA confirme el pago, se suman al final de tu destacado actual.</span>
+            <span className="text-sm text-tinta-2">{renewal.days} días por {clp(renewal.total)} (IVA incluido). Al aprobarse el pago, se suman al final de tu destacado actual.</span>
+            <button className="btn self-start" onClick={() => setPayId(renewal.id)}>Pagar {clp(renewal.total)} con tarjeta</button>
             <button className="btn-sm self-start border border-linea bg-white" onClick={() => stop(renewal.id, true)}>Cancelar renovación</button>
           </div>
         )}
         {canRenew && (
           <div className="card flex flex-col gap-3 border-2 border-rosa-accion p-4">
             <span className="text-sm text-tinta-2">Tu destacado termina el <b>{fmt(open.ends_at)}</b>. Si lo renuevas ahora, los días nuevos se suman al final: no pierdes ninguno.</span>
-            {chooser('Renueva tu perfil destacado', 'Solicitar renovación')}
+            {chooser('Renueva tu perfil destacado', 'Renovar y pagar')}
           </div>
         )}
         <ErrorBox>{err}</ErrorBox>
@@ -130,6 +135,7 @@ export default function Visibility() {
         )}
         <Link to="/asesoria" className="text-center text-sm font-semibold text-rosa-texto">¿Quieres ayuda con tu CV o tu búsqueda? Mira las asesorías ›</Link>
       </div>
+      {payId && <Checkout kind="promocion" refId={payId} onClose={() => { setPayId(null); load() }} onDone={() => { setPayId(null); setToast('Pago aprobado: tu perfil ya está destacado'); load() }} />}
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>
   )

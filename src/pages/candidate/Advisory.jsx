@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
+import { Checkout, Receipts } from '../../components/Checkout'
 import { CandidateDossier, ServiceProgress, ServiceTimeline } from '../../components/Dossier'
 import { AdvisorCard, AdvisorChooser, AdvisorPhoto, AdvisorSheet, ReviewSheet, Stars, useAdvisorDirectory } from '../../components/AdvisorProfile'
 
@@ -20,7 +21,7 @@ const STEPS = ['Solicitada', 'Pago', 'En curso', 'Revisión', 'Finalizada']
 const STEP_OF = { solicitada: 0, pago_pendiente: 1, en_curso: 2, entregada: 3, aprobada: 4 }
 const NEXT = {
   solicitada: 'VINKA te escribirá por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.',
-  pago_pendiente: 'Paga con los datos que te enviamos por el chat. Al confirmar el pago, empieza tu asesoría.',
+  pago_pendiente: 'Paga con tarjeta aquí mismo y tu asesoría empieza al instante.',
   en_curso: 'Trabaja con tu asesor/a por el chat. Abajo ves lo que incluye y cuánto va listo.',
   entregada: 'VINKA revisa que esté todo lo que incluye tu asesoría y te avisa.',
 }
@@ -57,6 +58,8 @@ export default function Advisory() {
   const [view, setView] = useState(null)
   const [reviews, setReviews] = useState({}) // valoraciones que ya hice, por solicitud
   const [rate, setRate] = useState(null) // solicitud que estoy valorando
+  const [payFor, setPayFor] = useState(null) // solicitud que estoy pagando
+  const [paid, setPaid] = useState(0)
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -126,6 +129,9 @@ export default function Advisory() {
                   </div>
                   <Stepper status={r.status} />
                   {NEXT[r.status] ? <p className="text-sm text-tinta-2"><b>Próximo paso:</b> {NEXT[r.status]}</p> : st[2] && r.status !== 'aprobada' && <p className="text-sm text-tinta-2">{st[2]}</p>}
+                  {r.status === 'pago_pendiente' && (
+                    <button className="btn h-11" onClick={() => setPayFor(r)}>Pagar {money(r.price_clp)} con tarjeta</button>
+                  )}
                   {/* Asesoría finalizada: valorar al asesor/a (una vez) o ver la valoración hecha */}
                   {r.status === 'aprobada' && r.assigned_to && (reviews[r.id] ? (
                     <div className="flex flex-col gap-1 rounded-xl bg-[#FAF7F9] px-3 py-2 text-[13px]">
@@ -225,6 +231,7 @@ export default function Advisory() {
           </div>
         )}
 
+        <Receipts reloadKey={paid} />
         <div className="card flex flex-col gap-2 p-4 text-[13px] leading-relaxed text-tinta-3">
           <span className="text-sm font-semibold text-tinta">Importante</span>
           <p>Es un servicio opcional. <b>Postular en VINKA siempre es gratis</b> y contratar una asesoría no cambia cómo te ven las empresas ni tus matches.</p>
@@ -275,6 +282,7 @@ export default function Advisory() {
         )}
       </Sheet>
       <AdvisorSheet a={view} onClose={() => setView(null)} onPick={change ? (x) => changeTo(change, x.id) : undefined} />
+      {payFor && <Checkout kind="asesoria" refId={payFor.id} onClose={() => { setPayFor(null); setPaid((n) => n + 1) }} onDone={() => { setPayFor(null); setPaid((n) => n + 1); setToast('Pago aprobado: tu asesoría comenzó'); load() }} />}
       {rate && <ReviewSheet r={rate} advisorName={byId(rate.assigned_to)?.display_name || rate.assigned_name} onClose={() => setRate(null)} onDone={() => { setRate(null); setToast('¡Gracias! Tu valoración quedó publicada'); load() }} />}
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>

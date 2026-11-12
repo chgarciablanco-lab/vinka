@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Spinner, Toast, TopBar } from '../../components/ui'
 import { pl, plw } from '../../lib/text'
 import { BillingBanner } from '../../components/BillingBanner'
+import { Checkout, Receipts } from '../../components/Checkout'
 
 const STATUS = { trial: 'Prueba gratuita', active: 'Activo', past_due: 'Pago pendiente', canceled: 'Cancelado' }
 const money = (n) => (n == null ? 'Cotización' : n === 0 ? 'Gratis' : `$${n.toLocaleString('es-CL')} + IVA / mes`)
@@ -31,6 +32,9 @@ export default function Plan() {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
   const isAdmin = ['owner', 'admin'].includes(company?.member_role)
+  const [buy, setBuy] = useState(null) // { plan, months }
+  const [pay, setPay] = useState(null)
+  const [paid, setPaid] = useState(0)
 
   const load = useCallback(() => {
     supabase.rpc('company_plan', { p_company: company.id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) })
@@ -86,8 +90,27 @@ export default function Plan() {
             <div key={x.id} className={`card flex flex-col gap-2 p-4 ${x.id === p.id ? 'border-2 border-rosa-accion' : ''}`}>
               <div className="flex items-baseline justify-between gap-2"><span className="text-[17px] font-bold">{x.name}</span><span className="text-sm font-semibold text-tinta-2">{money(x.price_clp)}</span></div>
               <span className="text-sm text-tinta-3">{lim(x.max_active_jobs, x.max_active_jobs === 1 ? 'vacante publicada' : 'vacantes publicadas')} · {lim(x.max_members, x.max_members === 1 ? 'persona' : 'personas')} · {x.ai_monthly} consultas de IA al mes · {x.promo_credits ? `${x.promo_credits} ${x.promo_credits === 1 ? 'destacado' : 'destacados'} de ${x.promo_days} días al mes` : 'destacados sueltos desde $4.990 + IVA'}</span>
-              {x.id === p.id ? <span className="text-xs font-semibold text-rosa-texto">Plan actual</span>
-                : isAdmin && <button className="btn-sm self-start border border-rosa-accion bg-white text-rosa-texto" onClick={() => setPick(x.id)}>{x.price_clp == null ? 'Pedir cotización' : 'Cambiar a este plan'}</button>}
+              {x.id === p.id && <span className="text-xs font-semibold text-rosa-texto">Plan actual</span>}
+              {isAdmin && (
+                <div className="flex flex-wrap gap-2">
+                  {x.price_clp > 0 && <button className="btn-sm bg-rosa-accion text-white" onClick={() => { setPick(''); setBuy({ plan: x.id, months: 1 }) }}>{x.id === p.id ? (d.status === 'active' ? 'Pagar o extender' : 'Pagar este plan') : 'Contratar con tarjeta'}</button>}
+                  {x.id !== p.id && <button className="btn-sm border border-rosa-accion bg-white text-rosa-texto" onClick={() => { setBuy(null); setPick(x.id) }}>{x.price_clp == null ? 'Pedir cotización' : 'Hablar con VINKA'}</button>}
+                </div>
+              )}
+              {buy?.plan === x.id && (
+                <div className="flex flex-col gap-2 rounded-xl bg-[#FAF7F9] p-3">
+                  <span className="text-[13px] font-semibold">¿Cuántos meses pagas?</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[1, 3, 6, 12].map((m) => (
+                      <button key={m} onClick={() => setBuy({ ...buy, months: m })} className={`flex flex-col items-center rounded-lg border-2 py-1.5 text-[13px] ${buy.months === m ? 'border-rosa-accion bg-rosa-palido font-bold' : 'border-linea bg-white'}`}>
+                        {m} {m === 1 ? 'mes' : 'meses'}<span className="text-[10px] font-normal text-tinta-3">${Math.round(x.price_clp * m * 1.19).toLocaleString('es-CL')}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-tinta-3">Total con IVA. {x.id === p.id && d.status === 'active' ? 'Se suma al período ya pagado.' : 'El plan se activa al aprobarse el pago.'}</span>
+                  <div className="grid grid-cols-2 gap-2"><button className="btn-sec" onClick={() => setBuy(null)}>Cancelar</button><button className="btn" onClick={() => setPay(buy)}>Ir a pagar</button></div>
+                </div>
+              )}
             </div>
           ))}
           {pick && (
@@ -99,10 +122,13 @@ export default function Plan() {
             </div>
           )}
           {!isAdmin && <p className="hint">Solo quien administra la empresa puede cambiar el plan.</p>}
+          {isAdmin && <Receipts company={company.id} reloadKey={paid} />}
           <ErrorBox>{err}</ErrorBox>
         </div>
         )}
       </div>
+      {pay && <Checkout kind="plan" refId={company.id} plan={pay.plan} months={pay.months} onClose={() => { setPay(null); setPaid((n) => n + 1) }}
+        onDone={() => { setPay(null); setBuy(null); setPaid((n) => n + 1); setToast('Pago aprobado: tu plan está activo'); load() }} />}
       <Toast msg={toast} onDone={() => setToast('')} />
     </Screen>
   )
