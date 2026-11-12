@@ -9,20 +9,34 @@ const ICON = { interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofer
 /** Pendientes de la empresa: solo lo que requiere acción, con cifras reales y un toque para resolverlo */
 export function TodoBlock({ companyId, refresh = 0 }) {
   const [items, setItems] = useState(null)
+  const [failed, setFailed] = useState(false)
+  const [retry, setRetry] = useState(0)
   const { total } = useUnread() // si cambian los no leídos, se recalcula
   useEffect(() => {
     if (!companyId) return undefined
     let alive = true
-    const load = () => supabase.rpc('company_todo', { p_company: companyId }).then(({ data, error }) => { if (alive && !error) setItems(data || []) })
+    // Si falla (sin red), se mantienen las últimas cifras conocidas y se ofrece reintentar
+    const load = () => supabase.rpc('company_todo', { p_company: companyId }).then(({ data, error }) => {
+      if (!alive) return
+      if (error) return setFailed(true)
+      setFailed(false); setItems(data || [])
+    }, () => alive && setFailed(true))
     load()
     // También al volver a la app (por ejemplo, después de resolver algo en otra pestaña o en el teléfono)
     const onVis = () => { if (document.visibilityState === 'visible') load() }
     document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('online', load)
     const t = setInterval(load, 120000)
-    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
-  }, [companyId, total, refresh])
-  if (items == null) return null
-  if (items.length === 0) return (
+    return () => { alive = false; clearInterval(t); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('online', load) }
+  }, [companyId, total, refresh, retry])
+  const failBox = failed && (
+    <div role="alert" className="flex items-center gap-2 rounded-2xl border border-[#F4C7C3] bg-[#FEF3F2] px-3.5 py-2.5 text-[13px] text-[#912018]">
+      <span className="flex-1">{items ? 'No pudimos actualizar tus pendientes; estas cifras pueden estar desactualizadas.' : 'No pudimos cargar tus pendientes.'}</span>
+      <button className="btn-sm shrink-0 border border-[#F4C7C3] bg-white" onClick={() => setRetry((n) => n + 1)}>Reintentar</button>
+    </div>
+  )
+  if (items == null) return failBox || null
+  if (items.length === 0) return failBox || (
     <div className="flex items-center gap-2 rounded-2xl bg-[#EFF9F2] px-3.5 py-2.5 text-[13px] font-semibold text-[#134A2B]">
       <Svg name="check" size={18} />Todo al día: no tienes pendientes.
     </div>
@@ -30,6 +44,7 @@ export function TodoBlock({ companyId, refresh = 0 }) {
   return (
     <div className="card flex flex-col gap-1 p-2">
       <span className="px-2 pb-1 pt-1.5 text-[15px] font-semibold">Pendientes</span>
+      {failBox}
       {items.map((x) => {
         const body = (
           <>
