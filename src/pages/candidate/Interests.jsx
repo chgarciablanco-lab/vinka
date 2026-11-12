@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials } from '../../lib/catalog'
-import { Avatar, Empty, ErrorBox, Spinner } from '../../components/ui'
+import { Avatar, Empty, ErrorBox, Sheet, Spinner, Svg } from '../../components/ui'
+import { InterviewCard } from '../../components/InterviewCard'
+import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
 import { InstallBanner } from '../../components/InstallBanner'
@@ -20,8 +22,8 @@ const STATUS_PILL = { no_seleccionado: ['NO SELECCIONADO', 'bg-[#F4EEF2] text-ti
 const STAGE_PILL = {
   match: ['MATCH', 'bg-rosa-accion text-white', 'Ambos se interesaron. La empresa te escribirá por el chat.'],
   contacto: ['EN CONVERSACIÓN', 'bg-[#F7F0FB] text-[#6B2E8F]', 'La empresa está en contacto contigo por el chat.'],
-  entrevista: ['ENTREVISTA', 'bg-[#E7F1FB] text-[#1F4E86]', 'Tienes una entrevista en este proceso. Revisa la fecha en el chat.'],
-  oferta: ['OFERTA RECIBIDA', 'bg-[#FFF4D6] text-[#7A5200]', 'Te enviaron una carta oferta. Respóndela desde el chat.'],
+  entrevista: ['ENTREVISTA', 'bg-[#E7F1FB] text-[#1F4E86]', 'Tienes una entrevista en este proceso.'],
+  oferta: ['OFERTA RECIBIDA', 'bg-[#FFF4D6] text-[#7A5200]', 'Te enviaron una carta oferta.'],
   contratado: ['CONTRATADO/A', 'bg-[#EAF6EF] text-[#134A2B]', '¡Felicitaciones! Coordina tu ingreso con la empresa.'],
   descartado: ['PROCESO CERRADO', 'bg-[#F4EEF2] text-tinta-3', 'La empresa decidió no seguir contigo en esta vacante.'],
   cerrado: ['PROCESO CERRADO', 'bg-[#F4EEF2] text-tinta-3', 'Este proceso terminó.'],
@@ -38,12 +40,18 @@ export default function Interests() {
   const [rows, setRows] = useState(null)
   const [matches, setMatches] = useState([])
   const [err, setErr] = useState('')
+  const [ivs, setIvs] = useState([])
+  const [offers, setOffers] = useState([])
+  const [ivOpen, setIvOpen] = useState(null)
 
   const load = useCallback(async () => {
-    const [a, b] = await Promise.all([supabase.rpc('my_interests'), supabase.rpc('my_matches')])
+    const [a, b, c, d] = await Promise.all([
+      supabase.rpc('my_interests'), supabase.rpc('my_matches'), supabase.rpc('my_interviews'),
+      supabase.from('offers').select('id, match_id, status, position, expires_on, created_at').eq('candidate_id', user.id).neq('status', 'retirada').order('created_at', { ascending: false }),
+    ])
     if (a.error || b.error) setErr(errMsg(a.error || b.error))
-    setRows(a.data || []); setMatches(b.data || [])
-  }, [])
+    setRows(a.data || []); setMatches(b.data || []); setIvs(c.data || []); setOffers(d.data || [])
+  }, [user.id])
   useEffect(() => { load() }, [load])
   useEffect(() => { if (rows && tab === 'invited' && !rows.some((r) => r.kind === 'invited')) setTab(matches.length ? 'match' : 'sent') }, [rows]) // eslint-disable-line
 
@@ -70,7 +78,7 @@ export default function Interests() {
 
   const count = (k) => (k === 'match' ? matches.length : (rows || []).filter((r) => r.kind === k && (r.status === 'pendiente' || !r.status)).length)
   const list = tab === 'match'
-    ? matches.map((m) => ({ key: m.match_id, job_id: m.job_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage }))
+    ? matches.map((m) => ({ key: m.match_id, job_id: m.job_id, title: m.job_title, company: m.company_name, match_id: m.match_id, stage: m.closed ? 'cerrado' : m.stage, closed: m.closed, can_schedule: m.can_schedule }))
     : (rows || []).filter((r) => r.kind === tab).sort((a, b) => (ORDER[a.status] || 0) - (ORDER[b.status] || 0))
       .map((r) => ({ key: r.job_id, job_id: r.job_id, title: r.title, status: r.status, company: [r.company_name, r.comuna, r.modality].filter(Boolean).join(' · ') }))
 
@@ -111,6 +119,7 @@ export default function Interests() {
                 <button className="btn-sm bg-rosa-accion text-white" onClick={() => respond(r.job_id, 'interest')}>Me interesa</button>
               </div>
             )}
+            {tab === 'match' && <ProcessSteps r={r} ivs={ivs} offers={offers} onInterview={setIvOpen} />}
             {tab === 'match' && <Link to={`/chats/${r.match_id}`} className="btn-sm bg-rosa-palido text-rosa-oscuro">Abrir chat</Link>}
             {tab === 'saved' && r.status !== 'pendiente' && <button className="btn-sm self-start border border-linea bg-white" onClick={() => unsave(r.job_id)}>Quitar de guardadas</button>}
             {tab === 'saved' && r.status === 'pendiente' && (
@@ -125,6 +134,44 @@ export default function Interests() {
       <ScreeningSheet open={!!ask} title={ask?.title} questions={ask?.questions} onClose={() => setAsk(null)}
         onSubmit={async (answers) => { const a = ask; setAsk(null); await respond(a.job_id, 'interest', answers) }} />
       <MatchModal match={match} onClose={() => setMatch(null)} />
+      <Sheet open={!!ivOpen} onClose={() => setIvOpen(null)} title="Tu entrevista">
+        {ivOpen && <InterviewCard iv={ivOpen} role="candidate" onChange={() => { setIvOpen(null); load() }} />}
+      </Sheet>
     </div>
   )
+}
+
+/** Lo que está en curso en esta postulación (agenda, entrevista, carta oferta), con su acción directa */
+function ProcessSteps({ r, ivs, offers, onInterview }) {
+  const now = Date.now()
+  const iv = ivs.filter((x) => x.match_id === r.match_id && x.status === 'confirmada' && new Date(x.ends_at) > now).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0]
+  const offer = offers.find((o) => o.match_id === r.match_id)
+  const rows = []
+  if (iv) rows.push(
+    <div key="iv" className="flex items-center gap-3 rounded-xl border border-rosa-borde bg-rosa-palido px-3 py-2.5">
+      <Svg name="calendar" size={20} className="shrink-0 text-rosa-accion" />
+      <span className="flex min-w-0 flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Entrevista {fmtDayShort(iv.starts_at)} · {fmtTime(iv.starts_at)}</span>
+        <span className="truncate text-xs text-tinta-3">{iv.mode === 'online' ? 'Videollamada' : `Presencial${iv.address ? ` · ${iv.address}` : ''}`}</span></span>
+      <button className="btn-sm shrink-0 bg-white text-rosa-texto" onClick={() => onInterview(iv)}>Ver</button>
+    </div>,
+  )
+  else if (r.can_schedule && !r.closed) rows.push(
+    <Link key="ag" to={`/chats/${r.match_id}/agendar`} className="flex items-center gap-3 rounded-xl border border-rosa-borde bg-rosa-palido px-3 py-2.5">
+      <Svg name="calendar" size={20} className="shrink-0 text-rosa-accion" />
+      <span className="flex flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Puedes agendar tu entrevista</span><span className="text-xs text-tinta-3">La empresa te invitó a elegir un horario</span></span>
+      <span className="text-sm font-semibold text-rosa-texto">Elegir</span>
+    </Link>,
+  )
+  if (offer) {
+    const t = { enviada: ['Tienes una carta oferta', 'Responder'], aceptada: ['Aceptaste la oferta', 'Ver'], vencida: ['La oferta venció', 'Ver'], rechazada: ['No aceptaste la oferta', 'Ver'] }[offer.status] || ['Carta oferta', 'Ver']
+    rows.push(
+      <Link key="of" to={`/ofertas/${offer.id}`} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${offer.status === 'enviada' ? 'border-[#F5C892] bg-naranja-palido' : 'border-linea bg-white'}`}>
+        <Svg name="doc" size={20} className="shrink-0 text-naranja-texto" />
+        <span className="flex min-w-0 flex-1 flex-col"><span className="text-sm font-semibold text-[#6B3800]">{t[0]}</span>
+          <span className="text-xs leading-snug text-[#4A2A00]">{offer.position}{offer.status === 'enviada' && offer.expires_on ? ` · responde antes del ${new Date(offer.expires_on + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}` : ''}</span></span>
+        <span className="text-sm font-semibold text-naranja-texto">{t[1]}</span>
+      </Link>,
+    )
+  }
+  return rows.length ? <div className="flex flex-col gap-2">{rows}</div> : null
 }
