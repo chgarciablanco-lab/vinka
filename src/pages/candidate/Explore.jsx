@@ -196,11 +196,11 @@ export default function Explore() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-rosa-fondo pb-24">
+    <div className={`mx-auto flex min-h-full w-full max-w-md flex-col overflow-hidden bg-rosa-fondo pb-24 ${view === 'lista' ? 'lg:max-w-3xl' : ''}`}>
       <div className="safe-t flex items-center justify-between px-5 pb-3">
         <div className="flex flex-col">
           <h1 className="text-[22px] font-bold">Explorar</h1>
-          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : !job ? 'Sin vacantes nuevas' : view === 'lista' ? `${pl(rest.length, 'vacante', 'vacantes')} para ti` : `${i + 1} de ${pl(jobs.length, 'vacante', 'vacantes')} para ti`}</span>
+          <span className="text-[13px] text-tinta-suave">{jobs == null ? '…' : !job ? 'Sin vacantes nuevas' : view === 'lista' ? `${pl(rest.length, 'vacante', 'vacantes')} ${broad ? 'en búsqueda ampliada' : 'para ti'}` : `${i + 1} de ${pl(jobs.length, 'vacante', 'vacantes')} ${broad ? 'en búsqueda ampliada' : 'para ti'}`}</span>
         </div>
         <div className="flex items-center gap-2"><button onClick={() => load(broad)} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /></div>
       </div>
@@ -212,6 +212,12 @@ export default function Explore() {
           ))}
         </div>
         <ErrorBox>{err}</ErrorBox>
+        {broad && jobs?.length > 0 && job && (
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-naranja-palido px-3 py-2 text-[13px] text-naranja-texto">
+            <span>Búsqueda ampliada: incluye vacantes que calzan menos con tu cargo y nivel.</span>
+            <button className="shrink-0 font-semibold underline" onClick={() => load(false)}>Volver a las mías</button>
+          </div>
+        )}
         {jobs == null ? <Spinner /> : !job ? (
           <Empty title={broad ? 'Viste todas las vacantes' : jobs.length ? 'Viste todas las vacantes para tu perfil' : 'Aún no hay vacantes para tu perfil'}
             action={<div className="mt-1.5 flex flex-col items-center gap-2">

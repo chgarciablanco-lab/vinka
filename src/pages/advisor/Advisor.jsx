@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ADVISOR_ACTIVE } from './Hub'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, Svg, Toast } from '../../components/ui'
@@ -157,7 +158,7 @@ export default function AdvisorHome() {
     if (error) return setErr(errMsg(error))
     setNote(''); setToast('Asesoría marcada como entregada'); load()
   }
-  const ACTIVE = ['solicitada', 'pago_pendiente', 'en_curso']
+  const ACTIVE = ADVISOR_ACTIVE
   const qn = q.trim().toLowerCase()
   const shown = (list || []).filter((r) => r.id === caso || (fst === 'activas' ? ACTIVE.includes(r.status) : fst ? r.status === fst : true)
     && (!fsvc || r.service_id === fsvc)

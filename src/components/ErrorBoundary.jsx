@@ -21,20 +21,25 @@ export function reportError(error, extra = '') {
   try {
     if (sent >= 10) return
     sent++
-    const msg = String(error?.message || error || 'Error desconocido')
+    let msg = String(error?.message || error || 'Error desconocido')
+    // El navegador oculta el detalle de errores de scripts de otro sitio (extensiones, etc.): se rotula para no confundirlo con un fallo de VINKA
+    if (/^Script error\.?$/i.test(msg)) msg = 'Script error. (script externo sin detalle: extensión del navegador u otro sitio)'
     // cargar una ruta después de publicar una versión nueva falla una vez; se recarga en vez de registrarlo
     if (isStaleChunk(msg)) { reloadForNewVersion(); return }
     supabase.rpc('log_client_error', {
-      p_message: msg, p_stack: `${error?.stack || ''}${extra ? `\n${extra}` : ''}`,
+      p_message: msg, p_stack: `${error?.stack || ''}${extra ? `\n${extra}` : ''}\nversión: ${appVersion()}`,
       p_path: window.location.pathname, p_ua: navigator.userAgent,
     }).then(() => {}, () => {})
   } catch { /* nada */ }
 }
 
+/** Versión publicada: el nombre del archivo principal cambia en cada publicación */
+const appVersion = () => { try { return (document.querySelector('script[type="module"][src*="/assets/"]')?.src || '').split('/').pop() || 'dev' } catch { return '?' } }
+
 export function installGlobalErrorHandlers() {
   // Vite avisa cuando no puede precargar un archivo de la versión anterior
   window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault() })
-  window.addEventListener('error', (e) => reportError(e.error || e.message))
+  window.addEventListener('error', (e) => reportError(e.error || e.message, `origen: ${e.filename || 'desconocido'}:${e.lineno || 0}:${e.colno || 0}`))
   window.addEventListener('unhandledrejection', (e) => reportError(e.reason))
 }
 

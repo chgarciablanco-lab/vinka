@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
@@ -52,6 +52,9 @@ export function VacTabs() {
 }
 
 /** Inicio del asesor: todo lo pendiente en una lista */
+// Mismo criterio de «activas» en Inicio y en la bandeja de Asesorías
+export const ADVISOR_ACTIVE = ['solicitada', 'pago_pendiente', 'en_curso']
+
 export function AdvisorInicio() {
   const { profile, company } = useAuth()
   const { search } = useLocation()
@@ -59,15 +62,21 @@ export function AdvisorInicio() {
   const [collabs, setCollabs] = useState([])
   const [inbox, setInbox] = useState({ tasks: [], suggestions: [] })
   const caso = new URLSearchParams(search).get('caso')
+  const [failed, setFailed] = useState(false)
+  // Si la carga falla se avisa y se ofrece reintentar; nunca se muestra como «sin asesorías»
+  const loadCases = useCallback(() => {
+    setFailed(false)
+    supabase.rpc('advisor_requests').then(({ data, error }) => { if (error) { setFailed(true); setCases((c) => c || []) } else setCases(data || []) }, () => { setFailed(true); setCases((c) => c || []) })
+  }, [])
   useEffect(() => {
     if (caso) return
-    supabase.rpc('advisor_requests').then(({ data }) => setCases(data || []))
+    loadCases()
     supabase.rpc('my_collaborations').then(({ data }) => setCollabs((data || []).filter((c) => !c.closed)))
     supabase.rpc('collab_inbox').then(({ data, error }) => { if (!error && data) setInbox(data) })
-  }, [caso])
+  }, [caso, loadCases])
   // Avisos antiguos de asesorías apuntan a «/?caso=…»
   if (caso) return <Navigate to={`/asesorias?caso=${caso}`} replace />
-  const active = (cases || []).filter((r) => ['pago_pendiente', 'asignada', 'en_curso'].includes(r.status))
+  const active = (cases || []).filter((r) => ADVISOR_ACTIVE.includes(r.status))
   const urgent = active.filter((r) => r.next?.due).sort((a, b) => new Date(a.next.due) - new Date(b.next.due)).slice(0, 4)
   return (
     <Screen className="bg-[#FAF7F9]" wide>
@@ -78,7 +87,13 @@ export function AdvisorInicio() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-3.5 px-5 pb-28 lg:px-8 lg:pb-10">
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">Asesorías</h2><Link to="/asesorias" className="text-[13px] font-semibold text-rosa-texto">Ver todas ({active.length})</Link></div>
-          {cases == null ? <Spinner /> : urgent.length === 0 ? (
+          {failed && (
+            <div role="alert" className="flex items-center justify-between gap-2 rounded-2xl border border-[#F4C7C3] bg-[#FEF3F2] px-3.5 py-2.5 text-[13px] text-[#912018]">
+              <span>No pudimos cargar tus asesorías. Revisa tu conexión.</span>
+              <button className="btn-sm h-9 shrink-0 border border-[#F4C7C3] bg-white" onClick={loadCases}>Reintentar</button>
+            </div>
+          )}
+          {cases == null ? <Spinner /> : failed && !cases.length ? null : urgent.length === 0 ? (
             <div className="flex items-center gap-2 rounded-2xl bg-[#EFF9F2] px-3.5 py-2.5 text-[13px] font-semibold text-[#134A2B]"><Svg name="check" size={18} />{active.length ? 'Tus asesorías están al día.' : 'No tienes asesorías activas.'}</div>
           ) : (
             <div className="card flex flex-col gap-1 p-2">
