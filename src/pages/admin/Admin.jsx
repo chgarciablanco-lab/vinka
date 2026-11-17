@@ -294,16 +294,16 @@ function Business() {
             <span className="text-tinta-3">{pl(c.jobs, 'vacante', 'vacantes')} publicadas · {c.members} en el equipo{c.trial_ends_at ? ` · prueba hasta ${new Date(c.trial_ends_at).toLocaleDateString('es-CL')}` : ''}{c.period_end ? ` · pagado hasta ${new Date(c.period_end).toLocaleDateString('es-CL')}` : ''}</span>
             {edit?.id === c.id ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                <select className="input h-11" value={edit.plan} onChange={(e) => setEdit({ ...edit, plan: e.target.value })}>{['gratis', 'pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x}>{x}</option>)}</select>
-                <select className="input h-11" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>{PLAN_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+                <select aria-label="Plan" className="input h-11" value={edit.plan} onChange={(e) => setEdit({ ...edit, plan: e.target.value })}>{['gratis', 'pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x}>{x}</option>)}</select>
+                <select aria-label="Estado del plan" className="input h-11" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>{PLAN_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Pagado hasta</span><input type="date" className="input h-11" value={edit.period_end || ''} onChange={(e) => setEdit({ ...edit, period_end: e.target.value })} /></label>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Nota (factura, medio de pago)</span><input className="input h-11" value={edit.note || ''} onChange={(e) => setEdit({ ...edit, note: e.target.value })} /></label>
                 <button className="btn-sec h-11" onClick={() => setEdit(null)}>Cancelar</button><button className="btn h-11" onClick={save}>Guardar plan</button>
               </div>
             ) : pay?.id === c.id ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                <select className="input h-11" value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value, amount: PRICES[e.target.value] * Number(pay.months) })}>{['pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x} value={x}>{PLAN_NAME[x]}</option>)}</select>
-                <select className="input h-11" value={pay.months} onChange={(e) => setPay({ ...pay, months: e.target.value, amount: PRICES[pay.plan] * Number(e.target.value) })}>{[1, 3, 6, 12].map((x) => <option key={x} value={x}>{x} {x === 1 ? 'mes' : 'meses'}</option>)}</select>
+                <select aria-label="Plan pagado" className="input h-11" value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value, amount: PRICES[e.target.value] * Number(pay.months) })}>{['pyme', 'equipo', 'consultora', 'empresa'].map((x) => <option key={x} value={x}>{PLAN_NAME[x]}</option>)}</select>
+                <select aria-label="Meses pagados" className="input h-11" value={pay.months} onChange={(e) => setPay({ ...pay, months: e.target.value, amount: PRICES[pay.plan] * Number(e.target.value) })}>{[1, 3, 6, 12].map((x) => <option key={x} value={x}>{x} {x === 1 ? 'mes' : 'meses'}</option>)}</select>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Monto recibido (CLP)</span><input className="input h-11" inputMode="numeric" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></label>
                 <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Medio de pago</span><select className="input h-11" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((x) => <option key={x}>{x}</option>)}</select></label>
                 <input className="input h-11 sm:col-span-2" placeholder="Nota (n° de factura, comprobante)" value={pay.note} onChange={(e) => setPay({ ...pay, note: e.target.value })} />
@@ -487,8 +487,8 @@ function Advisory() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={only} disabled={!!fst} onChange={(e) => setOnly(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Solo abiertas</label></div>
       <div className="grid gap-2 sm:grid-cols-[1fr_190px_190px]">
         <input className="input h-11" placeholder="Buscar persona, correo, servicio u objetivo" value={fq} onChange={(e) => { setFq(e.target.value); setLimit(30) }} />
-        <select className="input h-11" value={fst} onChange={(e) => { setFst(e.target.value); setLimit(30) }}><option value="">Todos los estados</option>{Object.entries(SRV_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-        <select className="input h-11" value={fadv} onChange={(e) => { setFadv(e.target.value); setLimit(30) }}><option value="">Todos los asesores</option><option value="none">Sin asignar</option>{advisors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <select aria-label="Filtrar por estado" className="input h-11" value={fst} onChange={(e) => { setFst(e.target.value); setLimit(30) }}><option value="">Todos los estados</option>{Object.entries(SRV_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        <select aria-label="Filtrar por asesor/a" className="input h-11" value={fadv} onChange={(e) => { setFadv(e.target.value); setLimit(30) }}><option value="">Todos los asesores</option><option value="none">Sin asignar</option>{advisors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
       </div>
       <span className="text-xs text-tinta-suave">{list.length} solicitudes</span>
       {list.length === 0 && <Empty title="Sin solicitudes">Cuando un postulante pida una asesoría, aparecerá aquí y te llegará un aviso.</Empty>}
@@ -549,7 +549,7 @@ function Advisory() {
               </div>
             )}
             <div className="grid gap-2 sm:grid-cols-[180px_1fr_auto]">
-              <select className="input h-11" value={e.status ?? r.status} disabled={r.status === 'aprobada'} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, status: ev.target.value } })}>{r.status === 'aprobada' && <option value="aprobada">Aprobada ✓</option>}{SRV_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+              <select aria-label="Estado de la asesoría" className="input h-11" value={e.status ?? r.status} disabled={r.status === 'aprobada'} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, status: ev.target.value } })}>{r.status === 'aprobada' && <option value="aprobada">Aprobada ✓</option>}{SRV_STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
               <input className="input h-11" maxLength={1000} placeholder="Mensaje para la persona (lo verá en su app)" value={e.note ?? r.note} onChange={(ev) => setEdit({ ...edit, [r.id]: { ...e, note: ev.target.value } })} />
               <button className="btn h-11 px-4" onClick={() => save(r)}>Guardar y avisar</button>
             </div>
@@ -906,8 +906,8 @@ function Promos() {
                   <span className="text-xs text-tinta-3">{x.starts_at ? `${dt(x.starts_at)} → ${dt(x.ends_at)} · ${n(x.results.impressions)} apariciones · ${n(x.results.clicks)} clics · ${n(x.results.actions)} ${target === 'job' ? 'postulaciones' : 'empresas interesadas'}` : `Pedido el ${dt(x.created_at)}`}</span>
                   {act?.id === x.id ? (
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <select className="input h-11" value={act.paid ? 'pago' : 'cortesia'} onChange={(e) => setAct({ ...act, paid: e.target.value === 'pago' })}><option value="pago">Pago recibido ({money(x.total)})</option><option value="cortesia">Cortesía (sin cobro)</option></select>
-                      {act.paid && <select className="input h-11" value={act.method} onChange={(e) => setAct({ ...act, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((m) => <option key={m}>{m}</option>)}</select>}
+                      <select aria-label="Forma de activación" className="input h-11" value={act.paid ? 'pago' : 'cortesia'} onChange={(e) => setAct({ ...act, paid: e.target.value === 'pago' })}><option value="pago">Pago recibido ({money(x.total)})</option><option value="cortesia">Cortesía (sin cobro)</option></select>
+                      {act.paid && <select aria-label="Medio de pago" className="input h-11" value={act.method} onChange={(e) => setAct({ ...act, method: e.target.value })}>{['transferencia', 'tarjeta', 'efectivo', 'otro'].map((m) => <option key={m}>{m}</option>)}</select>}
                       <input className="input h-11 sm:col-span-2" placeholder="Nota (comprobante, motivo de cortesía)" value={act.note} onChange={(e) => setAct({ ...act, note: e.target.value })} />
                       <button className="btn-sec h-11" onClick={() => setAct(null)}>Cancelar</button><button className="btn h-11" onClick={activate}>Activar ahora</button>
                     </div>
@@ -980,7 +980,7 @@ function CompanyTeam({ company: c, onClose }) {
             <span className="text-[13px] font-semibold">Agregar a alguien al equipo</span>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input className="input h-11 flex-1" type="email" placeholder="correo@empresa.cl" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
-              <select className="input h-11 sm:w-44" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value })}>{roles.map((r) => <option key={r} value={r}>{TEAM_ROLES[r]}</option>)}</select>
+              <select aria-label="Rol" className="input h-11 sm:w-44" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value })}>{roles.map((r) => <option key={r} value={r}>{TEAM_ROLES[r]}</option>)}</select>
             </div>
             <button className="btn-sm self-start bg-rosa-accion text-white" disabled={busy || !inv.email.includes('@')} onClick={() => run('invite_member', { p_company: c.id, p_email: inv.email, p_role: inv.role }, `Invitación enviada a ${inv.email}. Se une al abrir el enlace del correo.`).then(() => setInv({ ...inv, email: '' }))}>Enviar invitación</button>
             <span className="text-[11px] text-tinta-suave">La persona recibe un enlace para crear su cuenta o unirse con la que tiene. Una cuenta solo puede estar en una empresa.</span>
@@ -1087,7 +1087,7 @@ function Staff() {
           <span className="text-[15px] font-semibold">Agregar a alguien al equipo VINKA</span>
           <input className="input h-11" type="email" placeholder="correo@vinka.cl" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
           <div className="grid grid-cols-2 gap-2"><input className="input h-11" placeholder="Nombre" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} /><input className="input h-11" placeholder="Apellido" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} /></div>
-          <select className="input h-11" value={f.level} onChange={(e) => setF({ ...f, level: e.target.value })}>{Object.entries(LEVELS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
+          <select aria-label="Nivel de acceso" className="input h-11" value={f.level} onChange={(e) => setF({ ...f, level: e.target.value })}>{Object.entries(LEVELS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
           <span className="text-[11px] text-tinta-suave">Si el correo no tiene cuenta, se crea una con contraseña temporal (debe cambiarla al entrar). Si ya tiene cuenta de postulante, se le da acceso. No se puede usar un correo de empresa ni de asesor/a.</span>
           <button className="btn" disabled={busy || !f.email.includes('@')} onClick={add}>{busy ? 'Agregando…' : 'Agregar al equipo'}</button>
           {created && (
@@ -1137,7 +1137,7 @@ function Feedback() {
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {[['', 'Todos'], ['error', 'Errores'], ['mejora', 'Mejoras'], ['consulta', 'Consultas']].map(([k, l]) => <button key={k} className={`chip h-9 text-[13px] ${fk === k ? 'chip-on' : ''}`} onClick={() => setFk(k)}>{l}</button>)}
-        <select className="input h-9 w-auto py-0 text-[13px]" value={fs} onChange={(e) => setFs(e.target.value)}><option value="abiertos">Abiertos</option><option value="">Todos los estados</option>{FB_ST.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        <select aria-label="Filtrar por estado" className="input h-9 w-auto py-0 text-[13px]" value={fs} onChange={(e) => setFs(e.target.value)}><option value="abiertos">Abiertos</option><option value="">Todos los estados</option>{FB_ST.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         <label className="ml-auto flex items-center gap-2 text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir cuentas de prueba</label>
       </div>
       <ErrorBox>{err}</ErrorBox>
@@ -1265,7 +1265,7 @@ export default function Admin({ section }) {
             {tab === 'all' && (
               <div className="grid gap-2 sm:grid-cols-[1fr_200px]">
                 <input className="input h-11" placeholder="Buscar por nombre, razón social, RUT o comuna" value={cq} onChange={(e) => { setCq(e.target.value); setClimit(40) }} />
-                <select className="input h-11" value={cf} onChange={(e) => { setCf(e.target.value); setClimit(40) }}>
+                <select aria-label="Filtrar empresas" className="input h-11" value={cf} onChange={(e) => { setCf(e.target.value); setClimit(40) }}>
                   <option value="">Todos los estados</option>{Object.entries(VST).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </div>

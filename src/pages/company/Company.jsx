@@ -6,7 +6,7 @@ import { logoUrl } from '../../components/OfferLetter'
 import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
-import { DangerZone, MyData } from '../Account'
+import { DangerZone, MyData, MyName } from '../Account'
 import { CalendarSync } from '../../components/CalendarSync'
 import { usePresence } from '../../lib/presence'
 import { OnlineToggle, PresenceLine, StatusPill } from '../../components/Presence'
@@ -789,6 +789,7 @@ export function CompanyAccount() {
         <NotifyCard />
         <EmailToggle />
         <InstallBanner always />
+        <MyName />
         <MyData />
         <div className="mt-2"><DangerZone /></div>
       </div>

@@ -4,9 +4,8 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Empty, ErrorBox, Logo, Screen, Spinner, TopBar } from '../components/ui'
 
-export const INVITE_KEY = 'vinka-invite'
-export const savePendingInvite = (t) => { try { localStorage.setItem(INVITE_KEY, t) } catch { /* sin almacenamiento */ } }
-export const readPendingInvite = () => { try { return localStorage.getItem(INVITE_KEY) } catch { return null } }
+import { INVITE_KEY, savePendingInvite, readPendingInvite } from '../lib/invite'
+export { INVITE_KEY, savePendingInvite, readPendingInvite }
 export const clearPendingInvite = () => { try { localStorage.removeItem(INVITE_KEY) } catch { /* sin almacenamiento */ } }
 
 /** Invitación de una empresa a un postulante importado desde otro portal. */

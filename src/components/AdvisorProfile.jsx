@@ -227,6 +227,7 @@ function ProfileEditor({ d, onClose, onSaved }) {
         <div className="flex flex-col gap-1.5"><span className="label">Especialidades (hasta 8)</span><TagInput value={f.specialties} onChange={(v) => set('specialties')(v.slice(0, 8))} placeholder="Escribe y presiona Enter" /></div>
         <label className="flex flex-col gap-1.5"><span className="label">Presentación</span>
           <textarea className="textarea h-32" maxLength={1500} value={f.bio} onChange={(e) => set('bio')(e.target.value)} placeholder="Tu experiencia, en qué ayudas y cómo trabajas. Sin datos de contacto." /></label>
+        <span className={`-mt-2 text-[12px] ${(f.bio || '').trim().length < 40 ? 'text-naranja-texto' : 'text-tinta-3'}`}>{(f.bio || '').trim().length} caracteres{(f.bio || '').trim().length < 40 ? ` · faltan ${40 - (f.bio || '').trim().length} para el mínimo (40)` : ' · listo'}</span>
         <fieldset className="flex flex-col gap-1.5"><legend className="label mb-1.5">Servicios que realizas</legend>
           {(d.services || []).map((s) => (
             <label key={s.id} className="flex items-center gap-2.5 text-sm"><input type="checkbox" className="h-5 w-5 accent-[#D02E72]" checked={f.services.includes(s.id)}

@@ -22,6 +22,44 @@ function Row({ to, title, sub }) {
   )
 }
 
+/** Corregir el propio nombre (aparece en chats, cartas oferta y asesorías) */
+export function MyName() {
+  const { profile, refresh } = useAuth()
+  const [f, setF] = useState(null)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState(false)
+  const [busy, setBusy] = useState(false)
+  if (!profile) return null
+  const save = async () => {
+    setErr(''); setBusy(true)
+    const { error } = await supabase.rpc('update_my_name', { p_first: f.first, p_last: f.last })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setF(null); setOk(true); refresh?.()
+  }
+  return (
+    <div className="card flex flex-col gap-2 p-4">
+      <span className="label">Tu nombre</span>
+      {!f ? (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[15px]">{`${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sin nombre'}{ok && <span className="ml-2 text-xs text-[#1E6B3F]">✓ Actualizado</span>}</span>
+          <button className="btn-sm h-10 border border-linea bg-white" onClick={() => { setOk(false); setF({ first: profile.first_name || '', last: profile.last_name || '' }) }}>Corregir</button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Nombre</span><input className="input h-11" maxLength={60} autoComplete="given-name" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="text-xs text-tinta-3">Apellido</span><input className="input h-11" maxLength={60} autoComplete="family-name" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} /></label>
+          </div>
+          <span className="hint">Usa tu nombre real: aparece en chats, cartas oferta y asesorías.</span>
+          <ErrorBox>{err}</ErrorBox>
+          <div className="grid grid-cols-2 gap-2"><button className="btn-sec h-11" onClick={() => { setF(null); setErr('') }}>Cancelar</button><button className="btn h-11" disabled={busy || !f.first.trim() || !f.last.trim()} onClick={save}>{busy ? 'Guardando…' : 'Guardar'}</button></div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Ley 21.719: la persona puede descargar una copia de sus datos */
 export function MyData() {
   const [busy, setBusy] = useState(false)
@@ -168,6 +206,7 @@ export function CandidateProfile() {
         </div>
         <EmailToggle />
         <InstallBanner always />
+        <MyName />
         <MyData />
         <DangerZone />
       </div>

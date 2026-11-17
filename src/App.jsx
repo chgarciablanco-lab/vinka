@@ -10,7 +10,7 @@ import { useHeartbeat } from './lib/presence'
 import { BottomNav, Spinner, Svg } from './components/ui'
 import { DesktopNav } from './components/DesktopNav'
 import { ErrorBoundary, isStaleChunk, reloadForNewVersion } from './components/ErrorBoundary'
-import { readPendingInvite } from './pages/Invitation'
+import { readPendingInvite } from './lib/invite'
 
 // Cada pantalla se descarga solo cuando se abre: la app inicial pesa menos y carga más rápido
 // Pantallas con carga diferida. Si la app quedó abierta durante una publicación, el archivo antiguo ya no existe: se recarga sola.

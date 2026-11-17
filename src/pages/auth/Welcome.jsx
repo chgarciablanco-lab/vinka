@@ -91,7 +91,7 @@ export default function Welcome() {
               <span className="flex flex-col"><span className="font-display text-[16px] font-semibold">Busco trabajo</span><span className="text-[13px] text-tinta-3">Gratis, con o sin experiencia</span></span>
             </button>
             <button onClick={() => go('/registro/empresa')} className="flex items-center gap-3 rounded-2xl border border-[#E6DCE3] bg-white p-4 text-left">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-naranja-palido text-[#B85F00]"><Svg name="building" size={22} /></span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-naranja-palido text-[#8F4500]"><Svg name="building" size={22} /></span>
               <span className="flex flex-col"><span className="font-display text-[16px] font-semibold">Busco talento</span><span className="text-[13px] text-tinta-3">30 días de prueba gratis</span></span>
             </button>
           </div>
@@ -235,12 +235,12 @@ export default function Welcome() {
       <section id="empresas" className="scroll-mt-16 py-14">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5">
           <div className="flex max-w-2xl flex-col gap-2">
-            <span className="text-sm font-semibold uppercase tracking-wide text-[#B85F00]">Para empresas y pymes</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-[#8F4500]">Para empresas y pymes</span>
             <h2 className="font-display text-[28px] font-bold leading-tight md:text-[34px]">Recluta como una empresa grande, con el tiempo de una pyme</h2>
             <p className="text-[16px] leading-relaxed text-tinta-3">Publica, recibe candidatos que calzan y lleva todo el proceso en un solo lugar.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {EMPRESAS.map(([i, t, d]) => <Feature key={t} icon={i} title={t} text={d} tone="bg-naranja-palido text-[#B85F00]" />)}
+            {EMPRESAS.map(([i, t, d]) => <Feature key={t} icon={i} title={t} text={d} tone="bg-naranja-palido text-[#8F4500]" />)}
           </div>
         </div>
       </section>
@@ -249,7 +249,7 @@ export default function Welcome() {
       <section id="precios" className="scroll-mt-16 bg-white py-14">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5">
           <div className="flex max-w-2xl flex-col gap-2">
-            <span className="text-sm font-semibold uppercase tracking-wide text-[#B85F00]">Planes para empresas</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-[#8F4500]">Planes para empresas</span>
             <h2 className="font-display text-[28px] font-bold leading-tight md:text-[34px]">Paga según lo que contratas</h2>
             <p className="text-[16px] leading-relaxed text-tinta-3">Todas las funciones están incluidas en todos los planes. Cambia según cuántas vacantes publicas a la vez y cuántas personas de tu equipo participan.</p>
           </div>
@@ -329,7 +329,7 @@ export default function Welcome() {
       <footer className="border-t border-[#F1E4EB] bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-sm text-tinta-3 sm:flex-row">
           <span><b className="font-display text-tinta">VINKA</b> · Empleo y selección en Chile</span>
-          <span className="flex gap-4"><Link to="/legal/terminos" className="hover:text-rosa-texto">Términos</Link><Link to="/legal/privacidad" className="hover:text-rosa-texto">Privacidad</Link><Link to="/tutoriales" className="hover:text-rosa-texto">Tutoriales</Link><Link to="/ayuda" className="hover:text-rosa-texto">Ayuda</Link><Link to="/ingresar" className="hover:text-rosa-texto">Ingresar</Link></span>
+          <span className="flex flex-wrap gap-x-4 gap-y-2"><Link to="/legal/terminos" className="hover:text-rosa-texto">Términos</Link><Link to="/legal/privacidad" className="hover:text-rosa-texto">Privacidad</Link><Link to="/tutoriales" className="hover:text-rosa-texto">Tutoriales</Link><Link to="/ayuda" className="hover:text-rosa-texto">Ayuda</Link><Link to="/ingresar" className="hover:text-rosa-texto">Ingresar</Link></span>
         </div>
       </footer>
       <HelpBubble />
