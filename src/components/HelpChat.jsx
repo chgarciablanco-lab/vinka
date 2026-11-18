@@ -89,9 +89,11 @@ export function HelpBubble() {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label="Abrir asistente de ayuda"
-        className="fixed bottom-5 right-4 z-30 flex h-12 items-center gap-2 rounded-full bg-morado px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(48,37,56,0.28)] print:hidden">
-        <Svg name="chat" size={20} />¿Dudas?
+        className="fixed bottom-4 right-3 z-30 flex h-12 w-12 items-center justify-center gap-2 rounded-full bg-morado text-sm font-semibold text-white shadow-[0_10px_24px_rgba(48,37,56,0.28)] sm:bottom-5 sm:right-4 sm:w-auto sm:px-4 print:hidden">
+        <Svg name="chat" size={20} /><span className="hidden sm:inline">¿Dudas?</span>
       </button>
+      {/* Espacio al final de la página para que la burbuja no tape el pie ni sus enlaces */}
+      <div aria-hidden="true" className="h-20 print:hidden" />
       <Sheet open={open} onClose={() => setOpen(false)} title="Asistente de VINKA">
         <HelpChat className="h-[60vh]" />
       </Sheet>

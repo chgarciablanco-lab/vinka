@@ -432,8 +432,9 @@ export default function CandidateDetail({ panel }) {
 
   const move = async (s) => {
     setMoveOpen(false)
-    const { error } = await supabase.rpc('pipeline_move', { p_kind: item.kind, p_id: item.id, p_job: jobId, p_stage: s })
+    const { data, error } = await supabase.rpc('pipeline_move', { p_kind: item.kind, p_id: item.id, p_job: jobId, p_stage: s })
     if (error) return setErr(errMsg(error))
+    if (item.kind === 'match' && !data) return setErr('Este postulante ya no está en el proceso (puede que se haya cerrado). Actualiza la pantalla.')
     saved(`${name} → ${colLabel(s)}`)
   }
   const playVideo = async () => {

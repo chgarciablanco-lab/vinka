@@ -65,8 +65,8 @@ export function SignupCandidate() {
         <Field label="Correo electrónico"><input className="input" type="email" autoComplete="email" required value={f.email} onChange={set('email')} /></Field>
         <Field label="Teléfono móvil">
           <div className="flex gap-2">
-            <span className="flex h-12 items-center rounded-xl border border-linea bg-[#FAF6F8] px-3 text-[15px]">+56 9</span>
-            <input className="input" inputMode="numeric" autoComplete="tel-local" placeholder="1234 5678" value={f.phone} onChange={set('phone')} />
+            <span className="flex h-12 shrink-0 items-center whitespace-nowrap rounded-xl border border-linea bg-[#FAF6F8] px-3 text-[15px]">+56 9</span>
+            <input className="input min-w-0" inputMode="numeric" autoComplete="tel-local" placeholder="1234 5678" value={f.phone} onChange={set('phone')} />
           </div>
         </Field>
         <Field label="Contraseña"><PasswordInput value={f.password} onChange={(v) => setF({ ...f, password: v })} autoComplete="new-password" showRules /></Field>

@@ -212,7 +212,7 @@ export default function Talent() {
               <Svg name="filter" />{chips.length > 0 && <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rosa-accion text-[11px] font-bold text-white">{chips.length}</span>}
             </button>
           </div>
-          <p className="-mt-1 text-[11px] leading-snug text-tinta-suave">Tip: usa comillas para una frase exacta ("atención al cliente"), un guion para excluir (-práctica) y # para etiquetas. No importan las tildes ni mayúsculas.</p>
+          <p className="-mt-1 text-[11px] leading-snug text-tinta-suave">Busca por nombre, cargo, habilidad o etiqueta. No importan las tildes ni mayúsculas.</p>
 
           {chips.length > 0 && (
             <div className="flex flex-wrap gap-1.5">

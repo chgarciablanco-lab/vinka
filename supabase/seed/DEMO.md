@@ -32,7 +32,7 @@ Generados el 9 de noviembre de 2026 directamente en la base de Supabase. Todo es
 - Precios históricos: hasta junio 2025 $12.990 / $19.990 / $29.990; desde julio 2025 los actuales.
 - Solicitudes registradas en `seed.advisory`; asesores en `seed.advisors` y `seed.users`.
 
-- Todas las cuentas usan correos `@example.com` (VINKA nunca les envía correos) y la contraseña `Prueba2026`.
+- Todas las cuentas usan correos `@example.com` (VINKA nunca les envía correos). La contraseña de las cuentas demo no se publica en este repositorio (repositorio público); la tiene el administrador de VINKA.
 - Las cuentas demo están marcadas con `"demo": true` en `raw_app_meta_data` y registradas en `seed.users` y `seed.companies`.
 - Catálogos usados (cargos, nombres, comunas, tipos de empresa): tablas del esquema `seed`.
 

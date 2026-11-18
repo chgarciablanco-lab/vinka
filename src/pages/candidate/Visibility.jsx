@@ -18,7 +18,10 @@ export default function Visibility() {
   const [toast, setToast] = useState('')
   const [payId, setPayId] = useState(null)
 
-  const load = useCallback(() => { supabase.rpc('my_profile_promotion').then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) }) }, [])
+  const load = useCallback(() => { supabase.rpc('my_profile_promotion').then(({ data, error }) => { if (error) return setErr(errMsg(error))
+    // Respuesta inesperada: no se rompe la pantalla, se muestra un aviso con opción de reintentar
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return setErr('No pudimos cargar tus destacados. Revisa tu conexión e inténtalo de nuevo.')
+    setD({ ...data, items: Array.isArray(data.items) ? data.items : [], products: Array.isArray(data.products) ? data.products : [] }) }) }, [])
   useEffect(() => { load() }, [load])
 
   const ask = async () => {

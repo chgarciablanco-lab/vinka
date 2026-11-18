@@ -215,8 +215,9 @@ export default function Pipeline() {
     if (!stage || c.stage === stage) return
     const prev = d
     setD({ ...d, cards: d.cards.map((x) => (key(x) === key(c) ? { ...x, stage, kind: x.kind === 'interesado' && stage !== 'descartado' ? 'match' : x.kind, since: new Date().toISOString() } : x)) })
-    const { error } = await supabase.rpc('pipeline_move', { p_kind: c.kind, p_id: c.id, p_job: id, p_stage: stage })
+    const { data, error } = await supabase.rpc('pipeline_move', { p_kind: c.kind, p_id: c.id, p_job: id, p_stage: stage })
     if (error) { setD(prev); return setErr(errMsg(error)) }
+    if (c.kind === 'match' && !data) { setD(prev); load(); return setErr('Este postulante ya no está en el proceso (puede que se haya cerrado). Actualiza la pantalla.') }
     setToast(`${c.name} → ${colLabel(stage)}`)
     load()
   }

@@ -125,7 +125,7 @@ export function CompanyPanel() {
             <div key={l} className="card flex flex-col gap-0.5 p-3" title={t}><span className="font-display text-[22px] font-bold">{v}</span><span className="text-xs text-tinta-3">{l}</span></div>
           ))}
         </div>
-        <p className="-mt-1.5 text-[11px] leading-snug text-tinta-suave">Intereses y matches: total histórico desde la app. Reportes muestra el período que elijas e incluye otras fuentes, por eso las cifras pueden diferir.</p>
+        <p className="-mt-1.5 text-[11px] leading-snug text-tinta-suave">Totales desde que publicaste cada vacante. Para ver un período específico, abre Reportes.</p>
         {lim != null && groupN > lim && <Link to="/plan" className="rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5 text-sm text-[#4A2A00]"><b>{inGroup ? `Entre la matriz y sus clientes hay ${pl(groupN, 'vacante', 'vacantes')} publicadas` : `Tienes ${pl(groupN, 'vacante', 'vacantes')} publicadas`} y el plan permite {lim}.</b> Pausa {groupN - lim} o cambia de plan; mientras tanto no podrás publicar nuevas. Ver plan ›</Link>}
         <Link to="/reportes" className="card flex items-center gap-3 p-3.5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="chart" /></span>
