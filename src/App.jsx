@@ -36,6 +36,7 @@ const JobView = lz(() => import('./pages/candidate/JobView'))
 const ChatList = lz(() => import('./pages/Chats'), 'ChatList')
 const ChatRoom = lz(() => import('./pages/Chats'), 'ChatRoom')
 const CandidateProfile = lz(() => import('./pages/Account'), 'CandidateProfile')
+const UserAccount = lz(() => import('./pages/Account'), 'UserAccount')
 const CompanyAccount = lz(() => import('./pages/company/Company'), 'CompanyAccount')
 const CompanyMissing = lz(() => import('./pages/company/Company'), 'CompanyMissing')
 const CompanyPanel = lz(() => import('./pages/company/Company'), 'CompanyPanel')
@@ -324,7 +325,8 @@ export default function App() {
       { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge },
       { section: 'Mi perfil' },
       { to: '/perfil', label: 'Perfil', icon: 'user' }, { to: '/asesoria', label: 'Asesoría', icon: 'people' }, { to: '/visibilidad', label: 'Perfil destacado', icon: 'star' },
-      { to: '/avisos', label: 'Avisos', icon: 'bell' },
+      { section: 'Mi cuenta' },
+      { to: '/cuenta', label: 'Mi cuenta', icon: 'user' }, { to: '/avisos', label: 'Avisos', icon: 'bell' },
       { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
     ]
     return (
@@ -345,6 +347,7 @@ export default function App() {
         <Route path="/ofertas/:id" element={<Offer />} />
         <Route path="/avisos" element={<Notifications />} />
         <Route path="/perfil" element={<WithNav items={nav}><CandidateProfile /></WithNav>} />
+        <Route path="/cuenta" element={<WithNav items={nav}><UserAccount /></WithNav>} />
         <Route path="/perfil/laboral" element={<EditStep Comp={StepWork} />} />
         <Route path="/perfil/preferencias" element={<EditStep Comp={StepPrefs} />} />
         <Route path="/perfil/presentacion" element={<EditStep Comp={StepIntro} />} />
@@ -372,6 +375,7 @@ export default function App() {
     { to: '/plan', label: 'Plan y uso', icon: 'chart' },
     ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
     { to: '/vitrina', label: 'Empresa', icon: 'building' },
+    { section: 'Mi cuenta' }, { to: '/cuenta', label: 'Mi cuenta', icon: 'user' }, { to: '/avisos', label: 'Avisos', icon: 'bell' },
     { section: 'Ayuda' }, { to: '/tutoriales', label: 'Tutoriales', icon: 'video' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' }, ...adminItem,
   ]
   return (
@@ -404,6 +408,7 @@ export default function App() {
       <Route path="/chats" element={<ChatsSplit items={nav} />} />
       <Route path="/chats/:id" element={<ChatsSplit items={nav} />} />
       <Route path="/vitrina" element={<WithNav items={nav}><CompanyAccount /></WithNav>} />
+      <Route path="/cuenta" element={<WithNav items={nav}><UserAccount /></WithNav>} />
       <Route path="/agenda" element={<WithNav items={nav}><Agenda /></WithNav>} />
       <Route path="/avisos" element={<Notifications />} />
       {isAdmin && <Route path="/admin" element={<Admin />} />}

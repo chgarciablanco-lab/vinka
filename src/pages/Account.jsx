@@ -6,6 +6,7 @@ import { clp } from '../lib/catalog'
 import { Avatar, ErrorBox, Sheet, Svg } from '../components/ui'
 import { NotifyCard } from '../components/NotifyCard'
 import { Bell } from '../components/Bell'
+import { MeAvatar } from '../components/MeAvatar'
 import { InstallBanner } from '../components/InstallBanner'
 import { EmailToggle } from './Notifications'
 import { CalendarSync } from '../components/CalendarSync'
@@ -158,7 +159,7 @@ export function CandidateProfile() {
   const c = candidate || {}
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28 lg:max-w-2xl lg:pb-10 lg:pt-4">
-      <div className="safe-t flex items-center justify-between px-5 pb-4"><h1 className="text-[22px] font-bold">Perfil</h1><Bell /></div>
+      <div className="safe-t flex items-center justify-between px-5 pb-4"><h1 className="text-[22px] font-bold">Perfil</h1><span className="flex items-center gap-2"><Bell /><MeAvatar /></span></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3.5 p-4">
           <Avatar text={`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}`.toUpperCase()} color="#302538" size={56} round />
@@ -193,10 +194,6 @@ export function CandidateProfile() {
           <span className="hint">Si lo desactivas, solo verán tu perfil las empresas a las que tú muestres interés. Tu teléfono y correo nunca se muestran sin tu permiso.</span>
           <ErrorBox>{err}</ErrorBox>
         </div>
-        <div className="card flex items-center justify-between gap-3 p-4"><span className="flex flex-col"><span className="text-[15px] font-semibold">Tu disponibilidad</span><span className="text-[13px] text-tinta-3">Avisa cuando no quieras que te molesten</span></span><StatusPill /></div>
-        <OnlineToggle />
-        <CalendarSync />
-        <NotifyCard />
         <div className="card flex flex-col gap-2 p-4">
           <label className="flex items-center justify-between gap-3">
             <span className="flex flex-col"><span className="label">Alertas de vacantes nuevas</span>
@@ -204,9 +201,43 @@ export function CandidateProfile() {
             <input type="checkbox" role="switch" className="h-6 w-6 shrink-0 accent-[#D02E72]" checked={c.job_alerts !== false} onChange={toggleAlerts} />
           </label>
         </div>
-        <EmailToggle />
-        <InstallBanner always />
+        <AccountLink />
+      </div>
+    </div>
+  )
+}
+
+export function AccountLink() {
+  return (
+    <Link to="/cuenta" className="card flex items-center gap-3 p-4">
+      <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Mi cuenta</span><span className="text-[13px] leading-snug text-tinta-3">Tu nombre, avisos, calendario, tus datos y cerrar sesión</span></span>
+      <Svg name="chevron" size={18} className="text-tinta-3" />
+    </Link>
+  )
+}
+
+// Espacio personal: lo que es de la persona, no de su perfil laboral ni de su empresa
+export function UserAccount() {
+  const { profile, user } = useAuth()
+  const name = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+  return (
+    <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-28 lg:max-w-2xl lg:pb-10 lg:pt-4">
+      <div className="safe-t flex items-center justify-between px-5 pb-4"><h1 className="text-[22px] font-bold">Mi cuenta</h1><Bell /></div>
+      <div className="flex flex-col gap-4 px-5">
+        <div className="card flex items-center gap-3.5 p-4">
+          <Avatar text={`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}`.toUpperCase()} color="#302538" size={56} round />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-display text-lg font-semibold">{name}</span>
+            <span className="text-sm text-tinta-2">{user?.email || ''}</span>
+          </div>
+        </div>
         <MyName />
+        <div className="card flex items-center justify-between gap-3 p-4"><span className="flex flex-col"><span className="text-[15px] font-semibold">Tu disponibilidad</span><span className="text-[13px] text-tinta-3">Avisa cuando no quieras que te molesten</span></span><StatusPill /></div>
+        <OnlineToggle />
+        <NotifyCard />
+        <EmailToggle />
+        <CalendarSync />
+        <InstallBanner always />
         <MyData />
         <DangerZone />
       </div>

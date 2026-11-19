@@ -29,13 +29,8 @@ export function TopIcons() {
   )
 }
 
-/** Foto del asesor (lleva a la cuenta), para pantallas que ya tienen la campana */
-export function MeAvatar() {
-  const { profile } = useAuth()
-  if (profile?.role !== 'advisor') return null
-  const name = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
-  return <Link to="/cuenta" aria-label="Mi cuenta" className="shrink-0 rounded-full"><Avatar text={initials(name)} color={colorFor(name)} size={40} round /></Link>
-}
+/** Iniciales de la persona (llevan a «Mi cuenta»), para pantallas que ya tienen la campana */
+export { MeAvatar } from '../../components/MeAvatar'
 
 /** Pestañas dentro de «Vacantes» */
 export function VacTabs() {

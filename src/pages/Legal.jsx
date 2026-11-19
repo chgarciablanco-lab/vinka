@@ -25,7 +25,7 @@ const DOCS = {
       ['2. Cuentas', [
         'Para usar VINKA debes tener 18 años o más y entregar datos verdaderos. La cuenta es personal: no la compartas ni la cedas, y cuida tu contraseña.',
         'Cada cuenta pertenece a una sola empresa. Las consultoras pueden administrar empresas clientes desde su cuenta matriz.',
-        'Puedes eliminar tu cuenta cuando quieras desde Perfil o Empresa.',
+        'Puedes eliminar tu cuenta cuando quieras desde «Mi cuenta» (el círculo con tus iniciales).',
       ]],
       ['3. Postulantes', [
         'Usar VINKA para buscar trabajo, postular, hacer match y conversar con empresas es gratis. Ninguna empresa puede cobrarte por postular, ser entrevistado/a o contratado/a; si alguien lo intenta, avísanos.',
@@ -102,7 +102,7 @@ const DOCS = {
       ]],
       ['4. Estado en línea', [
         'Mostramos si estás conectado/a, o hace cuánto, solo a quienes tienen relación contigo en un proceso (matches, postulaciones y tu equipo). Las empresas que revisan perfiles públicos solo ven «activo/a hoy» o «esta semana».',
-        'Puedes ocultarlo en Perfil; mientras esté oculto, tampoco verás el estado de otros. Si te marcas como «No disponible», quienes tienen relación contigo verán ese aviso y tu mensaje, y no te llegarán notificaciones al teléfono hasta que vuelvas.',
+        'Puedes ocultarlo en «Mi cuenta»; mientras esté oculto, tampoco verás el estado de otros. Si te marcas como «No disponible», quienes tienen relación contigo verán ese aviso y tu mensaje, y no te llegarán notificaciones al teléfono hasta que vuelvas.',
       ]],
       ['5. Inteligencia artificial', [
         'Si subes tu CV, un asistente de inteligencia artificial lo lee solo para proponerte datos laborales (cargos, estudios, habilidades). Solo se guarda en tu perfil lo que tú confirmas.',

@@ -9,6 +9,7 @@ import { fmtDayShort, fmtTime } from '../../lib/dates'
 import { useUnread } from '../../lib/unread'
 import { MatchModal } from '../../components/MatchModal'
 import { Bell } from '../../components/Bell'
+import { MeAvatar } from '../../components/MeAvatar'
 import { InstallBanner } from '../../components/InstallBanner'
 import { ScreeningSheet, jobQuestions } from '../../components/Screening'
 
@@ -87,7 +88,7 @@ export default function Interests() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-rosa-fondo pb-24 lg:max-w-4xl lg:pb-10 lg:pt-4">
       <div className="safe-t px-5 pb-3">
-        <div className="flex items-center justify-between"><h1 className="text-[22px] font-bold">Intereses</h1><Bell /></div>
+        <div className="flex items-center justify-between"><h1 className="text-[22px] font-bold">Intereses</h1><div className="flex items-center gap-2"><Bell /><MeAvatar /></div></div>
         <div className="mt-3"><InstallBanner /></div>
         <div role="tablist" className="mt-3.5 flex flex-wrap gap-1.5">
           {TABS.map(([k, label]) => (

@@ -17,7 +17,7 @@ const UID = '11111111-1111-1111-1111-111111111111'
     return send(d ? [d] : [])
   })
   const p = await ctx.newPage(); const out = []
-  await p.goto(BASE + '/perfil', { waitUntil: 'networkidle' }); await p.waitForTimeout(800)
+  await p.goto(BASE + '/cuenta', { waitUntil: 'networkidle' }); await p.waitForTimeout(800)
   out.push('muestra nombre: ' + /Camila Rojs/.test(await p.locator('body').innerText()))
   await p.screenshot({ path: OUT + 'myname.png', fullPage: true }); console.log((await p.locator('body').innerText()).slice(0, 400)); await p.getByRole('button', { name: 'Corregir' }).click({ timeout: 3000 })
   await p.getByLabel('Apellido').fill('Rojas'); await p.getByRole('button', { name: 'Guardar', exact: true }).click(); await p.waitForTimeout(400)

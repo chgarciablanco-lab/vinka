@@ -6,7 +6,7 @@ import { logoUrl } from '../../components/OfferLetter'
 import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
-import { DangerZone, MyData, MyName } from '../Account'
+import { AccountLink } from '../Account'
 import { CalendarSync } from '../../components/CalendarSync'
 import { usePresence } from '../../lib/presence'
 import { OnlineToggle, PresenceLine, StatusPill } from '../../components/Presence'
@@ -751,7 +751,7 @@ export function CompanyAccount() {
   }
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col bg-[#FAF7F9] pb-28 lg:max-w-3xl lg:pb-10 lg:pt-4">
-      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y ajustes.</p></div><div className="flex items-center gap-2"><StatusPill /><Bell /><MeAvatar /></div></div>
+      <div className="safe-t flex items-start justify-between gap-3 px-5 pb-3"><div className="min-w-0"><h1 className="text-[22px] font-bold">Empresa</h1><p className="text-[13px] text-tinta-3">Vitrina, equipo y herramientas.</p></div><div className="flex shrink-0 items-center gap-2"><Bell /><MeAvatar /></div></div>
       <div className="flex flex-col gap-4 px-5">
         <div className="card flex items-center gap-3 p-4">
           {company?.logo_path ? <img src={logoUrl(company.logo_path)} alt="Logo" className="h-[52px] w-[52px] shrink-0 rounded-xl border border-linea bg-white object-contain p-1" /> : <Avatar text={company?.display_name?.slice(0, 2).toUpperCase()} color="#3B5BA9" size={52} />}
@@ -784,14 +784,7 @@ export function CompanyAccount() {
           ))}
         </div>
         <CompanySwitcher />
-        <OnlineToggle />
-        <CalendarSync />
-        <NotifyCard />
-        <EmailToggle />
-        <InstallBanner always />
-        <MyName />
-        <MyData />
-        <div className="mt-2"><DangerZone /></div>
+        <AccountLink />
       </div>
       <Toast msg={msg} onDone={() => setMsg('')} />
     </div>
