@@ -21,6 +21,7 @@ Cada archivo es un bloque `do $t$ … $t$` que actúa como un usuario real de pr
 | `05_pagos_demo.sql` | Pago demo: rechazos, doble cobro, planes, destacados y comprobantes |
 | `06_traspaso_y_pago_con_eleccion.sql` | Traspaso de empresa (F02) y pago que respeta al asesor elegido (C01) |
 | `07_correcciones_auditoria.sql` | Pagos demo fuera de ventas reales, editar perfil y corregir nombre |
+| `08_privacidad_colaboradores.sql` | Un asesor colaborador no recibe contacto, notas, evaluaciones, etiquetas, IA ni oferta; el equipo sí. Usa cualquier proceso existente y se deshace con `rollback` |
 
 Usan identificadores de las cuentas y solicitudes de prueba actuales; si se borran o cambian esos datos, hay que actualizar los identificadores al inicio de cada archivo.
 
