@@ -228,6 +228,17 @@ Deno.serve(async (req) => {
     if (body.test) {
       if (!testToken || req.headers.get('x-eval-test') !== testToken) return json({ error: 'forbidden' }, 403)
       const t = body.test
+      if (t.mode === 'disc') {
+        const text = `Persona: ${str(t.person, 120)}\nCargo: ${str(t.title, 160)}\n\nPerfil del cargo:\n<<<\n${str(t.profile, 20000)}\n>>>\n\nPuntajes: ${JSON.stringify(t.scores)}\nIntegridad: ${JSON.stringify(t.integrity)}`
+        const r = await callClaude(key, DISC_RULES, [{ type: 'text', text }], DISC_TOOL, 4000)
+        return json({ report: cleanDisc(r.input, t.scores), usage: { input_tokens: r.inT, output_tokens: r.outT, cost_usd: r.cost } })
+      }
+      if (t.mode === 'comparativo') {
+        const text = `Cargo: ${str(t.title, 160)}\nEmpresa: ${str(t.client, 160)}\n\nPerfil del cargo:\n<<<\n${str(t.profile, 20000)}\n>>>\n\n` +
+          (t.people || []).map((p: any, i: number) => `<informe persona="${i + 1}" nombre="${str(p.nombre, 120)}" estado="${p.estado}">\n${JSON.stringify(p.informe).slice(0, 30000)}\n</informe>`).join('\n\n')
+        const r = await callClaude(key, COMPARE_RULES, [{ type: 'text', text }], COMPARE_TOOL, 6000)
+        return json({ comparison: cleanCompare(r.input), usage: { input_tokens: r.inT, output_tokens: r.outT, cost_usd: r.cost } })
+      }
       const content = await buildContent({ title: t.title, client: t.client, profile: t.profile, person: t.person }, (t.files || []).slice(0, 15))
       const r = await callClaude(key, RULES, content, REPORT_TOOL, 8000)
       return json({ sections: clean(r.input), usage: { input_tokens: r.inT, output_tokens: r.outT, cost_usd: r.cost } })
