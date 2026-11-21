@@ -63,6 +63,7 @@ const Agenda = lz(() => import('./pages/company/Agenda'))
 const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
 const Notifications = lz(() => import('./pages/Notifications'))
 const Invitation = lz(() => import('./pages/Invitation'))
+const TestDisc = lz(() => import('./pages/TestDisc'))
 const ImportJobs = lz(() => import('./pages/company/ImportPages'), 'ImportJobs')
 const ExternalApplicants = lz(() => import('./pages/company/ImportPages'), 'ExternalApplicants')
 const Pipeline = lz(() => import('./pages/company/Pipeline'))
@@ -161,6 +162,7 @@ export default function App() {
   const common = [
     <Route key="legal" path="/legal/:doc" element={<Legal />} />,
     <Route key="inv" path="/invitacion/:token" element={<Invitation />} />,
+    <Route key="disc" path="/test/:token" element={<TestDisc />} />,
     <Route key="team" path="/equipo/unirse/:token" element={<JoinTeam />} />,
     <Route key="pubco" path="/empleos/:slug" element={<PublicCompany />} />,
     <Route key="pubjob" path="/empleo/:id" element={<PublicJob />} />,

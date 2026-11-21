@@ -1,6 +1,7 @@
 // Informe psicolaboral con IA (borrador). Solo administradores o reclutadores de la empresa dueña de la evaluación.
 // Entrada: { candidate: <assessment_candidate_id>, mode: 'informe' | 'seccion', section?: string, instruction?: string }
 //       o { evaluation: <assessment_id>, mode: 'comparativo' } (compara los informes de las personas de la evaluación)
+//       o { disc: <disc_test_id>, mode: 'disc' } (reporte del test DISC VINKA)
 // Salida:  { report_id } (informe), { section, value } (sección) o { comparison_id } (comparativo). La persona revisa, edita y cierra el informe en la app.
 // Modo de prueba (sin base de datos ni cupo): cabecera x-eval-test con el secreto EVAL_TEST_TOKEN y { test: { profile, title, files: [...] } }.
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -153,6 +154,53 @@ const COMPARE_TOOL = {
     required: ['resumen', 'candidatos', 'conclusion', 'faltantes'],
   },
 }
+// ───────── Reporte del test DISC VINKA ─────────
+const DISC_RULES = `Eres psicólogo/a laboral senior. Redactas el reporte de un test DISC (cuestionario propio de VINKA) para quien selecciona personal.
+Recibes los puntajes (escala 0 a 100, 50 = promedio): «compuesto» (estilo general), «natural» (lo que aflora bajo presión) y «adaptado» (cómo se ajusta al trabajo), el perfil principal y secundario, los indicadores de integridad y el cargo con su perfil.
+D = Dominante (directo, orientado a resultados), I = Influyente (sociable, persuasivo), S = Estable (paciente, constante, cooperador), C = Cauteloso (preciso, analítico, ordenado).
+- Español de Chile, tercera persona, tono profesional y prudente («suele», «tiende a», «podría»). Te refieres a la persona por su primer nombre.
+- El DISC describe estilo, no capacidad: nunca concluyas que la persona sirve o no para el cargo; señala aportes probables y qué validar en la entrevista.
+- Relaciona siempre el estilo con las exigencias del cargo y su perfil.
+- «ideal»: tu estimación del estilo que el cargo suele requerir, con un valor de 0 a 100 por factor. Es orientativa.
+- Si algún indicador de integridad no se cumplió, menciónalo en «analisis» como algo a considerar.
+- No uses ni infieras edad, nacionalidad, género, familia, salud ni otros datos personales.
+Entrega el resultado SOLO con la herramienta «entregar_reporte_disc».`
+const DISC_TOOL = {
+  name: 'entregar_reporte_disc', description: 'Entrega el reporte del test DISC.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      analisis: { type: 'string', description: 'Dos párrafos: el estilo y cómo podría aportar o desafiarle en el cargo. Separados por una línea en blanco.' },
+      fortalezas: { type: 'array', minItems: 3, maxItems: 4, items: { type: 'string' } },
+      desarrollo: { type: 'array', minItems: 3, maxItems: 4, items: { type: 'string' } },
+      bajo_presion: { type: 'string' },
+      recomendaciones: { type: 'array', minItems: 3, maxItems: 4, items: { type: 'string' } },
+      conclusion: { type: 'string', description: 'Uno o dos párrafos.' },
+      ideal: { type: 'object', properties: { D: { type: 'integer' }, I: { type: 'integer' }, S: { type: 'integer' }, C: { type: 'integer' } }, required: ['D', 'I', 'S', 'C'] },
+      preguntas: { type: 'array', minItems: 3, maxItems: 4, items: { type: 'string' }, description: 'Preguntas para la entrevista que exploren las áreas a validar.' },
+    },
+    required: ['analisis', 'fortalezas', 'desarrollo', 'bajo_presion', 'recomendaciones', 'conclusion', 'ideal', 'preguntas'],
+  },
+}
+const FACT = ['D', 'I', 'S', 'C'] as const
+const FNAME: Record<string, string> = { D: 'Dominancia (D)', I: 'Influencia (I)', S: 'Estabilidad (S)', C: 'Cautela (C)' }
+function cleanDisc(o: any, scores: any) {
+  const list = (a: any, n: number) => (Array.isArray(a) ? a : []).slice(0, n).map((x: any) => str(x, 600)).filter(Boolean)
+  const ideal: Record<string, number> = {}
+  for (const f of FACT) ideal[f] = Math.max(0, Math.min(100, Math.round(Number(o?.ideal?.[f]) || 50)))
+  const comp = scores?.compuesto || {}
+  const diff = FACT.map((f) => Math.abs((Number(comp[f]) || 50) - ideal[f]))
+  const calce = Math.max(0, Math.round(100 - diff.reduce((a, b) => a + b, 0) / 4 * 1.6))
+  const brechas = FACT.filter((f, i) => diff[i] >= 20).map((f) => {
+    const p = Number(comp[f]) || 50
+    return `${FNAME[f]}: la persona muestra ${p} y el cargo suele requerir cerca de ${ideal[f]}; conviene validarlo en la entrevista.`
+  })
+  return {
+    analisis: str(o?.analisis, 4000), fortalezas: list(o?.fortalezas, 4), desarrollo: list(o?.desarrollo, 4), bajo_presion: str(o?.bajo_presion, 1500),
+    recomendaciones: list(o?.recomendaciones, 4), conclusion: str(o?.conclusion, 4000), ideal, calce, brechas, preguntas: list(o?.preguntas, 4),
+  }
+}
+
 function cleanCompare(o: any) {
   return {
     resumen: str(o?.resumen, 4000),
@@ -188,6 +236,22 @@ Deno.serve(async (req) => {
     const token = (req.headers.get('Authorization') || '').replace('Bearer ', '')
     const { data: u } = await sb.auth.getUser(token)
     if (!u?.user) return json({ error: 'Inicia sesión para generar informes.' }, 401)
+    if (body.mode === 'disc') {
+      const id = String(body.disc || '')
+      if (!UUID.test(id)) return json({ error: 'Test no encontrado.' }, 400)
+      const { data: dx, error: de } = await sb.rpc('disc_ai_begin', { p_user: u.user.id, p_test: id })
+      if (de) return json({ error: de.message }, 400)
+      const release = async () => { await sb.rpc('disc_ai_release', { p_company: dx.company_id, p_month: dx.month }) }
+      try {
+        const text = `Persona: ${str(dx.name, 120)}\nCargo: ${str(dx.title, 160)}\n\nPerfil del cargo:\n<<<\n${str(dx.job_profile, 20000) || 'No entregado; usa el nombre del cargo.'}\n>>>\n\nPuntajes: ${JSON.stringify(dx.scores)}\nIntegridad: ${JSON.stringify(dx.integrity)}`
+        const r = await callClaude(key, DISC_RULES, [{ type: 'text', text }], DISC_TOOL, 4000)
+        const report = cleanDisc(r.input, dx.scores)
+        if (!report.analisis || !report.conclusion) throw new Error('La IA entregó un reporte incompleto. Inténtalo de nuevo.')
+        const { error: e2 } = await sb.rpc('disc_ai_store', { p_test: id, p_report: report, p_model: MODEL, p_in: r.inT, p_out: r.outT, p_cost: r.cost })
+        if (e2) throw new Error('No pudimos guardar el reporte. Inténtalo de nuevo.')
+        return json({ ok: true })
+      } catch (e) { await release(); throw e }
+    }
     if (body.mode === 'comparativo') {
       const ev = String(body.evaluation || '')
       if (!UUID.test(ev)) return json({ error: 'Evaluación no encontrada.' }, 400)

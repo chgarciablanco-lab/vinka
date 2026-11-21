@@ -24,6 +24,7 @@ Cada archivo es un bloque `do $t$ … $t$` que actúa como un usuario real de pr
 | `08_privacidad_colaboradores.sql` | Un asesor colaborador no recibe contacto, notas, evaluaciones, etiquetas, IA ni oferta; el equipo sí. Usa cualquier proceso existente y se deshace con `rollback` |
 | `09_colaboracion_asesores.sql` | Captación por estados y plazos, roles, autorización revocable, propuestas, vacantes abiertas a la red, ficha de atribución, confirmación automática y verificación automática: 30 verificaciones, incluida una llamada ajena a 31 funciones. Crea sus propios usuarios y se deshace con `rollback` |
 | `10_informes_ia.sql` | Informes psicolaborales con IA: quién crea, ve y edita; archivos privados; autorización obligatoria; límite mensual por plan y cupo devuelto si la IA falla; cierre y limpieza de archivos (los reportes de test se conservan para el anexo); comparativo: requisitos, cupo, permisos y notas internas excluidas (16 verificaciones). Se deshace con `rollback` |
+| `11_test_disc.sql` | Test DISC VINKA: enlace sin cuenta, respuestas válidas, puntaje, integridad (otro dispositivo, tiempos), enlace renovado o anulado, quién ve el resultado, límite mensual del reporte y uso en el informe (10 verificaciones). Se deshace con `rollback` |
 
 Usan identificadores de las cuentas y solicitudes de prueba actuales; si se borran o cambian esos datos, hay que actualizar los identificadores al inicio de cada archivo.
 

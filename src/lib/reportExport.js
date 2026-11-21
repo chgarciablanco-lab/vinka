@@ -1,3 +1,5 @@
+import { FACTORS, FACTOR_COLOR, INTEGRITY, RESPONSIBLE_USE, STYLE, integrityCount, profileName } from './disc.js'
+
 // Exporta el informe psicolaboral en Word (.docx) y PDF con el formato del informe de la consultora:
 // logo de la empresa en el encabezado de cada página, portada, 1) Antecedentes, 2) Fortalezas, oportunidades y referencias,
 // 3) Motivación, 4) Recomendación, renta, disponibilidad y anexo de tests. Hoja A4, letra Calibri 12 (Carlito en el PDF), texto justificado.
@@ -311,6 +313,101 @@ export async function buildComparisonPdf(c, meta, { fonts } = {}) {
   k.y += 2; k.head('4) Conclusión:'); for (const p of paras(c.conclusion)) k.rich(p)
   k.note(AI_NOTE(meta).replace('Informe redactado', 'Comparativo redactado'))
   return { blob: new Blob([k.finish()], { type: 'application/pdf' }), name: cmpName(meta, 'pdf') }
+}
+
+/** PDF del reporte del test DISC VINKA, con gráficos */
+export async function buildDiscPdf(t, meta, { fonts } = {}) {
+  const k = await pdfKit(meta, fonts)
+  const { doc, M, CW } = k
+  const sc = t.scores || {}, rep = t.report || {}, integ = t.integrity || {}
+  const first = String(meta.person || '').split(' ')[0]
+  const soft = [107, 95, 110]
+  // Gráfico de barras verticales (0–100, línea de promedio en 50). series: [{ name, values, shade }]
+  const chart = (series, h = 52) => {
+    k.need(h + 22)
+    const top = k.y + 4, base = top + h, left = M + 10, width = CW - 14
+    doc.setDrawColor(215, 208, 218); doc.setLineWidth(0.2)
+    for (const v of [0, 25, 50, 75, 100]) {
+      const yy = base - (v / 100) * h
+      if (v === 50) { doc.setLineDashPattern([1.2, 1.2], 0); doc.setDrawColor(150, 140, 155) } else { doc.setLineDashPattern([], 0); doc.setDrawColor(225, 220, 228) }
+      doc.line(left, yy, left + width, yy)
+      doc.setFontSize(7.5); doc.setTextColor(...soft); doc.text(String(v), left - 2, yy + 1, { align: 'right' })
+    }
+    doc.setLineDashPattern([], 0)
+    const slot = width / 4, gap = 2.2, bw = Math.min(16, (slot - 10) / series.length)
+    FACTORS.forEach((f, i) => {
+      const x0 = left + slot * i + (slot - bw * series.length - gap * (series.length - 1)) / 2
+      series.forEach((sr, j) => {
+        const v = Math.max(0, Math.min(100, Number(sr.values?.[f]) || 0)), bh = Math.max(0.6, (v / 100) * h)
+        const c = FACTOR_COLOR[f].map((x) => Math.round(x + (255 - x) * (sr.shade || 0)))
+        const x = x0 + j * (bw + gap)
+        doc.setFillColor(...c); doc.roundedRect(x, base - bh, bw, bh, 1, 1, 'F'); doc.rect(x, base - Math.min(bh, 1.2), bw, Math.min(bh, 1.2), 'F')
+        doc.setFontSize(8.5); doc.setTextColor(30, 30, 30); doc.text(String(Math.round(v)), x + bw / 2, base - bh - 1.5, { align: 'center' })
+      })
+      doc.setFontSize(9); doc.setTextColor(30, 30, 30)
+      doc.text(`${STYLE[f].nombre} (${f})`, left + slot * i + slot / 2, base + 5, { align: 'center' })
+    })
+    k.y = base + 9
+    if (series.length > 1) {
+      let x = left
+      series.forEach((sr) => {
+        const c = FACTOR_COLOR.S.map((v) => Math.round(v + (255 - v) * (sr.shade || 0)))
+        doc.setFillColor(...c); doc.rect(x, k.y - 2.6, 3, 3, 'F'); doc.setFontSize(8.5); doc.setTextColor(60, 60, 60); doc.text(sr.name, x + 4.5, k.y); x += doc.getTextWidth(sr.name) + 12
+      })
+      k.y += 4
+    }
+    k.y += 3
+  }
+  const list = (title, items, compact = false) => {
+    k.sub(title)
+    for (const x of items || []) { if (compact) { k.need(7); doc.setFillColor(0, 0, 0); doc.circle(M + 8.5, k.y + k.SIZE * 0.3528 * 0.62, 0.7, 'F'); k.rich(x, { indent: 12.7, gap: 0.6 }) } else k.bullet(null, x) }
+    if (compact) k.y += 2
+  }
+
+  // Portada breve + resultado
+  k.y = 40
+  k.rich('**TEST DISC VINKA · ESTILO DE COMPORTAMIENTO**', { justify: false, gap: 1, size: 15 })
+  k.rich(`**${meta.person}** · ${meta.title}${meta.client ? ` · ${meta.client}` : ''}`, { justify: false, gap: 1 })
+  k.rich(`Respondido el ${t.completed_at ? new Date(t.completed_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}`, { justify: false, size: 10, color: soft, gap: 5 })
+  k.rich(`Este reporte describe el estilo de comportamiento de ${first} según el test DISC VINKA y cómo podría expresarse en el cargo de ${meta.title}. Los puntajes van de 0 a 100; 50 es el promedio esperado.`)
+  k.sub('Estilo general')
+  chart([{ name: 'General', values: sc.compuesto }])
+  k.rich(`**Perfil: ${profileName(sc)}.** ${STYLE[sc.principal]?.describe || ''}`)
+  k.sub(`Integridad del test: ${integrityCount(integ)} de ${INTEGRITY.length} indicadores cumplidos`)
+  for (const x of INTEGRITY) k.bullet(integ[x.key] ? `Cumple · ${x.ok}` : `Revisar · ${x.bad}`, x.detail(integ))
+  k.rich('Sin cámara ni datos biométricos: los indicadores se calculan con los tiempos y la forma de responder.', { size: 9, color: soft, justify: false })
+
+  // Natural y adaptado + análisis
+  k.head('Estilo natural y adaptado', true)
+  k.rich('El estilo **adaptado** muestra cómo la persona se ajusta a lo que cree que el trabajo le pide; el **natural**, su forma instintiva, que suele aparecer bajo presión.')
+  chart([{ name: 'Natural', values: sc.natural, shade: 0 }, { name: 'Adaptado', values: sc.adaptado, shade: 0.55 }], 46)
+  k.sub('Cómo se comporta bajo presión')
+  k.rich(`Bajo presión suele aflorar su estilo **${STYLE[sc.bajo_presion]?.nombre || '—'} (${sc.bajo_presion || '—'})**. ${rep.bajo_presion || ''}`)
+  if (rep.analisis) { k.sub(`Análisis del perfil para el cargo`); for (const p of paras(rep.analisis)) k.rich(p) }
+
+  // Fortalezas, desarrollo y rasgos del estilo
+  k.head('Fortalezas y áreas de desarrollo', true)
+  list('Fortalezas', rep.fortalezas); list('Áreas para el desarrollo', rep.desarrollo)
+  const st = STYLE[sc.principal]
+  if (st) { list('Motivadores', st.motivadores, true); list('Comportamientos habituales', st.habituales, true); list('Qué le suele resultar difícil', st.dificil, true) }
+
+  // Guía para el entrevistador
+  k.head('Guía para el entrevistador', true)
+  if (rep.ideal) {
+    k.sub(`Calce con el cargo: ${rep.calce}%`)
+    doc.setFillColor(237, 231, 240); doc.roundedRect(M, k.y, CW, 4, 2, 2, 'F')
+    doc.setFillColor(74, 33, 99); doc.roundedRect(M, k.y, Math.max(4, CW * (rep.calce || 0) / 100), 4, 2, 2, 'F'); k.y += 9
+    chart([{ name: 'Persona', values: sc.compuesto, shade: 0 }, { name: 'Estimado para el cargo', values: rep.ideal, shade: 0.55 }], 40)
+    if ((rep.brechas || []).length) list('Brechas a validar en la entrevista', rep.brechas)
+    k.rich('El estilo estimado para el cargo lo propone la IA a partir del perfil del cargo: es una orientación, no un veredicto.', { size: 9, color: soft, justify: false })
+  }
+  if (st) { list('Cómo comunicarse con esta persona', st.comunicar, true); list('Qué evitar', st.evitar, true) }
+  if ((rep.preguntas || []).length) { k.sub('Preguntas sugeridas'); rep.preguntas.forEach((q, i) => k.rich(q, { lead: `${i + 1}. `, gap: 2 })) }
+  list('Recomendaciones', rep.recomendaciones)
+  if (rep.conclusion) { k.sub('Conclusión'); for (const p of paras(rep.conclusion)) k.rich(p) }
+  k.note(RESPONSIBLE_USE)
+  const name = `Test DISC - ${meta.person}`.replace(/[\\/:*?"<>|]/g, '').slice(0, 120) + '.pdf'
+  return { blob: new Blob([k.finish()], { type: 'application/pdf' }), name, bytes: null }
 }
 
 /** Descarga el archivo; en celulares abre el menú para guardarlo en Archivos o enviarlo por correo o WhatsApp */

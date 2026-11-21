@@ -6,8 +6,9 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { Sparkle } from '../../components/AiAssist'
-import { AJUSTES, VEREDICTOS, buildComparisonDocx, buildComparisonPdf, buildReportDocx, buildReportPdf, download, reportMeta } from '../../lib/reportExport'
+import { AJUSTES, VEREDICTOS, buildComparisonDocx, buildComparisonPdf, buildDiscPdf, buildReportDocx, buildReportPdf, download, reportMeta } from '../../lib/reportExport'
 import { loadLogo } from '../../lib/offerPdf'
+import { FACTORS, FACTOR_COLOR, INTEGRITY, STYLE, discLink, integrityCount, profileName } from '../../lib/disc'
 
 const KINDS = [['cv', 'CV'], ['transcripcion', 'Transcripción de entrevista'], ['referencias', 'Referencias laborales'], ['test', 'Reporte de test (DISC, liderazgo…)'], ['otro', 'Otro documento']]
 const KIND = Object.fromEntries([['perfil', 'Perfil del cargo'], ...KINDS])
@@ -304,13 +305,15 @@ function CandidateCard({ a, c, onChange, onToast }) {
               <span>Confirmo que {c.full_name} autorizó esta evaluación y que sus documentos se procesen con inteligencia artificial.</span>
             </label>
           )}
-          <button className="btn flex items-center justify-center gap-2" disabled={busy || !c.consent_at || !c.files.length} onClick={generate}>
+          {c.consent_at && <DiscPanel a={a} c={c} editable={editable} onChange={onChange} onToast={onToast} />}
+          <button className="btn flex items-center justify-center gap-2" disabled={busy || !c.consent_at || !(c.files.length || c.disc?.status === 'completado')} onClick={generate}>
             <Sparkle />{busy ? 'Redactando el informe… (1 a 2 minutos)' : c.report ? 'Generar informe de nuevo' : 'Generar informe con IA'}
           </button>
-          {!c.files.length && <span className="-mt-1 text-[11px] text-tinta-suave">Sube al menos el CV o la entrevista.</span>}
+          {!c.files.length && c.disc?.status !== 'completado' && <span className="-mt-1 text-[11px] text-tinta-suave">Sube al menos el CV o la entrevista.</span>}
         </>}
+        {!editable && c.disc && <DiscPanel a={a} c={c} editable={false} onChange={onChange} onToast={onToast} />}
         <ErrorBox>{err}</ErrorBox>
-        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, logoPath: a.company_logo, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} annexFiles={(c.files || []).filter((f) => f.kind === 'test' && f.path && /\.pdf$/i.test(f.path))} onChange={onChange} onToast={onToast} />}
+        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, logoPath: a.company_logo, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} disc={c.disc?.report ? c.disc : null} annexFiles={(c.files || []).filter((f) => f.kind === 'test' && f.path && /\.pdf$/i.test(f.path))} onChange={onChange} onToast={onToast} />}
         {editable && <button className="self-start text-[12px] font-semibold text-tinta-3" onClick={removePerson}>Quitar a esta persona</button>}
       </>}
     </section>
@@ -320,7 +323,7 @@ function CandidateCard({ a, c, onChange, onToast }) {
 const LABELS = { antecedentes: '1) Antecedentes y experiencia profesional', fortalezas: 'Fortalezas', oportunidades: 'Oportunidades de mejora', referencias: 'Referencias laborales',
   motivacion: '3) Motivación de cambio', recomendacion: '4) Recomendación', sintesis: 'Síntesis', renta: 'Expectativa de renta', disponibilidad: 'Disponibilidad' }
 
-function ReportEditor({ report, canEdit, meta, candId, annexFiles = [], onChange, onToast }) {
+function ReportEditor({ report, canEdit, meta, candId, disc = null, annexFiles = [], onChange, onToast }) {
   const [s, setS] = useState(report.sections || {})
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState('')
@@ -354,7 +357,11 @@ function ReportEditor({ report, canEdit, meta, candId, annexFiles = [], onChange
     try {
       const logo = await loadLogo(meta.logoPath)
       if (kind === 'docx') await download(await buildReportDocx(s, { ...meta, logo }))
-      else await download(await buildReportPdf(s, { ...meta, logo }, { annex: await loadAnnex(annexFiles) }))
+      else {
+        const annex = await loadAnnex(annexFiles)
+        if (disc) annex.unshift(new Uint8Array(await (await buildDiscPdf(disc, { ...meta, logo })).blob.arrayBuffer()))
+        await download(await buildReportPdf(s, { ...meta, logo }, { annex }))
+      }
     } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
     setBusy('')
   }
@@ -423,8 +430,8 @@ function ReportEditor({ report, canEdit, meta, candId, annexFiles = [], onChange
           : <b className="text-[13px]">{VEREDICTOS[s.veredicto] || '—'}</b>}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{textField('renta', 2)}{textField('disponibilidad', 2)}</div>
-      {((s.tests || []).length > 0 || annexFiles.length > 0) && <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Anexo de tests</span>{(s.tests || []).map((t, i) => <p key={i} className="text-[13px] text-tinta-2"><b>{t.nombre}:</b> {t.resumen}</p>)}
-        {annexFiles.length > 0 && <span className="text-xs text-tinta-3">El PDF incluye al final {annexFiles.length === 1 ? 'el reporte de test subido' : `los ${annexFiles.length} reportes de test subidos`}. En Word se adjuntan por separado.</span>}</div>}
+      {((s.tests || []).length > 0 || annexFiles.length > 0 || disc) && <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Anexo de tests</span>{(s.tests || []).map((t, i) => <p key={i} className="text-[13px] text-tinta-2"><b>{t.nombre}:</b> {t.resumen}</p>)}
+        {annexFiles.length + (disc ? 1 : 0) > 0 && <span className="text-xs text-tinta-3">El PDF incluye al final {[disc && 'el reporte del test DISC VINKA', annexFiles.length && (annexFiles.length === 1 ? 'el reporte de test subido' : `los ${annexFiles.length} reportes de test subidos`)].filter(Boolean).join(' y ')}. En Word se adjuntan por separado.</span>}</div>}
       <ErrorBox>{err}</ErrorBox>
       {canEdit && (
         <div className="flex flex-wrap gap-2">
@@ -443,6 +450,92 @@ function ReportEditor({ report, canEdit, meta, candId, annexFiles = [], onChange
           </div>
         </Sheet>
       )}
+    </div>
+  )
+}
+
+/* ───────────── Test DISC VINKA de una persona ───────────── */
+function DiscBars({ values }) {
+  return (
+    <div className="grid grid-cols-4 gap-2" role="img" aria-label={`Estilo general: ${FACTORS.map((f) => `${STYLE[f].nombre} ${values?.[f] ?? 0}`).join(', ')}`}>
+      {FACTORS.map((f) => (
+        <div key={f} className="flex flex-col items-center gap-1">
+          <div className="relative flex h-20 w-full items-end overflow-hidden rounded-lg bg-[#F4F0F6]">
+            <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-[#B9AFC0]" />
+            <div className="w-full rounded-t-md" style={{ height: `${values?.[f] ?? 0}%`, background: `rgb(${FACTOR_COLOR[f].join(',')})` }} />
+          </div>
+          <span className="text-[12px] font-semibold">{values?.[f] ?? 0}</span>
+          <span className="text-[11px] text-tinta-3">{STYLE[f].nombre}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DiscPanel({ a, c, editable, onChange, onToast }) {
+  const t = c.disc
+  const [link, setLink] = useState('')
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  const create = async () => {
+    if (t && ['enviado', 'en_curso'].includes(t.status) && !window.confirm('Se generará un enlace nuevo y el anterior dejará de funcionar. ¿Continuar?')) return
+    setBusy('link'); setErr('')
+    try { const d = await rpc('disc_create', { p_cand: c.id }); setLink(discLink(d.token)); onChange() } catch (e) { setErr(e.message) }
+    setBusy('')
+  }
+  const cancel = async () => {
+    if (!window.confirm('¿Anular el test? El enlace dejará de funcionar.')) return
+    try { await rpc('disc_cancel', { p_test: t.id }); setLink(''); onChange() } catch (e) { setErr(e.message) }
+  }
+  const report = async () => {
+    if (t.report && !window.confirm('Se generará el reporte de nuevo (se usa uno del límite mensual). ¿Continuar?')) return
+    setBusy('ai'); setErr('')
+    try { await aiReport({ disc: t.id, mode: 'disc' }); onToast('Reporte DISC listo.'); onChange() } catch (e) { setErr(e.message) }
+    setBusy('')
+  }
+  const pdf = async () => {
+    setBusy('pdf'); setErr('')
+    try {
+      const meta = { ...reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, date: t.completed_at }), logo: await loadLogo(a.company_logo) }
+      await download(await buildDiscPdf(t, meta))
+    } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
+    setBusy('')
+  }
+  const copy = async () => { try { await navigator.clipboard.writeText(link); onToast('Enlace copiado.') } catch { setErr('No pudimos copiar. Mantén presionado el enlace para copiarlo.') } }
+  const wa = `https://wa.me/?text=${encodeURIComponent(`Hola ${c.full_name.split(' ')[0]}, te comparto el test de estilo laboral para el proceso de ${a.title} (${a.company}). Toma 8 a 15 minutos: ${link}`)}`
+  const done = t?.status === 'completado'
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-linea p-3" aria-label="Test DISC">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex flex-col"><b className="text-[13px]">Test DISC VINKA</b>
+          <span className="text-[11px] text-tinta-3">{!t ? 'Estilo de comportamiento · 24 preguntas · sin cámara'
+            : done ? `Respondido el ${fdate(t.completed_at)} · integridad ${integrityCount(t.integrity)} de ${INTEGRITY.length}`
+            : t.status === 'vencido' ? 'El enlace venció sin terminar'
+            : t.status === 'en_curso' ? `Respondiendo · ${t.progress} de 24 · vence el ${fdate(t.expires_at)}` : `Enviado · aún no comienza · vence el ${fdate(t.expires_at)}`}</span></span>
+        {done && t.report && <button className="btn-sm h-9 shrink-0 border border-linea bg-white px-3" disabled={!!busy} onClick={pdf}>{busy === 'pdf' ? 'Preparando…' : 'PDF'}</button>}
+      </div>
+      {done && <>
+        <DiscBars values={t.scores?.compuesto} />
+        <span className="text-[13px]"><b>{profileName(t.scores)}</b>{t.report ? ` · calce con el cargo ${t.report.calce}%` : ''}</span>
+        {INTEGRITY.filter((x) => !t.integrity?.[x.key]).map((x) => <span key={x.key} className="text-[12px] text-[#8A4B00]">⚠ {x.bad}: {x.detail(t.integrity)}</span>)}
+      </>}
+      {link && (
+        <div className="flex flex-col gap-1.5 rounded-lg bg-[#F7F0FB] p-2.5">
+          <span className="break-all text-[12px] font-medium text-[#4A2163]" aria-label="Enlace del test">{link}</span>
+          <span className="flex gap-2">
+            <button className="btn-sm h-9 border border-linea bg-white px-3" onClick={copy}>Copiar</button>
+            <a className="btn-sm flex h-9 items-center bg-[#1E6B3F] px-3 text-white" href={wa} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>
+          </span>
+          <span className="text-[11px] text-tinta-3">Por seguridad, el enlace se muestra solo ahora. Si lo pierdes, genera uno nuevo.</span>
+        </div>
+      )}
+      <ErrorBox>{err}</ErrorBox>
+      {editable && <div className="flex flex-wrap gap-2">
+        {!done && <button className="btn-sm h-10 border border-rosa-accion bg-white px-3 text-rosa-texto" disabled={!!busy} onClick={create}>{busy === 'link' ? 'Creando…' : t ? 'Generar enlace nuevo' : 'Enviar test DISC'}</button>}
+        {t && !done && <button className="btn-sm h-10 border border-linea bg-white px-3" onClick={cancel}>Anular</button>}
+        {done && <button className="btn-sm flex h-10 items-center gap-1.5 border border-rosa-accion bg-white px-3 text-rosa-texto" disabled={!!busy} onClick={report}>
+          <Sparkle />{busy === 'ai' ? 'Redactando… (30 segundos)' : t.report ? 'Generar reporte de nuevo' : 'Generar reporte con IA'}</button>}
+      </div>}
     </div>
   )
 }
