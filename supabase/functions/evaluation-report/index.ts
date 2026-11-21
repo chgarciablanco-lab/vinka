@@ -114,12 +114,12 @@ async function callClaude(key: string, system: string, content: any[], tool: any
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, tools: [tool], tool_choice: { type: 'tool', name: tool.name }, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: system + `\n\nEntrega tu respuesta únicamente llamando a la herramienta ${tool.name}.`, tools: [tool], tool_choice: { type: 'auto' }, messages: [{ role: 'user', content }] }),
   })
   if (!r.ok) { console.error('anthropic', r.status, (await r.text()).slice(0, 500)); throw new Error('La IA no respondió. Inténtalo de nuevo en un momento.') }
   const out = await r.json()
   const use = (out.content || []).find((b: any) => b.type === 'tool_use')
-  if (!use) throw new Error('La IA no entregó el informe. Inténtalo de nuevo.')
+  if (!use) { console.error('anthropic sin herramienta', out.stop_reason); throw new Error('La IA no entregó el informe. Inténtalo de nuevo.') }
   const inT = out.usage?.input_tokens || 0, outT = out.usage?.output_tokens || 0
   return { input: use.input, inT, outT, cost: Math.round((inT * PRICE_IN + outT * PRICE_OUT) * 10000) / 10000 }
 }
