@@ -124,10 +124,12 @@ begin
   end loop;
   perform pg_temp.root(); out := out || E'\n12 tablas y funciones del servidor cerradas para la app: ' || ok;
 
-  -- 13) Cerrar la evaluación borra los archivos de respaldo; el archivo físico queda como huérfano para la limpieza
-  perform pg_temp.act(r); perform eval_set_status(ev, true); perform pg_temp.root();
+  -- 13) Cerrar la evaluación borra los archivos de respaldo (salvo los reportes de test, para el anexo); el archivo físico queda como huérfano para la limpieza
+  perform pg_temp.act(r); perform eval_add_file(ev, c1, 'test', 'DISC', null, '', 0, 'Reporte DISC de prueba con el estilo de la persona evaluada.');
+  perform eval_set_status(ev, true); perform pg_temp.root();
   update storage.objects set created_at = now() - interval '2 days' where bucket_id = 'evaluaciones' and name like ev::text || '/%';
-  out := out || E'\n13 al cerrar se borran los archivos y la limpieza los detecta: ' || (not exists (select 1 from assessment_files where assessment_id = ev)
+  out := out || E'\n13 al cerrar se borran los archivos (menos los tests) y la limpieza los detecta: ' || (not exists (select 1 from assessment_files where assessment_id = ev and kind <> 'test')
+    and (select count(*) from assessment_files where assessment_id = ev and kind = 'test') = 1
     and exists (select 1 from orphan_storage_objects('24 hours', 1000) o where o.bucket = 'evaluaciones' and o.path = ev::text || '/cv.pdf')
     and exists (select 1 from assessment_reports r join assessment_candidates c on c.id = r.assessment_candidate_id where c.assessment_id = ev and r.status = 'final'));
 
@@ -136,6 +138,31 @@ begin
   perform pg_temp.act(o); begin perform admin_report_usage(1); ok := false; exception when others then ok := true; end;
   perform pg_temp.root();
   out := out || E'\n14 consumo visible solo para administración y sin contenido: ' || (ok and jsonb_array_length(d->'usage') >= 1 and position('Texto editado' in d::text) = 0);
+
+  -- 15) Comparativo: exige 2 personas con informe, usa un informe del cupo y no entrega la nota interna «faltantes»
+  perform pg_temp.root(); update report_usage set reports = 0 where company_id = cons and month = report_month();
+  begin perform eval_compare_begin(r, ev); ok := false; exception when others then ok := sqlerrm like 'Se necesitan al menos 2 personas%'; end;
+  select id into c2 from assessment_candidates where assessment_id = ev and full_name = 'Otra Persona';
+  perform eval_ai_store(r, c2, '{"antecedentes":"Otro texto","veredicto":"recomendado","faltantes":["dato interno"]}'::jsonb, 'm', 1, 1, 0);
+  begin perform eval_compare_begin(v, ev); ok := ok and false; exception when others then ok := ok and true; end;
+  d := eval_compare_begin(r, ev);
+  out := out || E'\n15 comparativo: 2 personas, solo quien gestiona, cupo y sin notas internas: ' || (ok and jsonb_array_length(d->'people') = 2
+    and position('dato interno' in d::text) = 0 and (select reports from report_usage where company_id = cons and month = report_month()) = 1);
+
+  -- 16) El borrador del comparativo lo ve y edita quien gestiona; la evaluadora solo lo ve cerrado; colaborador y otra empresa no
+  rep := eval_compare_store(r, ev, '{"resumen":"Resumen de prueba","candidatos":[]}'::jsonb, 'm', 10, 10, 0.01);
+  perform pg_temp.act(v); d := eval_detail(ev); ok := (d->'comparison') = 'null'::jsonb;
+  begin perform eval_compare_save(rep, '{"resumen":"x"}'::jsonb); ok := false; exception when others then null; end;
+  perform pg_temp.act(r); perform eval_compare_save(rep, '{"resumen":"Resumen editado","candidatos":[]}'::jsonb); perform eval_compare_finalize(rep, true);
+  begin perform eval_compare_save(rep, '{"resumen":"y"}'::jsonb); ok := false; exception when others then null; end;
+  perform pg_temp.act(v); d := eval_detail(ev); ok := ok and (d->'comparison'->'content'->>'resumen') = 'Resumen editado';
+  perform pg_temp.act(s); begin perform eval_compare_finalize(rep, false); ok := false; exception when others then null; end;
+  perform pg_temp.act(col); begin perform eval_detail(ev); ok := false; exception when others then null; end;
+  perform pg_temp.act(o); begin perform count(*) from assessment_comparisons; ok := false; exception when insufficient_privilege then null; end;
+  begin perform eval_compare_begin(o, ev); ok := false; exception when insufficient_privilege then null; end;
+  begin perform eval_compare_store(o, ev, '{}'::jsonb, 'm', 1, 1, 0); ok := false; exception when insufficient_privilege then null; end;
+  perform pg_temp.root();
+  out := out || E'\n16 comparativo: permisos de ver, editar y cerrar; tabla y funciones del servidor cerradas: ' || ok;
 
   raise notice '%', out;
 end $t$;

@@ -23,7 +23,7 @@ Cada archivo es un bloque `do $t$ … $t$` que actúa como un usuario real de pr
 | `07_correcciones_auditoria.sql` | Pagos demo fuera de ventas reales, editar perfil y corregir nombre |
 | `08_privacidad_colaboradores.sql` | Un asesor colaborador no recibe contacto, notas, evaluaciones, etiquetas, IA ni oferta; el equipo sí. Usa cualquier proceso existente y se deshace con `rollback` |
 | `09_colaboracion_asesores.sql` | Captación por estados y plazos, roles, autorización revocable, propuestas, vacantes abiertas a la red, ficha de atribución, confirmación automática y verificación automática: 30 verificaciones, incluida una llamada ajena a 31 funciones. Crea sus propios usuarios y se deshace con `rollback` |
-| `10_informes_ia.sql` | Informes psicolaborales con IA: quién crea, ve y edita; archivos privados; autorización obligatoria; límite mensual por plan y cupo devuelto si la IA falla; cierre y limpieza de archivos (14 verificaciones). Se deshace con `rollback` |
+| `10_informes_ia.sql` | Informes psicolaborales con IA: quién crea, ve y edita; archivos privados; autorización obligatoria; límite mensual por plan y cupo devuelto si la IA falla; cierre y limpieza de archivos (los reportes de test se conservan para el anexo); comparativo: requisitos, cupo, permisos y notas internas excluidas (16 verificaciones). Se deshace con `rollback` |
 
 Usan identificadores de las cuentas y solicitudes de prueba actuales; si se borran o cambian esos datos, hay que actualizar los identificadores al inicio de cada archivo.
 

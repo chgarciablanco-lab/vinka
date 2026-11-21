@@ -1,6 +1,7 @@
 // Informe psicolaboral con IA (borrador). Solo administradores o reclutadores de la empresa dueña de la evaluación.
 // Entrada: { candidate: <assessment_candidate_id>, mode: 'informe' | 'seccion', section?: string, instruction?: string }
-// Salida:  { report_id } (informe) o { section, value } (sección). La persona revisa, edita y cierra el informe en la app.
+//       o { evaluation: <assessment_id>, mode: 'comparativo' } (compara los informes de las personas de la evaluación)
+// Salida:  { report_id } (informe), { section, value } (sección) o { comparison_id } (comparativo). La persona revisa, edita y cierra el informe en la app.
 // Modo de prueba (sin base de datos ni cupo): cabecera x-eval-test con el secreto EVAL_TEST_TOKEN y { test: { profile, title, files: [...] } }.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -126,6 +127,44 @@ async function callClaude(key: string, system: string, content: any[], tool: any
 
 const REPORT_TOOL = { name: 'entregar_informe', description: 'Entrega el borrador del informe psicolaboral.', input_schema: SCHEMA }
 
+// ───────── Comparativo ─────────
+const COMPARE_RULES = `Eres psicólogo/a laboral senior de una consultora chilena de selección. Redactas el borrador de un INFORME COMPARATIVO para la empresa que contrata, a partir de los informes psicolaborales de cada persona evaluada para el mismo cargo y del perfil del cargo.
+
+- Español de Chile, tercera persona, tono profesional y concreto. Te refieres a cada persona por su nombre y apellido.
+- Usa SOLO lo que dicen los informes y el perfil. No inventes hechos, cifras ni opiniones. Si un informe está en borrador, trátalo igual pero menciónalo en «faltantes».
+- Compara siempre contra el perfil del cargo: experiencia pertinente, competencias clave, riesgos u observaciones, motivación, renta y disponibilidad.
+- «candidatos»: una fila por persona, en el orden de ajuste que sugieres (de mayor a menor). «ajuste» es alto, medio o bajo. «fortalezas» y «riesgos» son 1 o 2 oraciones cada uno. «veredicto» es el del informe de esa persona.
+- «resumen»: 1 párrafo con el panorama general del grupo frente al perfil.
+- «conclusion»: 1 o 2 párrafos con el orden sugerido y por qué, y qué confirmar antes de decidir (referencias, tests, renta, disponibilidad). Es una sugerencia: la decisión es de la empresa.
+- NO incluyas datos personales protegidos aunque aparezcan: edad, nacionalidad u origen, situación migratoria, estado civil, hijos, salud, embarazo, religión, ideas políticas, sindicalización, orientación sexual, apariencia física o domicilio. Nunca compares a las personas por esos datos.
+Entrega el resultado SOLO con la herramienta «entregar_comparativo».`
+const COMPARE_TOOL = {
+  name: 'entregar_comparativo', description: 'Entrega el borrador del informe comparativo.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      resumen: { type: 'string' },
+      candidatos: { type: 'array', minItems: 2, maxItems: 15, items: { type: 'object', properties: {
+        nombre: { type: 'string' }, ajuste: { type: 'string', enum: ['alto', 'medio', 'bajo'] }, veredicto: { type: 'string', enum: ['recomendado', 'con_observaciones', 'no_recomendado', ''] },
+        fortalezas: { type: 'string' }, riesgos: { type: 'string' } }, required: ['nombre', 'ajuste', 'fortalezas', 'riesgos'] } },
+      conclusion: { type: 'string' },
+      faltantes: { type: 'array', maxItems: 10, items: { type: 'string' } },
+    },
+    required: ['resumen', 'candidatos', 'conclusion', 'faltantes'],
+  },
+}
+function cleanCompare(o: any) {
+  return {
+    resumen: str(o?.resumen, 4000),
+    candidatos: (Array.isArray(o?.candidatos) ? o.candidatos : []).slice(0, 15).map((c: any) => ({
+      nombre: str(c?.nombre, 120), ajuste: ['alto', 'medio', 'bajo'].includes(c?.ajuste) ? c.ajuste : 'medio',
+      veredicto: ['recomendado', 'con_observaciones', 'no_recomendado'].includes(c?.veredicto) ? c.veredicto : '',
+      fortalezas: str(c?.fortalezas, 1200), riesgos: str(c?.riesgos, 1200) })).filter((c: any) => c.nombre),
+    conclusion: str(o?.conclusion, 5000),
+    faltantes: (Array.isArray(o?.faltantes) ? o.faltantes : []).slice(0, 10).map((x: any) => str(x, 400)).filter(Boolean),
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
@@ -149,6 +188,22 @@ Deno.serve(async (req) => {
     const token = (req.headers.get('Authorization') || '').replace('Bearer ', '')
     const { data: u } = await sb.auth.getUser(token)
     if (!u?.user) return json({ error: 'Inicia sesión para generar informes.' }, 401)
+    if (body.mode === 'comparativo') {
+      const ev = String(body.evaluation || '')
+      if (!UUID.test(ev)) return json({ error: 'Evaluación no encontrada.' }, 400)
+      const { data: cx, error: ce } = await sb.rpc('eval_compare_begin', { p_user: u.user.id, p_eval: ev })
+      if (ce) return json({ error: ce.message }, 400)
+      begun = { company_id: cx.company_id, month: cx.month }
+      const text = `Cargo: ${str(cx.evaluation.title, 160)}\nEmpresa: ${str(cx.evaluation.client_name || cx.evaluation.company, 160)}\n\nPerfil del cargo:\n<<<\n${str(cx.evaluation.job_profile, 20000) || 'No entregado.'}\n>>>\n\n` +
+        (cx.people || []).map((p: any, i: number) => `<informe persona="${i + 1}" nombre="${str(p.nombre, 120)}" estado="${p.estado}">\n${JSON.stringify(p.informe).slice(0, 30000)}\n</informe>`).join('\n\n')
+      const r = await callClaude(key, COMPARE_RULES, [{ type: 'text', text }], COMPARE_TOOL, 6000)
+      const content = cleanCompare(r.input)
+      if (!content.resumen || content.candidatos.length < 2) throw new Error('La IA entregó un comparativo incompleto. Inténtalo de nuevo.')
+      const { data: id, error: e2 } = await sb.rpc('eval_compare_store', { p_user: u.user.id, p_eval: ev, p_content: content, p_model: MODEL, p_in: r.inT, p_out: r.outT, p_cost: r.cost })
+      if (e2) throw new Error('No pudimos guardar el comparativo. Inténtalo de nuevo.')
+      begun = null
+      return json({ comparison_id: id })
+    }
     const cand = String(body.candidate || '')
     if (!UUID.test(cand)) return json({ error: 'Persona no encontrada.' }, 400)
     const mode = body.mode === 'seccion' ? 'seccion' : 'informe'

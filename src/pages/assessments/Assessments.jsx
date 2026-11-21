@@ -6,7 +6,7 @@ import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { Sparkle } from '../../components/AiAssist'
-import { VEREDICTOS, buildReportDocx, buildReportPdf, download, reportMeta } from '../../lib/reportExport'
+import { AJUSTES, VEREDICTOS, buildComparisonDocx, buildComparisonPdf, buildReportDocx, buildReportPdf, download, reportMeta } from '../../lib/reportExport'
 import { loadLogo } from '../../lib/offerPdf'
 
 const KINDS = [['cv', 'CV'], ['transcripcion', 'Transcripción de entrevista'], ['referencias', 'Referencias laborales'], ['test', 'Reporte de test (DISC, liderazgo…)'], ['otro', 'Otro documento']]
@@ -51,6 +51,16 @@ async function uploadFile(assessmentId, candId, kind, file) {
   try {
     await rpc('eval_add_file', { p_eval: assessmentId, p_cand: candId, p_kind: kind, p_name: name, p_path: path, p_mime: mime, p_size: file.size, p_text: text ? text.slice(0, 200000) : null })
   } catch (e) { await supabase.storage.from('evaluaciones').remove([path]); throw e }
+}
+
+/** Contenido de los reportes de test en PDF, para el anexo del informe (los que no se puedan leer se omiten) */
+async function loadAnnex(files) {
+  const out = []
+  for (const f of files.slice(0, 6)) {
+    const { data } = await supabase.storage.from('evaluaciones').download(f.path)
+    if (data) out.push(new Uint8Array(await data.arrayBuffer()))
+  }
+  return out
 }
 
 function UsageChip({ usage }) {
@@ -140,7 +150,7 @@ export function AssessmentPage() {
     setBusy(false)
   }
   const close = async (closed) => {
-    if (closed && !window.confirm('Al cerrar la evaluación se eliminan los archivos subidos (CV, entrevistas, tests). Los informes cerrados quedan guardados. ¿Cerrar?')) return
+    if (closed && !window.confirm('Al cerrar la evaluación se eliminan los archivos subidos (CV, entrevistas, referencias). Los informes y los reportes de test (para el anexo del PDF) quedan guardados. ¿Cerrar?')) return
     try { await rpc('eval_set_status', { p_eval: id, p_closed: closed }); load() } catch (e) { setErr(e.message) }
   }
   const remove = async () => {
@@ -175,6 +185,7 @@ export function AssessmentPage() {
           {d.can_manage && open && !d.job_id && <button className="btn-sm h-9 border border-rosa-accion bg-white px-3 text-rosa-texto" onClick={() => setAdd(true)}>Agregar persona</button>}</div>
         {d.candidates.length === 0 && <p className="rounded-2xl border border-dashed border-linea bg-white px-4 py-3 text-[13px] text-tinta-3">{d.job_id ? 'Prepara informes desde la ficha de cada postulante de la vacante.' : 'Agrega a las personas que evaluaste.'}</p>}
         {d.candidates.map((c) => <CandidateCard key={c.id} a={d} c={c} onChange={load} onToast={setToast} />)}
+        <Comparison a={d} onChange={load} onToast={setToast} />
         {d.can_manage && (
           <div className="flex flex-wrap gap-2 pt-2">
             <button className="btn-sm h-10 border border-linea bg-white px-4" onClick={() => close(open)}>{open ? 'Cerrar evaluación' : 'Reabrir evaluación'}</button>
@@ -299,7 +310,7 @@ function CandidateCard({ a, c, onChange, onToast }) {
           {!c.files.length && <span className="-mt-1 text-[11px] text-tinta-suave">Sube al menos el CV o la entrevista.</span>}
         </>}
         <ErrorBox>{err}</ErrorBox>
-        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, logoPath: a.company_logo, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} onChange={onChange} onToast={onToast} />}
+        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, logoPath: a.company_logo, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} annexFiles={(c.files || []).filter((f) => f.kind === 'test' && f.path && /\.pdf$/i.test(f.path))} onChange={onChange} onToast={onToast} />}
         {editable && <button className="self-start text-[12px] font-semibold text-tinta-3" onClick={removePerson}>Quitar a esta persona</button>}
       </>}
     </section>
@@ -309,7 +320,7 @@ function CandidateCard({ a, c, onChange, onToast }) {
 const LABELS = { antecedentes: '1) Antecedentes y experiencia profesional', fortalezas: 'Fortalezas', oportunidades: 'Oportunidades de mejora', referencias: 'Referencias laborales',
   motivacion: '3) Motivación de cambio', recomendacion: '4) Recomendación', sintesis: 'Síntesis', renta: 'Expectativa de renta', disponibilidad: 'Disponibilidad' }
 
-function ReportEditor({ report, canEdit, meta, candId, onChange, onToast }) {
+function ReportEditor({ report, canEdit, meta, candId, annexFiles = [], onChange, onToast }) {
   const [s, setS] = useState(report.sections || {})
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState('')
@@ -340,7 +351,11 @@ function ReportEditor({ report, canEdit, meta, candId, onChange, onToast }) {
   }
   const exp = async (kind) => {
     setBusy(kind); setErr('')
-    try { const logo = await loadLogo(meta.logoPath); await download(await (kind === 'docx' ? buildReportDocx : buildReportPdf)(s, { ...meta, logo })) } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
+    try {
+      const logo = await loadLogo(meta.logoPath)
+      if (kind === 'docx') await download(await buildReportDocx(s, { ...meta, logo }))
+      else await download(await buildReportPdf(s, { ...meta, logo }, { annex: await loadAnnex(annexFiles) }))
+    } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
     setBusy('')
   }
   const textField = (k, rows = 6) => (
@@ -408,7 +423,8 @@ function ReportEditor({ report, canEdit, meta, candId, onChange, onToast }) {
           : <b className="text-[13px]">{VEREDICTOS[s.veredicto] || '—'}</b>}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{textField('renta', 2)}{textField('disponibilidad', 2)}</div>
-      {(s.tests || []).length > 0 && <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Anexo de tests</span>{s.tests.map((t, i) => <p key={i} className="text-[13px] text-tinta-2"><b>{t.nombre}:</b> {t.resumen}</p>)}</div>}
+      {((s.tests || []).length > 0 || annexFiles.length > 0) && <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Anexo de tests</span>{(s.tests || []).map((t, i) => <p key={i} className="text-[13px] text-tinta-2"><b>{t.nombre}:</b> {t.resumen}</p>)}
+        {annexFiles.length > 0 && <span className="text-xs text-tinta-3">El PDF incluye al final {annexFiles.length === 1 ? 'el reporte de test subido' : `los ${annexFiles.length} reportes de test subidos`}. En Word se adjuntan por separado.</span>}</div>}
       <ErrorBox>{err}</ErrorBox>
       {canEdit && (
         <div className="flex flex-wrap gap-2">
@@ -428,6 +444,103 @@ function ReportEditor({ report, canEdit, meta, candId, onChange, onToast }) {
         </Sheet>
       )}
     </div>
+  )
+}
+
+/* ───────────── Comparativo de las personas evaluadas ───────────── */
+function Comparison({ a, onChange, onToast }) {
+  const cmp = a.comparison
+  const [c, setC] = useState(cmp?.content || null)
+  const [dirty, setDirty] = useState(false)
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => { setC(cmp?.content || null); setDirty(false) }, [cmp?.id, cmp?.version, cmp?.status]) // eslint-disable-line react-hooks/exhaustive-deps
+  const withReport = a.candidates.filter((x) => x.report).length
+  if (!cmp && !(a.can_manage && withReport >= 2)) return null
+  const draft = cmp?.status === 'borrador'
+  const edit = a.can_manage && draft
+  const set = (k, v) => { setC({ ...c, [k]: v }); setDirty(true) }
+  const setRow = (i, k, v) => set('candidatos', c.candidatos.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  const generate = async () => {
+    if (!window.confirm(`La IA comparará los informes de ${withReport} personas. Se usa un informe del límite mensual.${cmp ? ' El comparativo actual queda como versión anterior.' : ''} ¿Continuar?`)) return
+    setBusy('gen'); setErr('')
+    try { await aiReport({ evaluation: a.id, mode: 'comparativo' }); onToast('Comparativo listo. Revísalo antes de cerrarlo.'); onChange() } catch (e) { setErr(e.message) }
+    setBusy('')
+  }
+  const save = async () => {
+    setBusy('save'); setErr('')
+    try { await rpc('eval_compare_save', { p_cmp: cmp.id, p_content: c }); setDirty(false); onToast('Cambios guardados.') } catch (e) { setErr(e.message) }
+    setBusy('')
+  }
+  const finalize = async (final) => {
+    setBusy('final'); setErr('')
+    try { if (dirty) await rpc('eval_compare_save', { p_cmp: cmp.id, p_content: c }); await rpc('eval_compare_finalize', { p_cmp: cmp.id, p_final: final }); onChange() } catch (e) { setErr(e.message) }
+    setBusy('')
+  }
+  const exp = async (kind) => {
+    setBusy(kind); setErr('')
+    try {
+      const meta = { ...reportMeta({ person: '', title: a.title, client: a.client_name || a.company, company: a.company, date: cmp.finalized_at || cmp.created_at, signer: cmp.finalized_by_name }), logo: await loadLogo(a.company_logo) }
+      await download(await (kind === 'docx' ? buildComparisonDocx : buildComparisonPdf)(c, meta))
+    } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
+    setBusy('')
+  }
+  return (
+    <section className="card flex flex-col gap-2.5 p-4" aria-label="Comparativo">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-col"><b className="text-[15px]">Comparativo</b>
+          <span className="text-xs text-tinta-3">{!cmp ? `Compara los informes de las ${withReport} personas frente al perfil del cargo.` : draft ? `Borrador v${cmp.version}${cmp.edited_at ? ` · editado por ${cmp.edited_by_name}` : ''}` : `✓ Cerrado el ${fdate(cmp.finalized_at)} por ${cmp.finalized_by_name}`}</span></span>
+        {cmp && <span className="flex gap-2">
+          <button className="btn-sm h-9 border border-linea bg-white px-3" disabled={!!busy} onClick={() => exp('docx')}>{busy === 'docx' ? 'Preparando…' : 'Word'}</button>
+          <button className="btn-sm h-9 border border-linea bg-white px-3" disabled={!!busy} onClick={() => exp('pdf')}>{busy === 'pdf' ? 'Preparando…' : 'PDF'}</button>
+        </span>}
+      </div>
+      {a.can_manage && (!cmp || draft) && (
+        <button className={cmp ? 'btn-sm h-10 self-start border border-rosa-accion bg-white px-4 text-rosa-texto' : 'btn flex items-center justify-center gap-2'} disabled={!!busy || withReport < 2} onClick={generate}>
+          {!cmp && <Sparkle />}{busy === 'gen' ? 'Comparando… (1 minuto)' : cmp ? 'Generar comparativo de nuevo' : 'Generar comparativo con IA'}
+        </button>
+      )}
+      {edit && (c?.faltantes || []).length > 0 && (
+        <div className="rounded-xl border border-[#F3D9A4] bg-[#FFFAEE] px-3 py-2 text-[12px] leading-snug text-[#5C3E00]">
+          <b>Para revisar antes de cerrar:</b><ul className="list-disc pl-4">{c.faltantes.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          <span className="block pt-1 opacity-80">Esta nota no aparece en el archivo descargado.</span>
+        </div>
+      )}
+      {c && <>
+        <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Resumen</span>
+          {edit ? <textarea className="textarea h-28" value={c.resumen || ''} onChange={(e) => set('resumen', e.target.value)} aria-label="Resumen" /> : <p className="whitespace-pre-line text-[13px] leading-relaxed text-tinta-2">{c.resumen}</p>}</div>
+        <div className="flex flex-col gap-2"><span className="text-[13px] font-semibold">Orden sugerido</span>
+          {(c.candidatos || []).map((r, i) => (
+            <div key={i} className="flex flex-col gap-1 rounded-xl border border-linea p-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2"><b className="text-[13px]">{i + 1}. {r.nombre}</b>
+                {edit ? <select className="input h-9 w-auto text-[13px]" value={r.ajuste} onChange={(e) => setRow(i, 'ajuste', e.target.value)} aria-label={`Ajuste de ${r.nombre}`}>{Object.entries(AJUSTES).map(([k, l]) => <option key={k} value={k}>Ajuste {l.toLowerCase()}</option>)}</select>
+                  : <span className="rounded-full bg-[#F7F0FB] px-2 py-0.5 text-[12px] font-semibold text-[#4A2163]">Ajuste {String(AJUSTES[r.ajuste] || '—').toLowerCase()}</span>}</div>
+              <span className="text-xs text-tinta-3">{VEREDICTOS[r.veredicto] || 'Sin recomendación en el informe'}</span>
+              {edit ? <>
+                <textarea className="textarea h-16 text-[13px]" value={r.fortalezas || ''} onChange={(e) => setRow(i, 'fortalezas', e.target.value)} aria-label={`Fortalezas de ${r.nombre}`} />
+                <textarea className="textarea h-16 text-[13px]" value={r.riesgos || ''} onChange={(e) => setRow(i, 'riesgos', e.target.value)} aria-label={`Aspectos a considerar de ${r.nombre}`} />
+                <span className="flex gap-3 text-[11px] text-tinta-3">
+                  {i > 0 && <button onClick={() => { const x = [...c.candidatos]; [x[i - 1], x[i]] = [x[i], x[i - 1]]; set('candidatos', x) }}>↑ Subir</button>}
+                  {i < c.candidatos.length - 1 && <button onClick={() => { const x = [...c.candidatos]; [x[i + 1], x[i]] = [x[i], x[i + 1]]; set('candidatos', x) }}>↓ Bajar</button>}
+                </span>
+              </> : <>
+                <p className="text-[13px] leading-relaxed text-tinta-2"><b>Fortalezas:</b> {r.fortalezas}</p>
+                <p className="text-[13px] leading-relaxed text-tinta-2"><b>Aspectos a considerar:</b> {r.riesgos}</p>
+              </>}
+            </div>
+          ))}</div>
+        <div className="flex flex-col gap-1"><span className="text-[13px] font-semibold">Conclusión</span>
+          {edit ? <textarea className="textarea h-32" value={c.conclusion || ''} onChange={(e) => set('conclusion', e.target.value)} aria-label="Conclusión" /> : <p className="whitespace-pre-line text-[13px] leading-relaxed text-tinta-2">{c.conclusion}</p>}</div>
+      </>}
+      <ErrorBox>{err}</ErrorBox>
+      {a.can_manage && cmp && (
+        <div className="flex flex-wrap gap-2">
+          {edit && <button className="btn-sm h-10 border border-linea bg-white px-4" disabled={!dirty || !!busy} onClick={save}>{busy === 'save' ? 'Guardando…' : 'Guardar cambios'}</button>}
+          {edit ? <button className="btn-sm h-10 bg-[#1E6B3F] px-4 text-white" disabled={!!busy} onClick={() => finalize(true)}>Cerrar comparativo</button>
+            : <button className="btn-sm h-10 border border-linea bg-white px-4" disabled={!!busy} onClick={() => finalize(false)}>Reabrir para editar</button>}
+        </div>
+      )}
+    </section>
   )
 }
 
