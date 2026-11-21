@@ -7,6 +7,7 @@ import { useAuth, useVacanciesHome } from '../../lib/auth'
 import { AREAS, CONTRATOS, JORNADAS, MODALIDADES, NIVELES, REGIONES, clp, colorFor, initials, parseCLP, salaryText } from '../../lib/catalog'
 import { Avatar, Chips, Empty, ErrorBox, Field, Screen, Sheet, Spinner, Svg, Toast, TopBar, Verified } from '../../components/ui'
 import { AccountLink } from '../Account'
+import { CompanyRoles } from '../../components/Network'
 import { CalendarSync } from '../../components/CalendarSync'
 import { usePresence } from '../../lib/presence'
 import { OnlineToggle, PresenceLine, StatusPill } from '../../components/Presence'
@@ -38,7 +39,7 @@ export function VerificationBanner({ company }) {
   if (company.verification_status === 'pending') return (
     <div className="flex flex-col gap-2 rounded-2xl border border-[#F5C892] bg-naranja-palido p-3.5">
       <span className="text-[15px] font-bold text-[#6B3800]">Verificación en revisión</span>
-      <span className="text-[13px] leading-snug text-[#4A2A00]">Puedes preparar vacantes. Se publicarán automáticamente cuando aprobemos tu empresa. Te avisaremos por correo.</span>
+      <span className="text-[13px] leading-snug text-[#4A2A00]">VINKA verifica las empresas en menos de 24 horas hábiles. Mientras, puedes preparar vacantes: se publicarán automáticamente al aprobarse y te avisaremos por correo.</span>
       {company.rut_duplicate_of && !company.rut_dup_ok && <span className="text-[13px] leading-snug text-[#4A2A00]"><b>Tu RUT ya está registrado en otra cuenta de VINKA.</b> Revisaremos el caso antes de aprobar. Si tu empresa ya usa VINKA, pide a su administrador que te invite al equipo.</span>}
     </div>
   )
@@ -783,6 +784,7 @@ export function CompanyAccount() {
             </Link>
           ))}
         </div>
+        <CompanyRoles companyId={company?.id} />
         <CompanySwitcher />
         <AccountLink />
       </div>

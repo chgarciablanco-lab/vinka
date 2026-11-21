@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials } from '../../lib/catalog'
 import { Avatar, BottomNav, Screen, Spinner, Svg } from '../../components/ui'
@@ -8,6 +8,7 @@ import { Bell } from '../../components/Bell'
 import { TodoBlock } from '../../components/TodoBlock'
 import { useUnread } from '../../lib/unread'
 import { useAdvisorUnread } from '../../lib/advisorUnread'
+import { AdvisorResults } from '../../components/Attribution'
 
 // Asesor/a de VINKA: un solo menú que junta asesorías, reclutamiento, comunidad y chats (sin cambiar de modo).
 
@@ -49,6 +50,27 @@ export function VacTabs() {
 /** Inicio del asesor: todo lo pendiente en una lista */
 // Mismo criterio de «activas» en Inicio y en la bandeja de Asesorías
 export const ADVISOR_ACTIVE = ['solicitada', 'pago_pendiente', 'en_curso']
+
+/** Espacio de reclutamiento propio: el asesor aprobado lo crea solo, sin pedirlo a VINKA */
+function CreateWorkspace() {
+  const { refresh } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const create = async () => {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('advisor_create_workspace')
+    if (error) { setBusy(false); return setErr(errMsg(error)) }
+    await refresh?.()
+    setBusy(false)
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-linea bg-white px-4 py-3">
+      <p className="text-[13px] leading-snug text-tinta-2">Con tu espacio de reclutamiento puedes registrar empresas que captes, publicar sus vacantes, invitar a colegas y llevar los procesos. Lo que aportes queda acreditado a tu nombre.</p>
+      {err && <p className="text-[13px] font-semibold text-[#912018]">{err}</p>}
+      <button className="btn-sm h-10 self-start bg-rosa-accion px-4 text-white" disabled={busy} onClick={create}>{busy ? 'Creando…' : 'Crear mi espacio de reclutamiento'}</button>
+    </div>
+  )
+}
 
 export function AdvisorInicio() {
   const { profile, company } = useAuth()
@@ -105,8 +127,12 @@ export function AdvisorInicio() {
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">Reclutamiento</h2>{company && <Link to="/vacantes" className="text-[13px] font-semibold text-rosa-texto">Mis vacantes</Link>}</div>
           {company ? <TodoBlock companyId={company.id} /> : (
-            <p className="rounded-2xl border border-dashed border-linea bg-white px-4 py-3 text-[13px] leading-snug text-tinta-3">Para publicar vacantes y llevar procesos, pide a VINKA tu espacio de reclutamiento.</p>
+            <CreateWorkspace />
           )}
+        </section>
+        <section className="flex flex-col gap-2">
+          <h2 className="text-[15px] font-semibold">Tus resultados</h2>
+          <AdvisorResults userId={profile?.id} />
         </section>
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">Comunidad</h2><Link to="/comunidad" className="text-[13px] font-semibold text-rosa-texto">Ir al muro</Link></div>

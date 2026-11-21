@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { InviteAdvisorSheet, ProposeSheet } from '../../components/Attribution'
+import { NetworkControls } from '../../components/Network'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
@@ -164,6 +166,13 @@ function Post({ p, admin, onChange }) {
           <Svg name="building" size={16} />Vacante: <b>{p.job.title}</b>{p.job.comuna ? ` · ${p.job.comuna}` : ''}{p.job.closed ? ' · cerrada' : ''}
         </span>
       )}
+      {p.job && !p.job.closed && !p.mine && !admin && (() => {
+        const askedOrIn = p.comments.some((c) => c.mine && (c.invited || /quiero colaborar/i.test(c.body)))
+        const invited = p.comments.some((c) => c.mine && c.invited)
+        return invited ? <span className="self-start text-[13px] font-semibold text-[#1E6B3F]">✓ Colaboras en este proceso</span>
+          : askedOrIn ? <span className="self-start text-[13px] text-tinta-3">Pediste colaborar · {p.author} decide</span>
+          : <button className="btn-sm h-9 self-start border border-rosa-accion bg-white text-rosa-texto" disabled={busy} onClick={() => call('community_comment', { p_post: p.id, p_body: 'Quiero colaborar en este proceso. Puedo proponer candidatos de mi cartera.' }, 'Pedido enviado: quien publicó puede invitarte con un toque.')}>Quiero colaborar</button>
+      })()}
       {p.comments.length > 0 && (
         <div className="flex flex-col gap-2 border-t border-[#F4EEF2] pt-2.5">
           {!open && <button className="self-start text-[13px] font-semibold text-tinta-3" onClick={() => setOpen(true)}>Ver los {p.comments.length} comentarios</button>}
@@ -209,10 +218,19 @@ export function CollabBar({ jobId, suggestions = [], onChange }) {
   const [info, setInfo] = useState(null)
   const [chat, setChat] = useState(null) // { collab, name, other }
   const [decide, setDecide] = useState(null)
+  const [sheet, setSheet] = useState(null) // 'invite' | 'propose'
+  const [okMsg, setOkMsg] = useState('')
   const [err, setErr] = useState('')
   const load = useCallback(() => supabase.rpc('job_collab_info', { p_job: jobId }).then(({ data, error }) => { if (!error) setInfo(data) }), [jobId])
   useEffect(() => { load() }, [load])
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isAdvisor = profile?.role === 'advisor'
+  const done = (msg) => { setSheet(null); setOkMsg(msg); load(); onChange?.() }
+  const sheets = (<>
+    {okMsg && <div className="rounded-xl bg-[#EFF9F2] px-3 py-2 text-[13px] font-semibold text-[#134A2B]">{okMsg}</div>}
+    {sheet === 'invite' && <InviteAdvisorSheet jobId={jobId} onClose={() => setSheet(null)} onDone={(m) => setOkMsg(m)} />}
+    {sheet === 'propose' && <ProposeSheet jobId={jobId} onClose={() => setSheet(null)} onDone={done} />}
+  </>)
   // Abrir el chat directo al llegar desde un aviso (?chat=…)
   useEffect(() => {
     const q = new URLSearchParams(search).get('chat')
@@ -241,16 +259,23 @@ export function CollabBar({ jobId, suggestions = [], onChange }) {
         </ul>
       )}
       <div className="flex flex-wrap gap-2">
+        <button className="btn-sm h-10 border border-rosa-accion bg-white text-rosa-texto" onClick={() => setSheet('propose')}><Svg name="people" size={16} />&nbsp;Proponer candidato</button>
         <button className="btn-sm h-10 bg-rosa-accion text-white" onClick={() => setChat({ collab: user?.id, name: info.owner, other: info.owner_id })}><Svg name="chat" size={16} />&nbsp;Chat y tareas con {info.owner}</button>
         <button className="btn-sm h-10 border border-linea bg-white" onClick={() => remove(user?.id, true)}>Salir del proceso</button>
       </div>
       <ErrorBox>{err}</ErrorBox>
+      {sheets}
       {chat && <CollabChat jobId={jobId} collab={chat.collab} name={chat.name} other={chat.other} onClose={() => setChat(null)} />}
     </div>
   )
-  if (!info.collaborators?.length && !pending.length) return null
   return (
     <div className="mt-2 flex flex-col gap-2">
+      <NetworkControls jobId={jobId} onChange={() => { load(); onChange?.() }} />
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-sm h-9 border border-linea bg-white" onClick={() => setSheet('invite')}><Svg name="people" size={15} />&nbsp;Invitar asesor</button>
+        {isAdvisor && <button className="btn-sm h-9 border border-rosa-accion bg-white text-rosa-texto" onClick={() => setSheet('propose')}>Proponer candidato de mi cartera</button>}
+      </div>
+      {sheets}
       {pending.length > 0 && (
         <div className="flex flex-col gap-1.5 rounded-2xl border border-[#F3D9A4] bg-[#FFFAEE] p-3 text-[13px]">
           <b>Sugerencias por revisar · {pending.length}</b>

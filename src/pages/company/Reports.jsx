@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Funnel as FunnelVinka } from '../../components/Attribution'
 import { useAuth } from '../../lib/auth'
 import { supabase, errMsg } from '../../lib/supabase'
 import { ErrorBox, Screen, Spinner, Svg, TopBar } from '../../components/ui'
@@ -84,6 +85,7 @@ export default function Reports() {
         </select>
         <p className="-mt-1 text-[12px] leading-snug text-tinta-3">{days ? `Solo lo ocurrido en los últimos ${days === 365 ? '12 meses' : `${days} días`}` : 'Todo el historial'}. Incluye postulantes de VINKA y de otros portales.</p>
         <ErrorBox>{err}</ErrorBox>
+        <FunnelVinka company={company.id} days={days} title="Embudo de tus vacantes" />
         {!r ? <Spinner /> : (
           <>
             <div className="grid grid-cols-3 gap-2">

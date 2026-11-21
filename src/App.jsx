@@ -32,6 +32,11 @@ const StepPrefs = lz(() => import('./pages/candidate/ProfileSteps'), 'StepPrefs'
 const StepIntro = lz(() => import('./pages/candidate/ProfileSteps'), 'StepIntro')
 const Explore = lz(() => import('./pages/candidate/Explore'))
 const Interests = lz(() => import('./pages/candidate/Interests'))
+const Proposals = lz(() => import('./pages/candidate/Proposals'))
+const Opportunities = lz(() => import('./components/Network'), 'Opportunities')
+const Captures = lz(() => import('./components/Network'), 'Captures')
+const AdvisorAuthorizations = lz(() => import('./components/Network'), 'AdvisorAuthorizations')
+const Benefits = lz(() => import('./components/Network'), 'Benefits')
 const JobView = lz(() => import('./pages/candidate/JobView'))
 const ChatList = lz(() => import('./pages/Chats'), 'ChatList')
 const ChatRoom = lz(() => import('./pages/Chats'), 'ChatRoom')
@@ -203,6 +208,8 @@ export default function App() {
     ] : []
     const deskNav = [
       nav[0], nav[1], nav[2], ...(company ? [{ to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' }] : []), nav[3], nav[4],
+      { section: 'Red de asesores' }, { to: '/oportunidades', label: 'Oportunidades', icon: 'star' }, { to: '/captaciones', label: 'Captaciones', icon: 'building' },
+      { to: '/autorizaciones', label: 'Autorizaciones', icon: 'people' }, { to: '/beneficios', label: 'Tus beneficios', icon: 'chart' },
       ...gestion,
       { section: 'Cuenta' }, { to: '/avisos', label: 'Avisos', icon: 'bell' }, { to: '/cuenta', label: 'Cuenta', icon: 'user' }, { to: '/ayuda', label: 'Ayuda y reportes', icon: 'chat' },
     ]
@@ -236,6 +243,10 @@ export default function App() {
         <Route path="/equipo" element={<WithNav items={nav}><AdvisorTeam filter={<ChatFilter />} /></WithNav>} />
         <Route path="/cuenta" element={<WithNav items={nav}>{account}</WithNav>} />
         <Route path="/avisos" element={<Notifications />} />
+        <Route path="/oportunidades" element={<WithNav items={nav}><Opportunities /></WithNav>} />
+        <Route path="/captaciones" element={<WithNav items={nav}><Captures /></WithNav>} />
+        <Route path="/autorizaciones" element={<WithNav items={nav}><AdvisorAuthorizations /></WithNav>} />
+        <Route path="/beneficios" element={<WithNav items={nav}><Benefits /></WithNav>} />
         <Route path="/modo/:m" element={<OldMode />} />
         {/* Procesos: los propios y aquellos a los que otro asesor lo invitó desde la Comunidad (solo lectura) */}
         <Route path="/vacantes/:id/proceso" element={<Pipeline />} />
@@ -340,6 +351,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<WithNav items={nav}><Explore /></WithNav>} />
         <Route path="/intereses" element={<WithNav items={nav}><Interests /></WithNav>} />
+        <Route path="/propuestas" element={<Proposals />} />
         <Route path="/vacante/:id" element={<JobView />} />
         <Route path="/chats" element={<ChatsSplit items={nav} />} />
         <Route path="/chats/:id" element={<ChatsSplit items={nav} />} />

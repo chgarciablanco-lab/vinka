@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { REGIONES, TAMANOS, AREAS } from '../../lib/catalog'
 import { formatRut, validRut } from '../../lib/rut'
+import { CaptureInviteNote, useCaptureInvite } from '../../components/Network'
 import { ErrorBox, Field, Screen, TopBar } from '../../components/ui'
 import { PasswordInput, passwordOk } from './AuthPages'
 
@@ -82,8 +83,16 @@ export function SignupCandidate() {
 export function SignupCompany() {
   const nav = useNavigate()
   const [step, setStep] = useState(1)
-  const [c, setC] = useState({ legal_name: '', display_name: '', rut: '', sector: '', size: '', region: '', comuna: '' })
+  const [params] = useSearchParams()
+  const invite = useCaptureInvite(params.get('captacion'))
+  const [c, setC] = useState({ legal_name: '', display_name: '', rut: '', sector: '', size: '', region: '', comuna: '', website: '' })
   const [a, setA] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' })
+  // Enlace de un asesor: precarga RUT, razón social y correo, que deben calzar para quedar ligados
+  useEffect(() => {
+    if (!invite) return
+    setC((x) => ({ ...x, legal_name: x.legal_name || invite.legal_name, rut: x.rut || formatRut(invite.rut) }))
+    setA((x) => ({ ...x, email: x.email || invite.email }))
+  }, [invite])
   const [terms, setTerms] = useState(false)
   const [mkt, setMkt] = useState(false)
   const [err, setErr] = useState('')
@@ -104,7 +113,7 @@ export function SignupCompany() {
     if (!passwordOk(a.password)) return setErr('La contraseña debe tener 8+ caracteres, una letra y un número.')
     if (!terms) return setErr('Debes aceptar los Términos y la Política de privacidad.')
     setBusy(true)
-    const company = { ...c, legal_name: c.legal_name.trim(), display_name: c.display_name.trim(), comuna: c.comuna.trim() }
+    const company = { ...c, legal_name: c.legal_name.trim(), display_name: c.display_name.trim(), comuna: c.comuna.trim(), website: c.website.trim() }
     const { data, error } = await supabase.auth.signUp({
       email: a.email.trim(), password: a.password,
       options: {
@@ -137,6 +146,7 @@ export function SignupCompany() {
         <form onSubmit={next} className="flex flex-1 flex-col gap-3.5 px-6 pb-8">
           <h1 className="text-2xl font-bold">Datos de tu empresa</h1>
           <p className="-mt-2 text-sm leading-snug text-tinta-3">Revisamos cada empresa antes de que publique vacantes. Así protegemos a los candidatos de ofertas falsas.</p>
+          <CaptureInviteNote invite={invite} />
           <Field label="Razón social"><input className="input" placeholder="Comercial Ejemplo SpA" value={c.legal_name} onChange={setc('legal_name')} /></Field>
           <Field label="Nombre visible en VINKA" hint="Así te verán los candidatos."><input className="input" value={c.display_name} onChange={setc('display_name')} /></Field>
           <Field label="RUT empresa" error={c.rut.length > 8 && !validRut(c.rut) ? 'Dígito verificador incorrecto' : ''}><input className="input" placeholder="76.123.456-7" value={c.rut} onChange={setc('rut')} /></Field>
@@ -148,6 +158,7 @@ export function SignupCompany() {
             <Field label="Región"><select className="input" value={c.region} onChange={setc('region')}><option value="">Selecciona</option>{REGIONES.map((r) => <option key={r}>{r}</option>)}</select></Field>
             <Field label="Comuna"><input className="input" value={c.comuna} onChange={setc('comuna')} /></Field>
           </div>
+          <Field label="Sitio web (opcional)" hint="Si tu correo es del mismo dominio que tu sitio, podemos verificarte al instante."><input className="input" type="url" inputMode="url" placeholder="https://tuempresa.cl" value={c.website} onChange={setc('website')} /></Field>
           <ErrorBox>{err}</ErrorBox>
           <button className="btn mt-2">Continuar</button>
         </form>

@@ -9,7 +9,7 @@ import { formatRut, validRut } from '../../lib/rut'
 
 const VER = {
   verified: ['Verificada', 'bg-[#EAF6EF] text-[#134A2B]'],
-  pending: ['VINKA la está verificando', 'bg-naranja-palido text-naranja-texto'],
+  pending: ['VINKA la verifica (menos de 24 h hábiles)', 'bg-naranja-palido text-naranja-texto'],
   rejected: ['Revisar datos', 'bg-[#FEF3F2] text-[#912018]'],
 }
 const EMPTY = { display_name: '', legal_name: '', rut: '', sector: '', size: '', region: '', comuna: '', description: '', website: '' }

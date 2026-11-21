@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { CreditedHires } from './Attribution'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { colorFor, initials } from '../lib/catalog'
@@ -35,9 +36,10 @@ function PublicReviews({ a }) {
     if (!a?.id || !(a.ratings > 0)) return
     supabase.rpc('advisor_reviews_public', { p_user: a.id }).then(({ data, error }) => { if (error) setFailed(true); else setList(data || []) })
   }, [a?.id, a?.ratings])
-  if (!(a.ratings > 0)) return <div className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[12px] leading-snug text-tinta-3">Sin valoraciones todavía. Solo pueden valorar personas que terminen una asesoría con este asesor/a.</div>
+  if (!(a.ratings > 0)) return <div className="flex flex-col gap-1.5"><CreditedHires advisorId={a.id} /><div className="rounded-xl bg-[#FAF7F9] px-3 py-2.5 text-[12px] leading-snug text-tinta-3">Sin valoraciones todavía. Solo pueden valorar personas que terminen una asesoría con este asesor/a.</div></div>
   return (
     <div className="flex flex-col gap-2">
+      <CreditedHires advisorId={a.id} />
       <b>Valoraciones verificadas</b>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-[#FAF7F9] p-3 text-[12px]">
         {CRITERIA.map(([k, l]) => a[k] != null && <span key={k} className="flex items-center justify-between gap-2"><span className="text-tinta-3">{l}</span><b>{dec(a[k])}</b></span>)}

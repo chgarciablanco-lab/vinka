@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ProposalsInbox } from '../../components/Attribution'
+import { AuthRequestsBanner } from '../../components/Network'
 import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { colorFor, initials, salaryText } from '../../lib/catalog'
@@ -206,6 +208,8 @@ export default function Explore() {
         <div className="flex items-center gap-2"><button onClick={() => load(broad)} className="flex h-11 items-center rounded-xl border border-linea bg-white px-3.5 text-sm font-semibold">Actualizar</button><Bell /><MeAvatar /></div>
       </div>
       <div className="flex flex-1 flex-col gap-4 px-5">
+        <AuthRequestsBanner />
+        <ProposalsInbox compact />
         <div className="flex gap-1 rounded-xl bg-white p-[3px] shadow-sm" role="group" aria-label="Forma de ver las vacantes">
           {[['tarjetas', 'Tarjetas', 'card'], ['lista', 'Lista', 'grid']].map(([k, l, ic]) => (
             <button key={k} type="button" aria-pressed={view === k} onClick={() => pickView(k)}

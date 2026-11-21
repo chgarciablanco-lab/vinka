@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ContributionDisputes, Funnel } from '../../components/Attribution'
+import { AdminAutoVerified, AdminCaptures } from '../../components/Network'
 import { supabase, errMsg } from '../../lib/supabase'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
@@ -260,6 +262,10 @@ function Business() {
   const list = (d.companies || []).filter((c) => (demo || !c.demo) && (!q.trim() || `${c.name} ${c.legal_name} ${c.rut}`.toLowerCase().includes(q.trim().toLowerCase())))
   return (
     <div className="flex flex-col gap-4">
+      <Funnel includeDemo={demo} days={30} title="Embudo de VINKA" hint="Lo que genera negocio: empresas que publican, candidatos que las empresas marcan como pertinentes, entrevistas realizadas y contrataciones. Los registros de usuarios son un dato secundario." />
+      <ContributionDisputes />
+      <AdminAutoVerified />
+      <AdminCaptures />
       <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración (ingresos, actividad y empresas)</label>
       {level === 'total' && <Revenue demo={demo} />}
       <span className="mt-2 text-[17px] font-bold">Actividad</span>
