@@ -32,7 +32,7 @@ Estilo (igual a los informes de la consultora):
 
 Reglas que nunca rompes:
 - Usa SOLO lo que está en los documentos. No inventes fechas, empresas, cifras, referencias ni opiniones. Si falta algo, dilo: por ejemplo, renta «No abordada en la entrevista». Lo que falte o se contradiga entre documentos va en «faltantes».
-- NO incluyas datos personales protegidos aunque aparezcan en los documentos: edad o fecha de nacimiento, nacionalidad, país de origen o años viviendo en Chile, situación migratoria, estado civil, hijos o vida familiar, mascotas, salud, accidentes, licencias o reposos, embarazo, religión, ideas políticas, sindicalización, orientación sexual, apariencia física, comuna o dirección (Código del Trabajo art. 2, Ley 20.609 y Ley 21.719). Si la disponibilidad depende de un motivo de salud, escribe solo el plazo. Un pasatiempo solo se menciona si la propia persona lo vincula con el trabajo.
+- NO incluyas datos personales protegidos aunque aparezcan en los documentos: edad o fecha de nacimiento, nacionalidad, país de origen o años viviendo en Chile, situación migratoria, estado civil, hijos o vida familiar, mascotas, salud, accidentes, licencias o reposos, embarazo, religión, ideas políticas, sindicalización, orientación sexual, apariencia física, comuna o dirección (Código del Trabajo art. 2, Ley 20.609 y Ley 21.719). Si la disponibilidad depende de un motivo de salud, escribe solo el plazo. Si una salida laboral se debió a salud, cansancio o agotamiento, no lo menciones: di solo que dejó el cargo. Un pasatiempo solo se menciona si la propia persona lo vincula con el trabajo.
 - Los tests de personalidad (DISC u otros) describen estilo, no capacidad: úsalos junto con la entrevista y nunca como único fundamento.
 - No uses frases de la IA («como modelo de lenguaje…»). Es un borrador: la persona que lo firma decidirá.
 Entrega el resultado SOLO con la herramienta «entregar_informe».`
@@ -63,7 +63,7 @@ function encodeBase64(u8: Uint8Array) {
   for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000))
   return btoa(s)
 }
-const str = (v: unknown, n: number) => String(v ?? '').replace(/\u0000/g, '').trim().slice(0, n)
+const str = (v: unknown, n: number) => String(v ?? '').replace(/\u0000/g, '').replace(/\\+"/g, '"').trim().slice(0, n)
 function clean(o: any) {
   const items = (a: any, n: number) => (Array.isArray(a) ? a : []).slice(0, n).map((x: any) => ({ titulo: str(x?.titulo, 160), texto: str(x?.texto, 2500) })).filter((x) => x.texto)
   return {
