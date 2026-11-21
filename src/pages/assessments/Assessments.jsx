@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth'
 import { ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
 import { Sparkle } from '../../components/AiAssist'
 import { VEREDICTOS, buildReportDocx, buildReportPdf, download, reportMeta } from '../../lib/reportExport'
+import { loadLogo } from '../../lib/offerPdf'
 
 const KINDS = [['cv', 'CV'], ['transcripcion', 'Transcripción de entrevista'], ['referencias', 'Referencias laborales'], ['test', 'Reporte de test (DISC, liderazgo…)'], ['otro', 'Otro documento']]
 const KIND = Object.fromEntries([['perfil', 'Perfil del cargo'], ...KINDS])
@@ -298,7 +299,7 @@ function CandidateCard({ a, c, onChange, onToast }) {
           {!c.files.length && <span className="-mt-1 text-[11px] text-tinta-suave">Sube al menos el CV o la entrevista.</span>}
         </>}
         <ErrorBox>{err}</ErrorBox>
-        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} onChange={onChange} onToast={onToast} />}
+        {c.report && <ReportEditor key={c.report.id + c.report.version} report={c.report} canEdit={editable} meta={reportMeta({ person: c.full_name, title: a.title, client: a.client_name || a.company, company: a.company, logoPath: a.company_logo, date: c.report.finalized_at || c.report.created_at, signer: c.report.finalized_by_name })} candId={c.id} onChange={onChange} onToast={onToast} />}
         {editable && <button className="self-start text-[12px] font-semibold text-tinta-3" onClick={removePerson}>Quitar a esta persona</button>}
       </>}
     </section>
@@ -339,7 +340,7 @@ function ReportEditor({ report, canEdit, meta, candId, onChange, onToast }) {
   }
   const exp = async (kind) => {
     setBusy(kind); setErr('')
-    try { await download(await (kind === 'docx' ? buildReportDocx : buildReportPdf)(s, meta)) } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
+    try { const logo = await loadLogo(meta.logoPath); await download(await (kind === 'docx' ? buildReportDocx : buildReportPdf)(s, { ...meta, logo })) } catch { setErr('No pudimos generar el archivo. Inténtalo de nuevo.') }
     setBusy('')
   }
   const textField = (k, rows = 6) => (

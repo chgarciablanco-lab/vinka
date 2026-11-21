@@ -4,7 +4,7 @@ const longDate = (d) => (d ? new Date(d.length === 10 ? d + 'T12:00:00' : d).toL
 const safe = (s) => String(s || '').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/…/g, '...').replace(/[^\x09\x0A\x0D\x20-\x7E -ÿ•–—"'€]/g, '')
 
 // Convierte el logo (png, jpg, webp o svg) en PNG para incrustarlo en el PDF
-async function loadLogo(path) {
+export async function loadLogo(path) {
   const url = logoUrl(path)
   if (!url) return null
   try {

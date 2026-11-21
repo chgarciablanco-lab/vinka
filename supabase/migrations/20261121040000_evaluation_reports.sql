@@ -230,7 +230,8 @@ begin
   mng := can_manage(e.company_id);
   return jsonb_build_object(
     'id', e.id, 'title', e.title, 'client_name', e.client_name, 'job_id', e.job_id, 'status', e.status, 'company_id', e.company_id,
-    'company', (select display_name from companies where id = e.company_id), 'job_profile', case when mng then e.job_profile else '' end,
+    'company', (select display_name from companies where id = e.company_id), 'company_logo', (select logo_path from companies where id = e.company_id),
+    'job_profile', case when mng then e.job_profile else '' end,
     'can_manage', mng, 'created_at', e.created_at, 'usage', my_report_usage(e.company_id),
     'shared_files', case when mng then coalesce((select jsonb_agg(jsonb_build_object('id', f.id, 'kind', f.kind, 'name', f.name, 'path', f.path, 'size', f.size_bytes,
         'has_text', coalesce(f.text_content, '') <> '', 'created_at', f.created_at) order by f.created_at)
