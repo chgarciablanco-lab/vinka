@@ -33,6 +33,8 @@ const StepIntro = lz(() => import('./pages/candidate/ProfileSteps'), 'StepIntro'
 const Explore = lz(() => import('./pages/candidate/Explore'))
 const Interests = lz(() => import('./pages/candidate/Interests'))
 const Proposals = lz(() => import('./pages/candidate/Proposals'))
+const Assessments = lz(() => import('./pages/assessments/Assessments'))
+const AssessmentPage = lz(() => import('./pages/assessments/Assessments'), 'AssessmentPage')
 const Opportunities = lz(() => import('./components/Network'), 'Opportunities')
 const Captures = lz(() => import('./components/Network'), 'Captures')
 const AdvisorAuthorizations = lz(() => import('./components/Network'), 'AdvisorAuthorizations')
@@ -201,7 +203,7 @@ export default function App() {
       { to: '/comunidad', label: 'Comunidad', icon: 'star' }, { to: '/chats', label: 'Chats', icon: 'chat', badge: unreadMsgs + advUnread > 0 ? unreadMsgs + advUnread : unseen > 0, also: ['/equipo'] },
     ]
     const gestion = company ? [
-      { section: 'Mi consultora' }, { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' },
+      { section: 'Mi consultora' }, { to: '/evaluaciones', label: 'Evaluaciones', icon: 'doc' }, { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' },
       { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo-consultora', label: 'Equipo', icon: 'user' }, { to: '/plan', label: 'Plan y uso', icon: 'chart' },
       ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
       { to: '/vitrina', label: 'Empresa y vitrina', icon: 'building' },
@@ -221,7 +223,7 @@ export default function App() {
           {company && (
           <div className="card px-4">
             <span className="block pt-3 text-[12px] font-semibold uppercase tracking-wide text-tinta-suave">{company.display_name}</span>
-            {[['/vitrina', 'Empresa y vitrina'], ['/equipo-consultora', 'Equipo'], ['/plan', 'Plan y uso'], ['/reportes', 'Reportes'], ['/plantillas', 'Plantillas de mensajes'], ['/automatizaciones', 'Automatizaciones'],
+            {[['/evaluaciones', 'Evaluaciones e informes'], ['/vitrina', 'Empresa y vitrina'], ['/equipo-consultora', 'Equipo'], ['/plan', 'Plan y uso'], ['/reportes', 'Reportes'], ['/plantillas', 'Plantillas de mensajes'], ['/automatizaciones', 'Automatizaciones'],
               ...(company.kind === 'consultora' && !company.parent_id ? [['/clientes', 'Clientes']] : [])].map(([to, l]) => (
               <Link key={to} to={to} className="flex items-center justify-between border-b border-[#F1E7ED] py-3.5 text-[15px] font-semibold last:border-0">{l}<Svg name="chevron" size={18} className="text-tinta-suave" /></Link>
             ))}
@@ -266,6 +268,8 @@ export default function App() {
           <Route key="plan" path="/plan" element={<Plan />} />,
           <Route key="cli" path="/clientes" element={<Clients />} />,
           <Route key="rep" path="/reportes" element={<Reports />} />,
+          <Route key="evl" path="/evaluaciones" element={<WithNav items={nav}><Assessments /></WithNav>} />,
+          <Route key="evd" path="/evaluaciones/:id" element={<AssessmentPage />} />,
           <Route key="pla" path="/plantillas" element={<Templates />} />,
           <Route key="eqc" path="/equipo-consultora" element={<Team />} />,
           <Route key="of" path="/ofertas/:id" element={<Offer />} />,
@@ -383,6 +387,7 @@ export default function App() {
     { to: '/', label: 'Panel', icon: 'grid' }, { to: '/talento', label: 'Banco de talento', icon: 'people' }, { to: '/agenda', label: 'Agenda', icon: 'calendar' },
     { to: '/chats', label: 'Chats', icon: 'chat', badge: chatBadge },
     { section: 'Gestión' },
+    { to: '/evaluaciones', label: 'Evaluaciones', icon: 'doc' },
     { to: '/reportes', label: 'Reportes', icon: 'chart' }, { to: '/plantillas', label: 'Plantillas', icon: 'doc' }, { to: '/automatizaciones', label: 'Automatizaciones', icon: 'swap' }, { to: '/equipo', label: 'Equipo', icon: 'user' },
     { to: '/plan', label: 'Plan y uso', icon: 'chart' },
     ...(company.kind === 'consultora' && !company.parent_id ? [{ to: '/clientes', label: 'Clientes', icon: 'building' }] : []),
@@ -413,6 +418,8 @@ export default function App() {
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
       <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />
       <Route path="/reportes" element={<Reports />} />
+      <Route path="/evaluaciones" element={<WithNav items={nav}><Assessments /></WithNav>} />
+      <Route path="/evaluaciones/:id" element={<AssessmentPage />} />
       <Route path="/plantillas" element={<Templates />} />
       <Route path="/equipo" element={<Team />} />
       <Route path="/ofertas/:id" element={<Offer />} />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ContributionDisputes, Funnel } from '../../components/Attribution'
 import { AdminAutoVerified, AdminCaptures } from '../../components/Network'
 import { supabase, errMsg } from '../../lib/supabase'
+import { AdminReportUsage } from '../assessments/Assessments'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { Empty, ErrorBox, Screen, Sheet, Spinner, Svg, Toast, TopBar } from '../../components/ui'
@@ -266,6 +267,7 @@ function Business() {
       <ContributionDisputes />
       <AdminAutoVerified />
       <AdminCaptures />
+      <AdminReportUsage />
       <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="h-4 w-4 accent-[#D02E72]" />Incluir datos de demostración (ingresos, actividad y empresas)</label>
       {level === 'total' && <Revenue demo={demo} />}
       <span className="mt-2 text-[17px] font-bold">Actividad</span>

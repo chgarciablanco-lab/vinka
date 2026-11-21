@@ -2,7 +2,7 @@
 // Una línea con «false», «FALLÓ» o «errores» cuenta como falla.
 const { execFileSync } = require('child_process')
 const path = require('path')
-const tests = ['elegir_asesor', 'asignacion_consentimiento', 'valoraciones_y_contratacion', 'pago_demo', 'corregir_nombre', 'mi_cuenta', 'asesor_inicio_y_busqueda', 'pantallas_y_accesibilidad', 'carga_conexion_lenta', 'colaboracion_asesores']
+const tests = ['elegir_asesor', 'asignacion_consentimiento', 'valoraciones_y_contratacion', 'pago_demo', 'corregir_nombre', 'mi_cuenta', 'asesor_inicio_y_busqueda', 'pantallas_y_accesibilidad', 'carga_conexion_lenta', 'colaboracion_asesores', 'informes_ia']
 let fails = 0
 for (const t of tests) {
   let out = ''

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AttributionCard } from '../../components/Attribution'
+import { ApplicantReport } from '../assessments/Assessments'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
@@ -382,7 +383,7 @@ export function OfferSummary({ o, onWithdraw, onApprove }) {
 }
 
 /* ---------- Página ---------- */
-const TABS = [['perfil', 'Perfil'], ['ia', 'IA'], ['evaluacion', 'Evaluación'], ['notas', 'Notas'], ['historial', 'Historial']]
+const TABS = [['perfil', 'Perfil'], ['ia', 'IA'], ['evaluacion', 'Evaluación'], ['informe', 'Informe'], ['notas', 'Notas'], ['historial', 'Historial']]
 
 /** panel: { jobId, cid, eid, onClose, onChange } cuando se abre como panel lateral del proceso (computador) */
 export default function CandidateDetail({ panel }) {
@@ -473,7 +474,7 @@ export default function CandidateDetail({ panel }) {
           </div>
         </div>
         <div className="flex gap-1 overflow-x-auto">
-          {TABS.filter(([k]) => !(ext && k === 'ia') && !(collab && !['perfil', 'historial'].includes(k))).map(([k, l]) => (
+          {TABS.filter(([k]) => !(ext && (k === 'ia' || k === 'informe')) && !(collab && !['perfil', 'historial'].includes(k))).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`h-11 shrink-0 border-b-2 px-2.5 text-sm font-semibold ${tab === k ? 'border-rosa-accion text-rosa-texto' : 'border-transparent text-tinta-3'}`}>
               {l}{k === 'notas' && d.notes.length ? ` (${d.notes.length})` : k === 'evaluacion' && d.evaluations.length ? ` (${d.evaluations.length})` : ''}
             </button>
@@ -561,6 +562,7 @@ export default function CandidateDetail({ panel }) {
         {tab === 'evaluacion' && <Evaluations d={d} subject={subject} onSaved={saved} />}
         {tab === 'notas' && <Notes d={d} subject={subject} onSaved={saved} />}
         {tab === 'historial' && <History events={d.events} />}
+        {tab === 'informe' && !ext && !collab && <ApplicantReport jobId={jobId} candidateId={cid} canManage={canManage} />}
         {!ext && d.match && stage === 'contratado' && <div className="mt-3"><AttributionCard matchId={d.match.id} /></div>}
       </div>
 
