@@ -72,7 +72,7 @@ export default function AtsLanding() {
             <button onClick={trial} className="btn-sec sm:w-auto sm:px-6">Probar gratis 30 días</button>
           </div>
           <span className="text-[13px] text-tinta-3">Sin tarjeta. Al terminar la prueba sigues en el plan Gratis sin perder tus datos.</span>
-          <a href="#video" className="flex items-center gap-2 self-start text-[14px] font-semibold text-rosa-texto"><Svg name="video" size={18} />Ver cómo funciona (50 s)</a>
+          <a href="#video" className="flex items-center gap-2 self-start text-[14px] font-semibold text-rosa-texto"><Svg name="video" size={18} />Ver cómo funciona (54 s)</a>
         </div>
         {/* Capturas reales del ATS con datos de demostración */}
         <figure className="relative mx-auto flex w-full max-w-lg items-end justify-center gap-3">
@@ -83,25 +83,28 @@ export default function AtsLanding() {
         </figure>
       </section>
 
-      {/* Video: cómo funciona VINKA ATS */}
+      {/* Video: cómo funciona VINKA ATS (horizontal en computador, vertical en celular) */}
       <section id="video" className="scroll-mt-16 py-12">
-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 md:grid-cols-[auto_1fr]">
-          <div className="mx-auto w-[260px] overflow-hidden rounded-[32px] border-[6px] border-white bg-[#F4EEF2] shadow-[0_20px_50px_rgba(48,37,56,.18)] md:w-[280px]">
-            <video className="block aspect-[9/16] w-full" src="/media/tutorial-empresas.mp4?v=3" poster="/media/tutorial-empresas.jpg?v=3" controls playsInline preload="none" aria-label="Video: cómo funciona VINKA ATS, 50 segundos" />
-          </div>
-          <div className="flex flex-col gap-4">
-            <span className="text-sm font-semibold uppercase tracking-wide text-[#6B2E8F]">Video · 50 segundos</span>
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5">
+          <div className="flex flex-col gap-2 md:items-center md:text-center">
+            <span className="text-sm font-semibold uppercase tracking-wide text-[#6B2E8F]">Video · 54 segundos</span>
             <h2 className="font-display text-[26px] font-bold leading-tight md:text-[32px]">Mira cómo funciona VINKA ATS</h2>
-            <p className="text-[15px] leading-relaxed text-tinta-3">Un recorrido por la app con datos de demostración: de la publicación del aviso a los reportes del proceso.</p>
-            <ol className="grid gap-2 sm:grid-cols-2">
-              {['Publica tu vacante con ayuda de la IA', 'Recibe personas que calzan con el cargo', 'Lleva cada postulación por etapas', 'Agenda entrevistas sin correos', 'Envía la carta oferta', 'Trabaja en equipo con roles', 'Elige tu plan', 'Mide tu proceso con reportes'].map((t, i) => (
-                <li key={t} className="flex items-center gap-2.5 rounded-xl border border-[#EEE6F0] bg-white px-3 py-2.5 text-[14px]">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rosa-palido text-[12px] font-bold text-rosa-texto">{i + 1}</span>{t}
-                </li>
-              ))}
-            </ol>
-            <span className="text-[13px] text-tinta-3">Además: informes psicolaborales con IA, test DISC propio y colaboración con asesores. <a href="#funciones" className="font-semibold text-rosa-texto underline">Ver todas las funciones</a></span>
+            <p className="max-w-2xl text-[15px] leading-relaxed text-tinta-3">Un recorrido por la app con datos de demostración: de la publicación del aviso a los informes, el test DISC y los reportes del proceso.</p>
           </div>
+          <div className="mx-auto hidden w-full max-w-4xl overflow-hidden rounded-[22px] border-[6px] border-white bg-[#F4EEF2] shadow-[0_20px_50px_rgba(48,37,56,.18)] md:block">
+            <video className="block aspect-video w-full" src="/media/ats-escritorio.mp4?v=1" poster="/media/ats-escritorio.jpg?v=1" controls playsInline preload="none" aria-label="Video: cómo funciona VINKA ATS, 54 segundos (versión computador)" />
+          </div>
+          <div className="mx-auto w-[260px] overflow-hidden rounded-[32px] border-[6px] border-white bg-[#F4EEF2] shadow-[0_20px_50px_rgba(48,37,56,.18)] md:hidden">
+            <video className="block aspect-[9/16] w-full" src="/media/ats-movil.mp4?v=1" poster="/media/ats-movil.jpg?v=1" controls playsInline preload="none" aria-label="Video: cómo funciona VINKA ATS, 54 segundos (versión celular)" />
+          </div>
+          <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {['Publica tu vacante con ayuda de la IA', 'Recibe personas que calzan con el cargo', 'Lleva cada postulación por etapas', 'Agenda entrevistas sin correos', 'Informes psicolaborales con IA', 'Test DISC propio, por enlace', 'Compara a tus finalistas', 'Envía la carta oferta', 'Trabaja en equipo con roles', 'Mide tu proceso con reportes'].map((t, i) => (
+              <li key={t} className="flex items-center gap-2.5 rounded-xl border border-[#EEE6F0] bg-white px-3 py-2.5 text-[14px]">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rosa-palido text-[12px] font-bold text-rosa-texto">{i + 1}</span>{t}
+              </li>
+            ))}
+          </ol>
+          <span className="text-[13px] text-tinta-3 md:text-center">Además: colaboración con asesores, automatizaciones y plantillas de mensajes. <a href="#funciones" className="font-semibold text-rosa-texto underline">Ver todas las funciones</a></span>
         </div>
       </section>
 

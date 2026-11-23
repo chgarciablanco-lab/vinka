@@ -86,7 +86,10 @@ const shot = async (p, path) => { await p.evaluate(() => { window.scrollTo(0, 0)
     out.push(`[${label}] ATS: «Software de reclutamiento y selección», 4 funciones clave y capturas de demostración: ` + (/Software de reclutamiento y selección para empresas/.test(t)
       && /Publicación de vacantes/.test(t) && /Seguimiento de candidatos/.test(t) && /Agenda de entrevistas/.test(t) && /Trabajo en equipo/.test(t) && /datos de demostración/.test(t)
       && await p.locator('img[src*="/media/tut/e_proceso"]').count() >= 1))
-    out.push(`[${label}] ATS: video de cómo funciona con su lista de pasos: ` + (await p.locator('video[src*="tutorial-empresas"]').count() === 1 && /Mira cómo funciona VINKA ATS/.test(t)))
+    { const want = mobile ? 'ats-movil' : 'ats-escritorio', other = mobile ? 'ats-escritorio' : 'ats-movil'
+      const vis = await p.locator(`video[src*="${want}"]`).isVisible(), hid = !(await p.locator(`video[src*="${other}"]`).isVisible())
+      const ok = await p.evaluate(async (u) => (await fetch(u, { method: 'HEAD' })).ok, `/media/${want}.mp4`)
+      out.push(`[${label}] ATS: video ${mobile ? 'vertical (celular)' : 'horizontal (computador)'} visible, el otro oculto, y 10 pasos: ` + (vis && hid && ok && /Mira cómo funciona VINKA ATS/.test(t) && /Test DISC propio/.test(t) && /Compara a tus finalistas/.test(t))) }
     await p.getByRole('link', { name: /Ver cómo funciona/ }).click(); await p.waitForTimeout(700)
     const vy = await p.evaluate(() => document.getElementById('video').getBoundingClientRect().top)
     out.push(`[${label}] ATS: «Ver cómo funciona» lleva al video: ` + (vy < 120 && vy > -40))
