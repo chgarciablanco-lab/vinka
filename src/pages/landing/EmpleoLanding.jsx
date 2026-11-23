@@ -166,11 +166,12 @@ export default function EmpleoLanding() {
       </section>
 
       {/* Hacia VINKA ATS */}
-      <section className="px-5 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 rounded-3xl bg-morado px-6 py-7 text-white md:flex-row md:items-center">
+      <section className="py-12"><div className="mx-auto max-w-6xl px-5">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-3xl bg-morado px-6 py-7 text-white md:flex-row md:items-center">
           <div className="flex flex-col gap-1"><b className="font-display text-[20px]">¿Buscas contratar?</b><span className="text-[14px] text-white/80">Publica vacantes y lleva todo tu proceso de selección con VINKA ATS.</span></div>
           <Link to="/portada/ats" className="btn-sm flex h-11 items-center gap-1 bg-white px-5 text-morado">Conoce VINKA ATS <Svg name="chevron" size={16} /></Link>
         </div>
+      </div>
       </section>
 
       <footer className="border-t border-[#F1E4EB] bg-white py-8 text-[13px] text-tinta-3">
