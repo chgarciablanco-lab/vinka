@@ -72,6 +72,7 @@ export default function AtsLanding() {
             <button onClick={trial} className="btn-sec sm:w-auto sm:px-6">Probar gratis 30 días</button>
           </div>
           <span className="text-[13px] text-tinta-3">Sin tarjeta. Al terminar la prueba sigues en el plan Gratis sin perder tus datos.</span>
+          <a href="#video" className="flex items-center gap-2 self-start text-[14px] font-semibold text-rosa-texto"><Svg name="video" size={18} />Ver cómo funciona (50 s)</a>
         </div>
         {/* Capturas reales del ATS con datos de demostración */}
         <figure className="relative mx-auto flex w-full max-w-lg items-end justify-center gap-3">
@@ -80,6 +81,28 @@ export default function AtsLanding() {
           ))}
           <figcaption className="absolute -bottom-7 left-0 right-0 text-center text-[11px] text-tinta-suave">Capturas de VINKA ATS con datos de demostración</figcaption>
         </figure>
+      </section>
+
+      {/* Video: cómo funciona VINKA ATS */}
+      <section id="video" className="scroll-mt-16 py-12">
+        <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 md:grid-cols-[auto_1fr]">
+          <div className="mx-auto w-[260px] overflow-hidden rounded-[32px] border-[6px] border-white bg-[#F4EEF2] shadow-[0_20px_50px_rgba(48,37,56,.18)] md:w-[280px]">
+            <video className="block aspect-[9/16] w-full" src="/media/tutorial-empresas.mp4?v=3" poster="/media/tutorial-empresas.jpg?v=3" controls playsInline preload="none" aria-label="Video: cómo funciona VINKA ATS, 50 segundos" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <span className="text-sm font-semibold uppercase tracking-wide text-[#6B2E8F]">Video · 50 segundos</span>
+            <h2 className="font-display text-[26px] font-bold leading-tight md:text-[32px]">Mira cómo funciona VINKA ATS</h2>
+            <p className="text-[15px] leading-relaxed text-tinta-3">Un recorrido por la app con datos de demostración: de la publicación del aviso a los reportes del proceso.</p>
+            <ol className="grid gap-2 sm:grid-cols-2">
+              {['Publica tu vacante con ayuda de la IA', 'Recibe personas que calzan con el cargo', 'Lleva cada postulación por etapas', 'Agenda entrevistas sin correos', 'Envía la carta oferta', 'Trabaja en equipo con roles', 'Elige tu plan', 'Mide tu proceso con reportes'].map((t, i) => (
+                <li key={t} className="flex items-center gap-2.5 rounded-xl border border-[#EEE6F0] bg-white px-3 py-2.5 text-[14px]">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rosa-palido text-[12px] font-bold text-rosa-texto">{i + 1}</span>{t}
+                </li>
+              ))}
+            </ol>
+            <span className="text-[13px] text-tinta-3">Además: informes psicolaborales con IA, test DISC propio y colaboración con asesores. <a href="#funciones" className="font-semibold text-rosa-texto underline">Ver todas las funciones</a></span>
+          </div>
+        </div>
       </section>
 
       {/* Cómo funciona con VINKA Empleo */}
