@@ -12,9 +12,11 @@ const EMPTY = { company_name: '', rut: '', contact_name: '', contact_role: '', e
 export default function Quote() {
   const [sp] = useSearchParams()
   const [plans, setPlans] = useState([])
-  const [reason, setReason] = useState(REASONS.some(([k]) => k === sp.get('motivo')) ? sp.get('motivo') : 'plan')
+  // Desde VINKA ATS «Solicitar demo» llega con ?demo=1: se registra como «Otra consulta» con el mensaje prellenado
+  const isDemo = sp.get('demo') === '1'
+  const [reason, setReason] = useState(isDemo ? 'otro' : REASONS.some(([k]) => k === sp.get('motivo')) ? sp.get('motivo') : 'plan')
   const [plan, setPlan] = useState(sp.get('plan') || '')
-  const [f, setF] = useState(EMPTY)
+  const [f, setF] = useState(() => (isDemo ? { ...EMPTY, message: 'Quiero una demo de VINKA ATS.' } : EMPTY))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
@@ -46,9 +48,9 @@ export default function Quote() {
 
   return (
     <Screen>
-      <TopBar back="/" title="Pedir cotización" />
+      <TopBar back={isDemo ? '/portada/ats' : '/'} title={isDemo ? 'Solicitar demo' : 'Pedir cotización'} />
       <form onSubmit={send} className="mx-auto flex w-full max-w-xl flex-col gap-3.5 px-6 pb-12">
-        <p className="text-[15px] leading-relaxed text-tinta-3">Cuéntanos lo básico y te enviamos una cotización por correo. No necesitas crear una cuenta.</p>
+        <p className="text-[15px] leading-relaxed text-tinta-3">{isDemo ? 'Déjanos tus datos y te contactamos para coordinar una demo de 30 minutos. No necesitas crear una cuenta.' : 'Cuéntanos lo básico y te enviamos una cotización por correo. No necesitas crear una cuenta.'}</p>
         <fieldset className="flex flex-col gap-2"><legend className="label mb-1">Motivo</legend>
           <div className="grid grid-cols-2 gap-2">{REASONS.map(([k, l]) => (
             <button key={k} type="button" aria-pressed={reason === k} onClick={() => setReason(k)} className={`chip h-11 justify-center px-2 text-[13px] ${reason === k ? 'chip-on' : ''}`}>{l}</button>

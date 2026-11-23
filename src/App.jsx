@@ -59,6 +59,8 @@ const ForcePassword = lz(() => import('./pages/advisor/Advisor'), 'ForcePassword
 const Legal = lz(() => import('./pages/Legal'))
 const Help = lz(() => import('./pages/Help'))
 const Quote = lz(() => import('./pages/Quote'))
+const EmpleoLanding = lz(() => import('./pages/landing/EmpleoLanding'))
+const AtsLanding = lz(() => import('./pages/landing/AtsLanding'))
 const Tutorials = lz(() => import('./pages/Tutorials'))
 const Agenda = lz(() => import('./pages/company/Agenda'))
 const BookInterview = lz(() => import('./pages/candidate/BookInterview'))
@@ -169,6 +171,8 @@ export default function App() {
     <Route key="pubjob" path="/empleo/:id" element={<PublicJob />} />,
     <Route key="help" path="/ayuda" element={<Help />} />,
     <Route key="quote" path="/cotizar" element={<Quote />} />,
+    <Route key="p-empleo" path="/portada/empleo" element={<EmpleoLanding />} />,
+    <Route key="p-ats" path="/portada/ats" element={<AtsLanding />} />,
     <Route key="tut" path="/tutoriales" element={<Tutorials />} />,
     <Route key="tutw" path="/tutoriales/:who" element={<Tutorials />} />,
   ]
