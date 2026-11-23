@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { FirstSteps } from '../../components/FirstSteps'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg, withRetry } from '../../lib/supabase'
 import { FeaturedBadge, trackPromo, daysLeft } from '../../lib/promo'
@@ -101,6 +102,7 @@ export function CompanyPanel() {
       </div>
       <VacTabs />
       <div className="flex flex-col gap-3.5 px-5">
+        {!isAdvisor && <FirstSteps />}
         <InstallBanner />
         {isAdmin && <BillingBanner billing={planInfo?.billing} />}
         {!isAdvisor && <TodoBlock companyId={company?.id} refresh={reload} />}

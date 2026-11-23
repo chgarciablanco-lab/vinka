@@ -21,6 +21,8 @@ const useRpc = (name, args) => {
 /* ───────────── Asesor: Oportunidades ───────────── */
 export function Opportunities() {
   const [list, err, load] = useRpc('network_opportunities')
+  // Primeros pasos del asesor: «Conoce las oportunidades de la red» se marca al visitar esta pantalla
+  useEffect(() => { supabase.rpc('onboarding_mark', { p_action: 'visto:oportunidades' }).then(() => {}, () => {}) }, [])
   const [propose, setPropose] = useState(null)
   const [ask, setAsk] = useState(null)
   const [msg, setMsg] = useState('')

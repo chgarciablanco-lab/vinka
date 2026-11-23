@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { FirstStepsControls } from '../components/FirstSteps'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -35,6 +36,7 @@ export default function Help() {
           <HelpChat className="h-[460px]" />
         </section>
         <div className="flex flex-col gap-4">
+          {session && <FirstStepsControls />}
           <Link to="/tutoriales" className="card flex items-center gap-3 p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="video" /></span>
             <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Tutoriales y videos</span><span className="text-[13px] text-tinta-3">Guías paso a paso para personas y empresas</span></span>

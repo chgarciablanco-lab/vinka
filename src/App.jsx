@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AdvisorInicio, ChatFilter, ChatsHub, NoWorkspace } from './pages/advisor/Hub'
 import { MyAdvisorReviews, MyPublicProfile } from './components/AdvisorProfile'
+import { FirstTour } from './components/FirstSteps'
 import { MatchWatcher } from './components/MatchWatcher'
 import { useUnread, useUnreadSync } from './lib/unread'
 import { useAdvisorUnread, useAdvisorUnreadSync } from './lib/advisorUnread'
@@ -236,6 +237,7 @@ export default function App() {
       <>
       {company && <MatchWatcher onCount={setUnseen} />}
       <DesktopNav items={deskNav} />
+      <FirstTour />
       <div className="desk h-full lg:pl-64">
       {wrap(
       <Routes>
@@ -352,6 +354,7 @@ export default function App() {
       <PendingInvite />
       <GoNext allowed={['/asesoria', '/visibilidad', '/vacante/*']} />
       <DesktopNav items={deskNav} />
+      <FirstTour />
       <div className="desk h-full lg:pl-64">
       {wrap(
       <Routes>
@@ -402,6 +405,7 @@ export default function App() {
     <MatchWatcher onCount={setUnseen} />
     <GoNext allowed={['/plan']} />
     <DesktopNav items={deskNav} />
+    <FirstTour />
     <div className="desk h-full lg:pl-64">
     {wrap(
     <Routes>

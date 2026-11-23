@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { FirstSteps } from '../../components/FirstSteps'
 import { Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
@@ -102,6 +103,7 @@ export function AdvisorInicio() {
         <TopIcons />
       </div>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-3.5 px-5 pb-28 lg:px-8 lg:pb-10">
+        <FirstSteps />
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">Asesorías</h2><Link to="/asesorias" className="text-[13px] font-semibold text-rosa-texto">Ver todas ({active.length})</Link></div>
           {failed && (
