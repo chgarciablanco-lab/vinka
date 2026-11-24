@@ -149,11 +149,25 @@ export function FirstTour() {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const bubbleTop = box ? (box.top > 220 ? undefined : box.bottom + 14) : undefined
   const bubbleBottom = box && box.top > 220 ? window.innerHeight - box.top + 14 : undefined
+  // La bienvenida no bloquea la pantalla: es una tarjeta flotante y todo lo demás sigue disponible.
+  // Solo los pasos del recorrido oscurecen el fondo; tocar fuera del recuadro termina el recorrido.
+  if (!step) return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[88px] z-[60] flex justify-center px-4 lg:bottom-6 lg:justify-end lg:px-6">
+      <div className="pointer-events-auto flex w-full max-w-[360px] flex-col gap-2 rounded-2xl border border-rosa-borde bg-white p-4 shadow-xl" role="dialog" aria-modal="false" aria-label="Recorrido por VINKA">
+        <b className="text-[18px]">¡Bienvenida/o a VINKA!</b>
+        <p className="text-[14px] leading-snug text-tinta-2">¿Te mostramos en 1 minuto dónde está cada cosa? Puedes seguir usando VINKA mientras tanto. La guía «Primeros pasos» te indica qué hacer primero.</p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <button className="text-[13px] font-semibold text-tinta-3 underline" onClick={end}>Ahora no</button>
+          <button className="btn-sm h-10 bg-rosa-accion px-4 text-white" onClick={() => setI(1)}>Ver recorrido</button>
+        </div>
+      </div>
+    </div>
+  )
   return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Recorrido por VINKA">
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Recorrido por VINKA" onClick={(e) => { if (e.target === e.currentTarget) end() }}>
       {box
         ? <div className="pointer-events-none absolute rounded-2xl transition-all" style={{ top: box.top - pad, left: box.left - pad, width: box.width + pad * 2, height: box.height + pad * 2, boxShadow: '0 0 0 9999px rgba(26,12,20,.62)' }} />
-        : <div className="absolute inset-0 bg-[rgba(26,12,20,.62)]" />}
+        : <div className="absolute inset-0 bg-[rgba(26,12,20,.62)]" onClick={end} />}
       <div className="absolute flex w-[min(340px,calc(100vw-32px))] flex-col gap-2 rounded-2xl bg-white p-4 shadow-xl"
         style={box ? { top: bubbleTop, bottom: bubbleBottom, left: Math.max(16, Math.min(vw - 356, box.left + box.width / 2 - 170)) } : { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}>
         {step ? <>

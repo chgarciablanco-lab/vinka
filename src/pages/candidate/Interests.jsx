@@ -158,7 +158,7 @@ function ProcessSteps({ r, ivs, offers, onInterview }) {
       <button className="btn-sm shrink-0 bg-white text-rosa-texto" onClick={() => onInterview(iv)}>Ver</button>
     </div>,
   )
-  else if (r.can_schedule && !r.closed) rows.push(
+  else if (r.can_schedule && !r.closed && !['oferta', 'contratado', 'descartado', 'cerrado'].includes(r.stage)) rows.push(
     <Link key="ag" to={`/chats/${r.match_id}/agendar`} className="flex items-center gap-3 rounded-xl border border-rosa-borde bg-rosa-palido px-3 py-2.5">
       <Svg name="calendar" size={20} className="shrink-0 text-rosa-accion" />
       <span className="flex flex-1 flex-col"><span className="text-sm font-semibold text-rosa-oscuro">Puedes agendar tu entrevista</span><span className="text-xs text-tinta-3">La empresa te invitó a elegir un horario</span></span>

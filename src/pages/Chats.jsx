@@ -307,6 +307,7 @@ export function ChatRoom() {
             <span className="text-sm font-semibold text-rosa-texto">Ver</span>
           </button>
         )
+        if (isCompany && (m.closed || ['oferta', 'contratado', 'descartado'].includes(m.stage))) return null
         if (isCompany) return m.can_schedule ? (
           <Link to="/agenda" className="flex items-center gap-3 border-b border-[#EEE3EA] bg-white px-4 py-2.5">
             <Svg name="calendar" size={22} className="text-[#2F7A4F]" />
@@ -319,6 +320,7 @@ export function ChatRoom() {
             <button className="btn-sm shrink-0 bg-rosa-accion text-white" onClick={inviteSchedule}>Invitar a agendar</button>
           </div>
         )
+        if (m.closed || ['oferta', 'contratado', 'descartado'].includes(m.stage)) return null
         return m.can_schedule ? (
           <Link to={`/chats/${id}/agendar`} className="flex items-center gap-3 border-b border-rosa-borde bg-rosa-palido px-4 py-2.5">
             <Svg name="calendar" size={22} className="text-rosa-accion" />

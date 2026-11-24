@@ -17,7 +17,7 @@ async function knowledge() {
     sb.from('career_services').select('name, price_clp, delivery, includes, sort').eq('active', true).order('sort'),
     sb.from('promo_products').select('name, price_clp, price_mode, target, sort').eq('active', true).order('sort'),
   ])
-  const p = (plans || []).map((x: any) => `- Plan ${x.name}: ${clp(x.price_clp)}${x.price_clp ? ' + IVA al mes' : ''}; ${x.max_active_jobs ?? 'sin límite de'} vacante(s) publicadas a la vez; ${x.max_members ?? 'sin límite de'} persona(s) del equipo${x.promo_credits ? `; incluye ${x.promo_credits} destacado(s) de ${x.promo_days} días al mes` : ''}${x.report_monthly ? `; ${x.report_monthly} informe(s) psicolaboral(es) con IA al mes` : ''}${x.disc_monthly ? `; ${x.disc_monthly} test(s) DISC al mes` : ''}.`).join('\n')
+  const p = (plans || []).map((x: any) => `- Plan ${x.name}: ${clp(x.price_clp)}${x.price_clp ? ' + IVA al mes' : ''}; ${x.max_active_jobs ?? 'sin límite de'} vacante(s) publicadas a la vez; ${x.max_members ?? 'sin límite de'} persona(s) del equipo${x.promo_credits ? `; incluye ${x.promo_credits} destacado(s) de ${x.promo_days} días al mes` : ''}${x.report_monthly ? `; ${x.report_monthly} informe(s) psicolaboral(es) con IA al mes` : ''}${x.disc_monthly ? `; ${x.disc_monthly} reporte(s) DISC con IA al mes (enviar el test no consume cupo)` : ''}.`).join('\n')
   const s = (services || []).map((x: any) => `- ${x.name}: ${clp(x.price_clp)} pago único, IVA incluido. ${x.delivery}. Incluye: ${(x.includes || []).join('; ')}.`).join('\n')
   const d = (promos || []).map((x: any) => `- ${x.name}: ${clp(x.price_clp)}${x.price_mode === 'neto' ? ' + IVA' : ' IVA incluido'}.`).join('\n')
   return `DATOS ACTUALES DE VINKA (úsalos tal cual; no inventes otros precios):

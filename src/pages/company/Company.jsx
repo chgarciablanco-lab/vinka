@@ -188,7 +188,7 @@ export function CompanyPanel() {
               </div>
               <span className={`pill whitespace-nowrap ${STATUS[j.status][1]}`}>{STATUS[j.status][0]}</span>
             </div>
-            <Link to={`/vacantes/${j.id}/proceso`} className="btn-sm gap-1.5 bg-rosa-accion text-white"><Svg name="columns" size={18} />Proceso de selección{stats[j.id] ? ` · ${stats[j.id].interests + (ext[j.id] || 0)}` : ''}</Link>
+            <Link to={`/vacantes/${j.id}/proceso`} className="btn-sm gap-1.5 bg-rosa-accion text-white"><Svg name="columns" size={18} />Proceso de selección{stats[j.id] ? ` · ${stats[j.id].interests + (ext[j.id] || 0)} ${stats[j.id].interests + (ext[j.id] || 0) === 1 ? 'postulación' : 'postulaciones'}` : ''}</Link>
             <div className="grid grid-cols-2 gap-2">
               {canManage && <Link to={`/vacantes/${j.id}`} className="btn-sm border border-linea bg-white">Editar</Link>}
               {j.status === 'published'

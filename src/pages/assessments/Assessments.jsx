@@ -67,7 +67,7 @@ async function loadAnnex(files) {
 function UsageChip({ usage }) {
   if (!usage) return null
   const left = Math.max(0, usage.limit - usage.used)
-  return <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${left ? 'bg-[#F7F0FB] text-[#4A2163]' : 'bg-[#FEF3F2] text-[#912018]'}`}>{left} de {usage.limit} informes este mes</span>
+  return <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${left ? 'bg-[#F7F0FB] text-[#4A2163]' : 'bg-[#FEF3F2] text-[#912018]'}`}>Quedan {left} de {usage.limit} informes con IA este mes</span>
 }
 
 /* ───────────── Lista ───────────── */

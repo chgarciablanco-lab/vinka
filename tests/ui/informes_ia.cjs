@@ -56,7 +56,7 @@ async function ctxFor(b, rpc, calls) {
   const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(e.message))
   await p.goto(BASE + '/evaluaciones', { waitUntil: 'networkidle' }); await p.waitForTimeout(700)
   let t = await p.locator('body').innerText()
-  out.push('lista de evaluaciones con cupo del mes: ' + (/Subadministrador/.test(t) && /7 de 10 informes este mes/.test(t)))
+  out.push('lista de evaluaciones con cupo del mes: ' + (/Subadministrador/.test(t) && /Quedan 7 de 10 informes con IA este mes/.test(t)))
   await p.screenshot({ path: OUT + 'informes-lista.png', fullPage: true })
   await p.goto(BASE + '/evaluaciones/' + EV, { waitUntil: 'networkidle' }); await p.waitForTimeout(800)
   t = await p.locator('body').innerText()

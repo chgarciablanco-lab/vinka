@@ -35,7 +35,11 @@ const ob = (role, steps, extra = {}) => ({ role, steps, done: steps.filter((s) =
     const dlg = p.getByRole('dialog', { name: 'Recorrido por VINKA' })
     out.push('recorrido aparece la primera vez: ' + (await dlg.count() === 1 && /Bienvenida\/o a VINKA/.test(await dlg.innerText())))
     await p.screenshot({ path: OUT + 'pasos-bienvenida.png' })
-    await dlg.getByRole('button', { name: 'Comenzar' }).click(); await p.waitForTimeout(300)
+    // La bienvenida no bloquea: la pantalla sigue usable (el botón «Actualizar» responde con la tarjeta abierta)
+    const before = calls.filter((c) => c.startsWith('job_feed')).length
+    await p.evaluate(() => document.getElementById('splash')?.remove()); await p.getByRole('button', { name: 'Actualizar' }).click({ timeout: 2000 }).catch(() => {}); await p.waitForTimeout(400)
+    out.push('bienvenida no bloquea: la pantalla responde con la tarjeta abierta: ' + (calls.filter((c) => c.startsWith('job_feed')).length > before && await dlg.count() === 1))
+    await dlg.getByRole('button', { name: 'Ver recorrido' }).click(); await p.waitForTimeout(300)
     const t1 = await dlg.innerText()
     await p.screenshot({ path: OUT + 'pasos-recorrido.png' })
     const inView = await dlg.locator('div.absolute.flex').evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight })

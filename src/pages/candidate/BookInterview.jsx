@@ -46,6 +46,8 @@ export default function BookInterview() {
 
   if (match === null || slots === null) return <Spinner />
   if (match === false) return <Screen><TopBar back title="Agendar" /><div className="p-6"><Empty title="Chat no disponible">No encontramos este match.</Empty></div></Screen>
+  // Proceso terminado (contratado/a, oferta, descartado o cerrado): se conserva el historial, pero no se agenda
+  if (match.closed || ['oferta', 'contratado', 'descartado'].includes(match.stage)) return <Screen><TopBar back={`/chats/${id}`} title="Agendar entrevista" /><div className="p-6"><Empty title="Este proceso ya no admite entrevistas">{match.stage === 'contratado' ? '¡Felicitaciones! Ya fuiste contratado/a para esta vacante.' : match.stage === 'oferta' ? 'Este proceso ya está en la etapa de oferta.' : 'Este proceso terminó.'} El historial sigue disponible en el chat.</Empty><Link to={`/chats/${id}`} className="btn-sec mt-3">Volver al chat</Link></div></Screen>
   if (!match.can_schedule) return <Screen><TopBar back={`/chats/${id}`} title="Agendar entrevista" /><div className="p-6"><Empty title="Aún no puedes agendar">{match.company_name} te avisará por el chat cuando puedas elegir un horario para tu entrevista.</Empty></div></Screen>
 
   if (booked) return (

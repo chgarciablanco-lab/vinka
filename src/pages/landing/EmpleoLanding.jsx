@@ -120,7 +120,7 @@ export default function EmpleoLanding() {
           {demoCount > 0 && <p className="rounded-xl bg-[#FFF4E5] px-3 py-2 text-[13px] text-[#8F4500]">VINKA está en etapa piloto: los avisos marcados «Aviso de demostración» son de prueba y no corresponden a empleos reales.</p>}
           {jobs == null ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((k) => <div key={k} className="h-36 animate-pulse rounded-2xl bg-[#F6EEF3]" />)}</div>
             : jobs.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{jobs.map((j) => <JobMiniCard key={j.id} j={j} />)}</div>
-            : <p className="rounded-2xl bg-rosa-fondo p-5 text-[15px] text-tinta-3">Aún no hay vacantes públicas. Crea tu perfil y te avisamos cuando aparezca una que calce contigo.</p>}
+            : <div className="flex flex-col items-start gap-3 rounded-2xl bg-rosa-fondo p-5 text-[15px] text-tinta-3"><p>Por ahora no hay vacantes publicadas. Crea tu perfil gratis: te avisamos cuando aparezca una que calce contigo y las empresas también pueden encontrarte.</p><button onClick={() => nav(logged ? '/' : '/registro/candidato')} className="btn-sm h-10 bg-rosa-accion px-4 text-white">{logged ? 'Ir a Explorar' : 'Crear mi perfil gratis'}</button></div>}
         </div>
       </section>
 

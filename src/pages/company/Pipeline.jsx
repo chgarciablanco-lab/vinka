@@ -245,7 +245,7 @@ export default function Pipeline() {
       <div className="safe-t sticky top-0 z-20 border-b border-[#EEE3EA] bg-white px-4 pb-3 lg:px-6">
         <div className="-ml-2 flex items-center gap-1">
           <button aria-label="Volver" onClick={() => nav(d.can_manage ? home : '/comunidad')} className="flex h-11 w-11 shrink-0 items-center justify-center"><Svg name="back" /></button>
-          <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')}</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
+          <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')} en el tablero</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
           {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]); setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : <><Svg name="check" size={16} className="mr-1" />Seleccionar varios</>}</button>}
         </div>
         {!selecting && <CollabBar jobId={id} suggestions={sugs} onChange={load} />}

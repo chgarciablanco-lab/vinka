@@ -173,6 +173,7 @@ export default function AtsLanding() {
                     <ul className="flex flex-col gap-1.5 text-sm text-tinta-2">
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.max_active_jobs == null ? 'Vacantes sin límite' : `${p.max_active_jobs} ${p.max_active_jobs === 1 ? 'vacante publicada' : 'vacantes publicadas'} a la vez`}</li>
                       <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.max_members == null ? 'Equipo sin límite' : `${p.max_members} ${p.max_members === 1 ? 'persona' : 'personas'} en el equipo`}</li>
+                      {p.ai_monthly ? <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.ai_monthly.toLocaleString('es-CL')} consultas de IA al mes</li> : null}
                       {p.report_monthly ? <li className="flex gap-2"><Svg name="check" size={18} className="shrink-0 text-[#2F7A4F]" />{p.report_monthly} informes psicolaborales con IA al mes</li> : null}
                     </ul>
                     <button onClick={() => (p.price_clp == null ? nav(`/cotizar?plan=${p.id}`) : (p.id !== 'gratis' && setNext('/plan'), trial()))}

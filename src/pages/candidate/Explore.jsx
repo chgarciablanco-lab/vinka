@@ -226,12 +226,12 @@ export default function Explore() {
           </div>
         )}
         {jobs == null ? <Spinner /> : !job ? (
-          <Empty title={broad ? 'Viste todas las vacantes' : jobs.length ? 'Viste todas las vacantes para tu perfil' : 'Aún no hay vacantes para tu perfil'}
+          <Empty title={broad ? (jobs.length ? 'Viste todas las vacantes' : 'Por ahora no hay vacantes abiertas') : jobs.length ? 'Viste todas las vacantes para tu perfil' : 'Aún no hay vacantes para tu perfil'}
             action={<div className="mt-1.5 flex flex-col items-center gap-2">
               {!broad && <button onClick={() => load(true)} className="btn-sm bg-rosa-accion text-white">Ver otras vacantes</button>}
               <button onClick={() => load(false)} className="btn-sm border border-rosa-accion bg-white text-rosa-texto">Buscar de nuevo</button>
             </div>}>
-            {broad ? 'Te avisaremos en Intereses si una empresa se interesa en ti.' : 'Te mostramos solo vacantes acordes a tu tipo de cargo y nivel. "Ver otras vacantes" muestra el resto, aunque no calcen tanto con tu perfil.'}
+            {broad ? (jobs.length ? 'Te avisaremos en Intereses si una empresa se interesa en ti.' : 'No hay vacantes publicadas en este momento, ni siquiera fuera de tu perfil. Completa tu perfil: las empresas también pueden encontrarte e invitarte, y te avisaremos en Intereses.') : 'Te mostramos solo vacantes acordes a tu tipo de cargo y nivel. "Ver otras vacantes" muestra el resto, aunque no calcen tanto con tu perfil.'}
           </Empty>
         ) : view === 'lista' ? (
           <div className="flex flex-col gap-2.5">

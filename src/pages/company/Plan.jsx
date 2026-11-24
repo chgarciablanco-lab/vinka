@@ -26,6 +26,7 @@ function Meter({ label, used, max }) {
 export default function Plan() {
   const { company } = useAuth()
   const [d, setD] = useState(null)
+  const [rep, setRep] = useState(null)
   const [err, setErr] = useState('')
   const [pick, setPick] = useState('')
   const [msg, setMsg] = useState('')
@@ -38,6 +39,7 @@ export default function Plan() {
 
   const load = useCallback(() => {
     supabase.rpc('company_plan', { p_company: company.id }).then(({ data, error }) => { if (error) setErr(errMsg(error)); setD(data) })
+    supabase.rpc('my_report_usage', { p_company: company.id }).then(({ data }) => setRep(data || null), () => setRep(null))
   }, [company])
   useEffect(() => { load() }, [load])
 
@@ -72,8 +74,11 @@ export default function Plan() {
             <Meter label="Vacantes publicadas a la vez" used={d.usage.jobs} max={p.max_active_jobs} />
             {p.max_active_jobs != null && d.usage.jobs > p.max_active_jobs && <p className="rounded-xl bg-naranja-palido px-3 py-2 text-sm text-[#4A2A00]">Tienes {pl(d.usage.jobs - p.max_active_jobs, 'vacante', 'vacantes')} más de las que permite tu plan. Pausa alguna o cambia de plan; mientras tanto no podrás publicar nuevas.</p>}
             <Meter label="Personas en el equipo" used={d.usage.members} max={p.max_members} />
-            <Meter label="Consultas de IA del mes" used={d.usage.ai} max={p.ai_monthly} />
+            <Meter label="Consultas de IA del mes (avisos, sesgos y apoyo)" used={d.usage.ai} max={p.ai_monthly} />
+            {rep?.limit > 0 && <Meter label="Informes psicolaborales con IA del mes" used={rep.used} max={rep.limit} />}
+            {p.disc_monthly > 0 && <span className="text-sm text-tinta-2">Reportes DISC con IA: hasta {p.disc_monthly} al mes. Enviar el test DISC no consume cupo.</span>}
             {p.promo_credits > 0 && <Meter label={`Destacados incluidos (${p.promo_days} días c/u)`} used={d.usage.promos || 0} max={p.promo_credits} />}
+            <p className="hint">Los números muestran lo usado este mes y el límite de tu plan. Las consultas de IA, los informes y los reportes DISC son cupos distintos y se renuevan el {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })} (hora de Chile).</p>
             <p className="hint">Cada uso de la IA queda registrado en el historial del candidato. Al llegar a un límite, VINKA te avisa y no se pierde nada.</p>
             <p className="hint">Destacar una vacante la muestra entre los primeros resultados para las personas a quienes calza; no cambia cómo se evalúa a nadie. {p.promo_credits > 0 ? 'Úsalos desde cada vacante en el Panel.' : 'Con plan Gratis puedes comprar destacados sueltos desde cada vacante.'}</p>
           </div>
