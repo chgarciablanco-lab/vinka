@@ -1,0 +1,14 @@
+{
+  "name": "VINKA Empleo",
+  "short_name": "VINKA Empleo",
+  "description": "Encuentra trabajo que calce contigo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9FB",
+  "theme_color": "#FFF9FB",
+  "lang": "es-CL",
+  "icons": [
+    { "src": "/icons/empleo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/empleo-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
