@@ -12,6 +12,7 @@ import { BottomNav, Spinner, Svg } from './components/ui'
 import { DesktopNav } from './components/DesktopNav'
 import { ErrorBoundary, isStaleChunk, reloadForNewVersion } from './components/ErrorBoundary'
 import { readPendingInvite } from './lib/invite'
+import { hostLanding } from './lib/siteHost'
 
 // Cada pantalla se descarga solo cuando se abre: la app inicial pesa menos y carga más rápido
 // Pantallas con carga diferida. Si la app quedó abierta durante una publicación, el archivo antiguo ya no existe: se recarga sola.
@@ -182,7 +183,7 @@ export default function App() {
   if (!session) {
     return wrap(
       <Routes>
-        <Route path="/" element={<Welcome />} />
+        <Route path="/" element={hostLanding() === 'ats' ? <AtsLanding /> : hostLanding() === 'empleo' ? <EmpleoLanding /> : <Welcome />} />
         <Route path="/ingresar" element={<Login />} />
         <Route path="/recuperar" element={<Forgot />} />
         <Route path="/registro/candidato" element={<SignupCandidate />} />
