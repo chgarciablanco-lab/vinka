@@ -39,7 +39,7 @@ export default function Help() {
           {session && <FirstStepsControls />}
           <Link to="/tutoriales" className="card flex items-center gap-3 p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rosa-palido text-rosa-oscuro"><Svg name="video" /></span>
-            <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Tutoriales y videos</span><span className="text-[13px] text-tinta-3">Guías paso a paso para personas y empresas</span></span>
+            <span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Tutoriales y videos</span><span className="text-[13px] text-tinta-3">Guías y videos para personas, empresas y asesores</span></span>
             <Svg name="chevron" size={18} className="text-tinta-suave" />
           </Link>
           <a href="mailto:contacto@vinka.cl" className="card flex items-center gap-3 p-4">

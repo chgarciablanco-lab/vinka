@@ -33,6 +33,8 @@ const FAQ = [
   ['¿La asesoría me da ventaja ante las empresas?', 'No. Las empresas no saben si contrataste una asesoría y no cambia tus matches. Te ayuda a presentarte mejor y a buscar con un plan.'],
   ['¿Cómo funciona la prueba para empresas?', 'Toda empresa nueva parte con 30 días del plan Pyme. Si no eliges un plan, pasa al plan Gratis sin perder nada.'],
   ['¿Cómo verifican a las empresas?', 'Revisamos el RUT y la razón social antes de publicar. Así quienes postulan saben que la oferta es real.'],
+  ['¿La IA decide a quién contratar?', 'No. La IA ayuda a redactar avisos, informes y comparativos, pero siempre entrega un borrador que una persona revisa, corrige y cierra. La decisión es de la empresa.'],
+  ['¿Qué es el test DISC de VINKA?', 'Un cuestionario propio de estilo laboral: 24 grupos de palabras, entre 8 y 15 minutos y sin cámara. La empresa o consultora te envía un enlace y lo respondes sin crear cuenta. No hay respuestas buenas ni malas.'],
   ['¿Qué pasa con mis datos?', 'Se guardan en servidores seguros y se usan solo para conectar personas y empresas, según la Ley 19.628 y la Ley 21.719. Puedes descargarlos o borrar tu cuenta cuando quieras.'],
 ]
 
