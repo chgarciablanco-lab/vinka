@@ -34,7 +34,7 @@ export function InstallBanner({ always = false }) {
         {ios ? (
           <ol className="flex flex-col gap-4 text-[15px] leading-relaxed">
             <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rosa-palido font-bold text-rosa-oscuro">1</span>
-              <span>Abre <b>vinka-alpha.vercel.app</b> en <b>Safari</b>.</span></li>
+              <span>Abre <b>{typeof window !== 'undefined' ? window.location.hostname : 'vinka-alpha.vercel.app'}</b> en <b>Safari</b>.</span></li>
             <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rosa-palido font-bold text-rosa-oscuro">2</span>
               <span>Toca el botón <b>Compartir</b>
                 <svg aria-label="ícono compartir" className="mx-1 inline align-[-3px]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F6FB2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 8l5-5 5 5" /><path d="M5 12v8h14v-8" /></svg>

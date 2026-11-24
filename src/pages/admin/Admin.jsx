@@ -117,7 +117,8 @@ function Revenue({ demo }) {
 const QUOTE_ST = { nuevo: 'Nueva', contactado: 'Contactada', cotizado: 'Cotizada', cerrado: 'Cerrada (cliente)', descartado: 'Descartada' }
 const QUOTE_REASON = { plan: 'Cotizar plan', demo: 'Solicitar demo', consultora: 'Consultora', volumen: 'Volumen / varias sedes', otro: 'Otra consulta' }
 // Respuesta predeterminada a una cotización: se completa con los datos de la solicitud y del plan; se puede editar antes de enviar
-const APP = 'https://vinka-alpha.vercel.app'
+// Las respuestas a empresas las envían a VINKA ATS (su portada); la cuenta se crea igual que en cualquier dirección
+const APP = 'https://vinka-ats.vercel.app'
 function quoteDraft(q, plans, me) {
   const plan = plans.find((x) => x.id === q.plan_id)
   const first = (q.contact_name || '').trim().split(/\s+/)[0] || ''
