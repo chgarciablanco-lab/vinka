@@ -1,4 +1,4 @@
-// Tutoriales (sin sesión): cada pestaña con su video, las guías nuevas (primeros pasos, informes, test DISC, comparativo)
+// Tutoriales (sin sesión): cada pestaña con su video nuevo (horizontal en computador, vertical en celular), las guías nuevas (primeros pasos, informes, test DISC, comparativo)
 // con sus imágenes, el video de empresas horizontal en computador y vertical en celular, y preguntas frecuentes nuevas.
 const { BASE, OUT } = require('./_config.cjs')
 const { chromium, devices } = require('playwright')
@@ -11,6 +11,8 @@ const { chromium, devices } = require('playwright')
     await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort())
     await ctx.route(/supabase\.co/, (r) => { const p = new URL(r.request().url()).pathname; return r.fulfill({ status: p.startsWith('/auth/v1/user') ? 401 : 200, contentType: 'application/json', body: p.startsWith('/auth') ? '{}' : '[]' }) })
     const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(`${label}: ${e.message}`))
+    const vidFmt = async (v) => { const w = `${v}-${mobile ? 'movil' : 'escritorio'}`, o = `${v}-${mobile ? 'escritorio' : 'movil'}`
+      return await p.locator(`video[src*="${w}"]`).isVisible() && !(await p.locator(`video[src*="${o}"]`).isVisible()) && await p.evaluate(async (u) => (await fetch(u, { method: 'HEAD' })).ok, `/media/${w}.mp4`) }
     const imgOk = async (n) => p.evaluate(async (u) => (await fetch(u, { method: 'HEAD' })).ok, `/media/tut/${n}.jpg`)
 
     await p.goto(BASE + '/tutoriales/empresas', { waitUntil: 'networkidle' }); await p.waitForTimeout(600)
@@ -32,10 +34,10 @@ const { chromium, devices } = require('playwright')
 
     await p.getByRole('tab', { name: 'Busco trabajo' }).click(); await p.waitForTimeout(500)
     t = await p.locator('body').innerText()
-    out.push(`[${label}] postulantes: primeros pasos y «Si te envían un test DISC»; su video sigue: ` + (t.includes('Primeros pasos guiados') && t.includes('Si te envían un test DISC') && await p.locator('video[src*="tutorial-postulantes"]').count() === 1))
+    out.push(`[${label}] postulantes: primeros pasos y «Si te envían un test DISC»; su video nuevo en el formato correcto: ` + (t.includes('Primeros pasos guiados') && t.includes('Si te envían un test DISC') && await vidFmt('personas')))
     await p.getByRole('tab', { name: 'Soy asesor/a' }).click(); await p.waitForTimeout(500)
     t = await p.locator('body').innerText()
-    out.push(`[${label}] asesores: primeros pasos e «Informes, test DISC y comparativos»: ` + (t.includes('Primeros pasos guiados') && t.includes('Informes, test DISC y comparativos') && await p.locator('video[src*="tutorial-asesores"]').count() === 1))
+    out.push(`[${label}] asesores: primeros pasos e «Informes, test DISC y comparativos»: ` + (t.includes('Primeros pasos guiados') && t.includes('Informes, test DISC y comparativos') && await vidFmt('asesores')))
     if (!mobile) {
       const w = await p.evaluate(() => document.documentElement.scrollWidth)
       out.push(`[${label}] sin desborde horizontal: ` + (w <= 1366))

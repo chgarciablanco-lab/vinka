@@ -6,7 +6,7 @@ import { Screen, Svg, TopBar } from '../components/ui'
 // Guías paso a paso. «to» lleva a la pantalla cuando la persona tiene el rol correspondiente.
 const GUIDES = {
   postulantes: {
-    label: 'Busco trabajo', video: '/media/tutorial-postulantes.mp4?v=3', poster: '/media/tutorial-postulantes.jpg?v=3',
+    label: 'Busco trabajo', video: '/media/personas-movil.mp4?v=1', poster: '/media/personas-movil.jpg?v=1', videoWide: '/media/personas-escritorio.mp4?v=1', posterWide: '/media/personas-escritorio.jpg?v=1',
     intro: 'VINKA es gratis para quienes buscan trabajo. Nunca te cobraremos por postular ni por ser contratado/a. Las asesorías y el perfil destacado son opcionales.',
     items: [
       { icon: 'check', title: 'Primeros pasos guiados', to: '/', steps: ['Al entrar ves «Primeros pasos»: una lista con tu avance para dejar tu cuenta lista.', 'Toca un paso para ir a esa pantalla; se marca solo cuando lo completas.', 'Puedes ocultar la lista o repetir el recorrido por el menú desde Ayuda.'] },
@@ -45,7 +45,7 @@ const GUIDES = {
     ],
   },
   asesores: {
-    label: 'Soy asesor/a', video: '/media/tutorial-asesores.mp4?v=3', poster: '/media/tutorial-asesores.jpg?v=3',
+    label: 'Soy asesor/a', video: '/media/asesores-movil.mp4?v=1', poster: '/media/asesores-movil.jpg?v=1', videoWide: '/media/asesores-escritorio.mp4?v=1', posterWide: '/media/asesores-escritorio.jpg?v=1',
     intro: 'Como asesor/a de VINKA acompañas a postulantes en sus asesorías, reclutas para tus propias vacantes y colaboras con otros asesores. Tu cuenta la entrega VINKA.',
     items: [
       { icon: 'check', title: 'Primeros pasos guiados', to: '/', steps: ['Al entrar ves «Primeros pasos»: una lista con tu avance para dejar tu cuenta lista.', 'Toca un paso para ir a esa pantalla; se marca solo cuando lo completas.', 'Puedes ocultar la lista o repetir el recorrido por el menú desde Ayuda.'] },
