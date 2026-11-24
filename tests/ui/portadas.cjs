@@ -6,6 +6,7 @@ const fs = require('fs')
 const SP = process.env.PORTADAS_DATA || __dirname + '/fixtures'
 const plans = JSON.parse(fs.readFileSync(SP + '/plans.json', 'utf8'))
 const services = JSON.parse(fs.readFileSync(SP + '/services.json', 'utf8'))
+const quoteReasons = []
 const JOBS = [
   { id: 'a1111111-1111-1111-1111-111111111111', title: 'Ejecutivo/a de ventas', company: 'Nova Retail', comuna: 'Talca', modality: 'presencial', salary_min: 650000, salary_max: 800000, salary_type: 'liquido', demo: true },
   { id: 'a2222222-2222-2222-2222-222222222222', title: 'Cajero/a', company: 'Supermercado Sur', comuna: 'Curicó', modality: 'presencial', salary_min: 550000, salary_max: 600000, salary_type: 'liquido', demo: true },
@@ -25,7 +26,7 @@ async function ctxFor(b, device, calls) {
     if (path.startsWith('/auth/v1/user')) return send({}, 401)
     if (path.startsWith('/auth/') || path.startsWith('/storage/')) return send({})
     const name = path.startsWith('/rest/v1/rpc/') && path.split('/').pop()
-    if (name) { calls.push(name); if (name === 'public_recent_jobs') return send(JOBS); if (name === 'public_job') return send({ id: JOBS[0].id, title: JOBS[0].title, company: { display_name: 'Nova Retail' }, questions: [] }); return send(null) }
+    if (name) { calls.push(name); if (name === 'submit_quote') { try { quoteReasons.push(JSON.parse(r.postData()).p.reason) } catch { /* sin cuerpo */ } } if (name === 'public_recent_jobs') return send(JOBS); if (name === 'public_job') return send({ id: JOBS[0].id, title: JOBS[0].title, company: { display_name: 'Nova Retail' }, questions: [] }); return send(null) }
     const t = path.split('/').pop()
     if (t === 'plans') return send(plans)
     if (t === 'career_services') return send(services.slice(0, 3))
@@ -109,7 +110,11 @@ const shot = async (p, path) => { await p.evaluate(() => { window.scrollTo(0, 0)
     await p.goto(BASE + '/portada/ats', { waitUntil: 'networkidle' }); await p.waitForTimeout(500); await clean(p)
     await p.getByRole('button', { name: 'Solicitar demo' }).first().click(); await p.waitForTimeout(600)
     t = await p.locator('body').innerText()
-    out.push(`[${label}] «Solicitar demo» abre el formulario existente con el motivo prellenado: ` + (p.url().includes('/cotizar?demo=1') && /Solicitar demo/.test(t) && (await p.locator('textarea').inputValue()).includes('demo de VINKA ATS')))
+    const inputs = await p.locator('form input:not([type=checkbox]), form select, form textarea').count()
+    out.push(`[${label}] «Solicitar demo» abre un formulario corto (nombre, empresa, correo y consentimiento): ` + (p.url().includes('/cotizar?demo=1') && /Solicitar demo/.test(t) && inputs === 3 && !/Motivo/.test(t)))
+    await p.getByLabel('Tu nombre').fill('Rosa Prueba'); await p.getByLabel('Empresa').fill('Ferretería Prueba'); await p.getByLabel('Correo').fill('rosa@example.com')
+    await p.getByRole('checkbox').check(); await p.getByRole('button', { name: 'Enviar solicitud' }).click(); await p.waitForTimeout(600)
+    out.push(`[${label}] «Solicitar demo» envía con motivo «demo» y confirma: ` + (calls.includes('submit_quote') && quoteReasons.includes('demo') && /coordinar la demo/.test(await p.locator('body').innerText())))
     await p.goto(BASE + '/portada/ats', { waitUntil: 'networkidle' }); await p.waitForTimeout(500); await clean(p)
     await p.getByRole('button', { name: 'Probar gratis 30 días' }).click(); await p.waitForTimeout(500)
     out.push(`[${label}] «Probar gratis» lleva al registro de empresas: ` + p.url().endsWith('/registro/empresa'))

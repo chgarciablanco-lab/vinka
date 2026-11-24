@@ -12,11 +12,11 @@ const EMPTY = { company_name: '', rut: '', contact_name: '', contact_role: '', e
 export default function Quote() {
   const [sp] = useSearchParams()
   const [plans, setPlans] = useState([])
-  // Desde VINKA ATS «Solicitar demo» llega con ?demo=1: se registra como «Otra consulta» con el mensaje prellenado
+  // Desde VINKA ATS «Solicitar demo» llega con ?demo=1: formulario corto (nombre, empresa y correo) con motivo «Solicitar demo»
   const isDemo = sp.get('demo') === '1'
-  const [reason, setReason] = useState(isDemo ? 'otro' : REASONS.some(([k]) => k === sp.get('motivo')) ? sp.get('motivo') : 'plan')
+  const [reason, setReason] = useState(isDemo ? 'demo' : REASONS.some(([k]) => k === sp.get('motivo')) ? sp.get('motivo') : 'plan')
   const [plan, setPlan] = useState(sp.get('plan') || '')
-  const [f, setF] = useState(() => (isDemo ? { ...EMPTY, message: 'Quiero una demo de VINKA ATS.' } : EMPTY))
+  const [f, setF] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
@@ -28,7 +28,10 @@ export default function Quote() {
     e.preventDefault(); setErr('')
     if (f.rut && !validRut(f.rut)) return setErr('El RUT no es válido. Revisa el dígito verificador o déjalo en blanco.')
     setBusy(true)
-    const { error } = await supabase.rpc('submit_quote', { p: { ...f, reason, plan_id: reason === 'plan' ? plan : '', path: window.location.pathname + window.location.search } })
+    const p = { ...f, reason, plan_id: reason === 'plan' ? plan : '', path: window.location.pathname + window.location.search }
+    let { error } = await supabase.rpc('submit_quote', { p })
+    // Mientras la base no acepte el motivo «demo», se registra como «Otra consulta» indicando que es una demo
+    if (error && reason === 'demo' && /Motivo no v/i.test(error.message || '')) ({ error } = await supabase.rpc('submit_quote', { p: { ...p, reason: 'otro', message: ('Solicitar demo de VINKA ATS. ' + (p.message || '')).trim() } }))
     setBusy(false)
     if (error) return setErr(errMsg(error))
     setDone(true)
@@ -36,11 +39,11 @@ export default function Quote() {
 
   if (done) return (
     <Screen>
-      <TopBar back="/" title="Cotización" />
+      <TopBar back={isDemo ? '/portada/ats' : '/'} title={isDemo ? 'Solicitar demo' : 'Cotización'} />
       <div className="flex flex-col items-center gap-3 px-6 pt-10 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EAF6EF] text-[#2F7A4F]"><Svg name="check" size={28} /></span>
         <h1 className="font-display text-[22px] font-bold">Recibimos tu solicitud</h1>
-        <p className="max-w-sm text-[15px] leading-relaxed text-tinta-3">Te escribiremos a <b>{f.email}</b> con la cotización{planName ? ` del plan ${planName}` : ''} dentro de 1 día hábil.</p>
+        <p className="max-w-sm text-[15px] leading-relaxed text-tinta-3">{isDemo ? <>Te escribiremos a <b>{f.email}</b> dentro de 1 día hábil para coordinar la demo.</> : <>Te escribiremos a <b>{f.email}</b> con la cotización{planName ? ` del plan ${planName}` : ''} dentro de 1 día hábil.</>}</p>
         <Link to="/" className="btn-sec mt-2">Volver al inicio</Link>
       </div>
     </Screen>
@@ -51,6 +54,11 @@ export default function Quote() {
       <TopBar back={isDemo ? '/portada/ats' : '/'} title={isDemo ? 'Solicitar demo' : 'Pedir cotización'} />
       <form onSubmit={send} className="mx-auto flex w-full max-w-xl flex-col gap-3.5 px-6 pb-12">
         <p className="text-[15px] leading-relaxed text-tinta-3">{isDemo ? 'Déjanos tus datos y te contactamos para coordinar una demo de 30 minutos. No necesitas crear una cuenta.' : 'Cuéntanos lo básico y te enviamos una cotización por correo. No necesitas crear una cuenta.'}</p>
+        {isDemo ? (<>
+          <Field label="Tu nombre"><input className="input" required maxLength={120} value={f.contact_name} onChange={set('contact_name')} autoComplete="name" /></Field>
+          <Field label="Empresa"><input className="input" required maxLength={160} value={f.company_name} onChange={set('company_name')} autoComplete="organization" /></Field>
+          <Field label="Correo"><input className="input" type="email" required maxLength={160} value={f.email} onChange={set('email')} autoComplete="email" /></Field>
+        </>) : (<>
         <fieldset className="flex flex-col gap-2"><legend className="label mb-1">Motivo</legend>
           <div className="grid grid-cols-2 gap-2">{REASONS.map(([k, l]) => (
             <button key={k} type="button" aria-pressed={reason === k} onClick={() => setReason(k)} className={`chip h-11 justify-center px-2 text-[13px] ${reason === k ? 'chip-on' : ''}`}>{l}</button>
@@ -79,12 +87,14 @@ export default function Quote() {
         <Field label="Correo"><input className="input" type="email" required maxLength={160} value={f.email} onChange={set('email')} autoComplete="email" /></Field>
         <Field label="Teléfono (opcional)"><input className="input" type="tel" maxLength={30} value={f.phone} onChange={set('phone')} autoComplete="tel" /></Field>
         <Field label="Comentarios (opcional)"><textarea className="textarea h-24" maxLength={2000} value={f.message} onChange={set('message')} placeholder="Cargos que buscan, fechas, integraciones, facturación…" /></Field>
+        </>)}
         <label className="flex items-start gap-2.5 text-[13px] leading-snug text-tinta-2">
           <input type="checkbox" checked={f.consent} onChange={set('consent')} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />
-          <span>Autorizo a VINKA a usar estos datos solo para responder esta cotización, según la <Link to="/legal/privacidad" className="underline">política de privacidad</Link>.</span>
+          <span>Autorizo a VINKA a usar estos datos solo para responder esta {isDemo ? 'solicitud de demo' : 'cotización'}, según la <Link to="/legal/privacidad" className="underline">política de privacidad</Link>.</span>
         </label>
         <ErrorBox>{err}</ErrorBox>
         <button className="btn" disabled={busy || !f.consent}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button>
+        {isDemo && <p className="text-center text-xs text-tinta-suave">¿Necesitas una cotización con más detalle? <a href="/cotizar" className="underline">Usa el formulario de cotización</a>.</p>}
         <p className="text-center text-xs text-tinta-suave">¿Prefieres partir ya? <Link to="/registro/empresa" className="underline">Crea tu cuenta</Link>: tienes 30 días del plan Pyme gratis.</p>
       </form>
     </Screen>

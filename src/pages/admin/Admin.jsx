@@ -115,7 +115,7 @@ function Revenue({ demo }) {
 
 /** Resumen del negocio y gestión de planes (los cambios quedan registrados en la auditoría). */
 const QUOTE_ST = { nuevo: 'Nueva', contactado: 'Contactada', cotizado: 'Cotizada', cerrado: 'Cerrada (cliente)', descartado: 'Descartada' }
-const QUOTE_REASON = { plan: 'Cotizar plan', consultora: 'Consultora', volumen: 'Volumen / varias sedes', otro: 'Otra consulta' }
+const QUOTE_REASON = { plan: 'Cotizar plan', demo: 'Solicitar demo', consultora: 'Consultora', volumen: 'Volumen / varias sedes', otro: 'Otra consulta' }
 // Respuesta predeterminada a una cotización: se completa con los datos de la solicitud y del plan; se puede editar antes de enviar
 const APP = 'https://vinka-alpha.vercel.app'
 function quoteDraft(q, plans, me) {
