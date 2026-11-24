@@ -98,12 +98,15 @@ const shot = async (p, path) => { await p.evaluate(() => { window.scrollTo(0, 0)
     await shot(p, OUT + `portada-ats-${label}.png`)
     if (!mobile) {
       const menuTxt = await p.getByRole('navigation', { name: 'Menú principal' }).innerText()
-      out.push(`[${label}] ATS: menú Funciones, Planes, Ingresar y VINKA Empleo: ` + (/Funciones/.test(menuTxt) && /Planes/.test(menuTxt) && /Ingresar/.test(menuTxt) && /VINKA Empleo/.test(menuTxt)))
+      out.push(`[${label}] ATS: menú Funciones, Planes, Asesores, Ingresar y VINKA Empleo: ` + (/Funciones/.test(menuTxt) && /Planes/.test(menuTxt) && /Asesores/.test(menuTxt) && /Ingresar/.test(menuTxt) && /VINKA Empleo/.test(menuTxt)))
     } else {
       const w = await p.evaluate(() => document.documentElement.scrollWidth); await p.setViewportSize({ width: 320, height: 700 }); await p.waitForTimeout(200)
       const w320 = await p.evaluate(() => document.documentElement.scrollWidth); await p.setViewportSize({ width: 390, height: 844 })
       out.push(`[${label}] ATS: sin desborde a 390 y 320 px: ` + (w <= 390 && w320 <= 320))
     }
+    await p.getByRole('link', { name: 'Ingreso de asesores' }).click(); await p.waitForTimeout(500)
+    out.push(`[${label}] ATS: «Ingreso de asesores» lleva al ingreso: ` + p.url().endsWith('/ingresar'))
+    await p.goto(BASE + '/portada/ats', { waitUntil: 'networkidle' }); await p.waitForTimeout(500); await clean(p)
     await p.getByRole('button', { name: 'Solicitar demo' }).first().click(); await p.waitForTimeout(600)
     t = await p.locator('body').innerText()
     out.push(`[${label}] «Solicitar demo» abre el formulario existente con el motivo prellenado: ` + (p.url().includes('/cotizar?demo=1') && /Solicitar demo/.test(t) && (await p.locator('textarea').inputValue()).includes('demo de VINKA ATS')))

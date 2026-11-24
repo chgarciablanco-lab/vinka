@@ -43,6 +43,7 @@ export default function AtsLanding() {
           <nav className="hidden items-center gap-6 text-sm font-semibold text-tinta-2 md:flex" aria-label="Menú principal">
             <a href="#funciones" className="hover:text-rosa-texto">Funciones</a>
             <a href="#planes" className="hover:text-rosa-texto">Planes</a>
+            <a href="#asesores" className="hover:text-rosa-texto">Asesores</a>
             <Link to="/ingresar" className="hover:text-rosa-texto">Ingresar</Link>
             <Link to="/portada/empleo" className="text-tinta-3 hover:text-rosa-texto">VINKA Empleo</Link>
           </nav>
@@ -55,6 +56,7 @@ export default function AtsLanding() {
           <nav className="flex flex-col border-t border-[#EEE6F0] bg-white px-5 py-2 text-[15px] font-semibold md:hidden" aria-label="Menú">
             <a href="#funciones" onClick={() => setMenu(false)} className="py-3">Funciones</a>
             <a href="#planes" onClick={() => setMenu(false)} className="py-3">Planes</a>
+            <a href="#asesores" onClick={() => setMenu(false)} className="py-3">Asesores</a>
             <Link to="/ingresar" className="py-3">Ingresar</Link>
             <Link to="/portada/empleo" className="py-3 text-rosa-texto">¿Buscas trabajo? VINKA Empleo</Link>
           </nav>
@@ -194,6 +196,22 @@ export default function AtsLanding() {
             <button onClick={demo} className="h-11 rounded-xl bg-white px-5 text-[14px] font-semibold text-[#8A1B4A]">Solicitar demo</button>
             <button onClick={trial} className="h-11 rounded-xl border border-white/60 px-5 text-[14px] font-semibold">Probar gratis</button>
           </div>
+        </div>
+      </div>
+      </section>
+
+      {/* Acceso de asesores */}
+      <section id="asesores" className="scroll-mt-20 pb-14"><div className="mx-auto max-w-6xl px-5">
+        <div className="flex flex-col gap-3 rounded-3xl bg-[#F7F0FB] p-5 md:flex-row md:items-center md:justify-between md:p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#6B2E8F]"><Svg name="people" size={22} /></span>
+            <div className="flex flex-col gap-1">
+              <b className="font-display text-[18px]">¿Eres asesor/a de VINKA?</b>
+              <p className="max-w-2xl text-[14px] leading-relaxed text-tinta-2">Tu cuenta la crea VINKA. Ingresa con el correo y la contraseña temporal que te enviamos; la primera vez te pediremos cambiarla y aceptar las condiciones.</p>
+              <a href="mailto:contacto@vinka.cl?subject=Quiero%20ser%20asesor%2Fa%20de%20VINKA" className="text-[13px] font-semibold text-[#6B2E8F] underline">¿Quieres ser asesor/a? Escríbenos</a>
+            </div>
+          </div>
+          <Link to="/ingresar" className="btn-sm flex h-11 shrink-0 items-center justify-center bg-[#6B2E8F] px-5 text-white">Ingreso de asesores</Link>
         </div>
       </div>
       </section>
