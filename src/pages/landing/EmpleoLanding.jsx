@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { Svg } from '../../components/ui'
 import { salaryText } from '../../lib/catalog'
 import { setNext } from '../auth/Welcome'
+import AppShot from '../../components/AppShot'
 
 // Portada de VINKA Empleo: para personas que buscan trabajo. Misma app, cuentas y vacantes que VINKA ATS.
 const money = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`
@@ -104,6 +105,18 @@ export default function EmpleoLanding() {
             <div className="mt-1 grid grid-cols-2 gap-2"><span className="flex h-11 items-center justify-center rounded-xl border border-linea text-sm font-semibold text-tinta-3">Pasar</span><span className="flex h-11 items-center justify-center rounded-xl bg-rosa-accion text-sm font-semibold text-white">Me interesa</span></div>
           </div>
           <div className="relative -mt-3 ml-auto w-56 rounded-2xl bg-morado p-3.5 text-white shadow-lg"><span className="text-[13px] font-semibold">¡Es un match! 🎉</span><span className="block text-xs text-white/80">La empresa también se interesó en ti.</span></div>
+        </div>
+      </section>
+
+      {/* Captura real: seguimiento de postulaciones (horizontal en computador, vertical en celular) */}
+      <section className="py-12">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5">
+          <div className="flex flex-col gap-2 md:items-center md:text-center">
+            <h2 className="font-display text-[26px] font-bold leading-tight md:text-[32px]">Sabes en qué va cada postulación</h2>
+            <p className="max-w-2xl text-[15px] leading-relaxed text-tinta-3">En «Intereses» ves cada proceso con su estado: match, conversación, entrevista u oferta. Y abres el chat con la empresa en un toque.</p>
+          </div>
+          <AppShot desk="/media/portada/empleo-escritorio.webp?v=1" mob="/media/portada/empleo-movil.webp?v=1"
+            alt="Captura de VINKA Empleo: pantalla Intereses con postulaciones en distintos estados" caption="Captura de VINKA Empleo con datos de demostración" />
         </div>
       </section>
 

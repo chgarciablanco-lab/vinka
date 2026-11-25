@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Svg } from '../../components/ui'
 import { setNext } from '../auth/Welcome'
+import AppShot from '../../components/AppShot'
 
 // Portada de VINKA ATS: software de reclutamiento y selección para pymes, empresas y consultoras.
 // Misma app, cuentas y vacantes que VINKA Empleo. Las capturas son del ATS con datos de demostración.
@@ -83,6 +84,21 @@ export default function AtsLanding() {
           ))}
           <figcaption className="absolute -bottom-7 left-0 right-0 text-center text-[11px] text-tinta-suave">Capturas de VINKA ATS con datos de demostración</figcaption>
         </figure>
+      </section>
+
+      {/* Captura real: tablero en computador, Panel de pendientes en celular */}
+      <section className="bg-white py-12">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5">
+          <div className="flex flex-col gap-2 md:items-center md:text-center">
+            <h2 className="font-display text-[26px] font-bold leading-tight md:text-[32px]">Así trabajas en VINKA ATS</h2>
+            <p className="max-w-2xl text-[15px] leading-relaxed text-tinta-3">
+              <span className="hidden md:inline">Cada vacante tiene su tablero: ves a todas las personas por etapa y las avanzas con un clic.</span>
+              <span className="md:hidden">Al entrar, el Panel te dice qué falta: quién espera respuesta, qué guardaste para decidir y qué entrevistas vienen.</span>
+            </p>
+          </div>
+          <AppShot desk="/media/portada/ats-escritorio.webp?v=1" mob="/media/portada/ats-movil.webp?v=1"
+            alt="Captura de VINKA ATS: tablero de selección en computador y Panel de pendientes en celular" caption="Captura de VINKA ATS con datos de demostración" />
+        </div>
       </section>
 
       {/* Video: cómo funciona VINKA ATS (horizontal en computador, vertical en celular) */}

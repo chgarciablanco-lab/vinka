@@ -121,6 +121,18 @@ const shot = async (p, path) => { await p.evaluate(() => { window.scrollTo(0, 0)
     await p.goto(BASE + '/portada/ats', { waitUntil: 'networkidle' }); await p.waitForTimeout(500); await clean(p)
     await p.getByRole('link', { name: /VINKA Empleo/ }).last().click(); await p.waitForTimeout(500)
     out.push(`[${label}] enlace a VINKA Empleo: ` + p.url().endsWith('/portada/empleo'))
+    // Captura de la app según el ancho: en computador la horizontal, en celular la vertical, y se descarga solo esa
+    for (const [land, name] of [['ats', 'ATS'], ['empleo', 'Empleo']]) {
+      const got = []; const onReq = (r) => { if (r.url().includes('/media/portada/')) got.push(r.url()) }; p.on('request', onReq)
+      await p.goto(BASE + '/portada/' + land, { waitUntil: 'networkidle' }); await p.waitForTimeout(400); await clean(p)
+      const img = p.locator('picture img').first(); await img.scrollIntoViewIfNeeded(); await p.waitForTimeout(800)
+      const cur = await img.evaluate((e) => ({ src: e.currentSrc, ok: e.complete && e.naturalWidth > 0, w: e.getBoundingClientRect().width }))
+      const want = mobile ? `${land}-movil` : `${land}-escritorio`, other = mobile ? `${land}-escritorio` : `${land}-movil`
+      p.off('request', onReq)
+      out.push(`[${label}] ${name}: muestra la captura ${mobile ? 'vertical' : 'horizontal'} (${Math.round(cur.w)} px de ancho), cargada, sin descargar la otra, con nota de demostración: `
+        + (cur.src.includes(want) && cur.ok && got.some((u) => u.includes(want)) && !got.some((u) => u.includes(other)) && (mobile ? cur.w <= 270 : cur.w >= 800)
+          && /con datos de demostración/.test(await p.locator('picture').first().locator('xpath=ancestor::figure').innerText())))
+    }
     // La portada actual sigue igual
     await p.goto(BASE + '/', { waitUntil: 'networkidle' }); await p.waitForTimeout(500)
     out.push(`[${label}] la portada actual (/) no cambia: ` + /Tu próximo/.test(await p.locator('body').innerText()))
