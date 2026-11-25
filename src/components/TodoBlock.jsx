@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useUnread } from '../lib/unread'
 import { Svg } from './ui'
 
-const ICON = { estancados: 'bell', interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofertas_aprobar: 'doc', ofertas_vencen: 'doc', vacantes_aprobar: 'check' }
+const ICON = { estancados: 'bell', guardadas: 'star', interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofertas_aprobar: 'doc', ofertas_vencen: 'doc', vacantes_aprobar: 'check' }
 
 /** Pendientes de la empresa: solo lo que requiere acción, con cifras reales y un toque para resolverlo */
 export function TodoBlock({ companyId, refresh = 0 }) {

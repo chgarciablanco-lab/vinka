@@ -12,7 +12,7 @@ async function ctxFor(b, tables, rpc, calls) {
     if (path.startsWith('/auth/v1/user')) return send({ id: UID, email: 't@example.com', aud: 'authenticated' })
     if (path.startsWith('/auth/') || path.startsWith('/storage/')) return send({})
     const name = path.startsWith('/rest/v1/rpc/') && path.split('/').pop()
-    if (name) { calls.push(name + ' ' + (r.postData() || '')); const v = rpc[name]; return send(typeof v === 'function' ? v(r.postData()) : v !== undefined ? v : name.startsWith('my_') || name.endsWith('s') ? [] : null) }
+    if (name) { calls.push(name + ' ' + (r.postData() || '')); const v = rpc[name]; if (v && v.__error) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: v.__error }) }); return send(typeof v === 'function' ? v(r.postData()) : v !== undefined ? v : name.startsWith('my_') || name.endsWith('s') ? [] : null) }
     const t = path.split('/').pop(); const d = tables[t]
     if (single) return d ? send(Array.isArray(d) ? d[0] : d) : route.fulfill({ status: 406, contentType: 'application/json', body: '{"code":"PGRST116"}' })
     return send(d ? (Array.isArray(d) ? d : [d]) : [])
@@ -66,7 +66,8 @@ const hired = { match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', co
       { my_onboarding: hidden, my_companies: [{ company_id: CO, role: 'owner', inherited: false, companies: company }], company_stats: [{ job_id: JOB, interests: 4, matches: 2 }], company_todo: [],
         company_plan: { plan, status: 'trial', trial_ends_at: new Date(Date.now() + 10 * 864e5).toISOString(), usage: { jobs: 1, members: 1, ai: 12, promos: 0 }, plans: [plan] }, my_report_usage: { plan: 'Pyme', limit: 10, used: 3 },
         job_pipeline: { can_manage: true, job: { id: JOB, title: 'Ejecutivo/a de ventas', status: 'published', company_id: CO, questions: [] }, cards: [1, 2, 3, 4].map((i) => ({ kind: 'externo', id: 'e' + i, candidate_id: null, stage: 'postulante', since: new Date().toISOString(), name: 'Persona ' + i, headline: '', source: 'externo', tags: [], saved: i === 1 })), counts: { con_cuenta: 4, externas: 2, descartadas_antes: 2, guardadas: 1, cerradas: 0, invitadas: 0 } },
-        company_stale_list: [{ match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', job_status: 'paused', candidate_name: 'Bea Dos', stage: 'entrevista', days: 8, last_message_at: null }] }, []); const p = await page(ctx)
+        company_saved_list: [{ job_id: JOB, job_title: 'Ejecutivo/a de ventas', job_status: 'paused', candidate_id: 'c-guardada', candidate_name: 'Carla G.', headline: 'Vendedora', applied_at: '2026-11-10T12:00:00Z', saved_at: '2026-11-12T12:00:00Z' }],
+        company_stale_list: [{ match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', job_status: 'paused', candidate_id: 'c-bea', candidate_name: 'Bea Dos', stage: 'entrevista', days: 8, last_message_at: null }] }, []); const p = await page(ctx)
     await go(p, '/')
     const t1 = await p.locator('body').innerText()
     const pressed = await p.locator('button[aria-pressed="true"]').allInnerTexts()
@@ -77,7 +78,10 @@ const hired = { match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', co
     out.push('la persona guardada aparece en el tablero con la marca «Guardada»: ' + (await p.getByText('Guardada', { exact: true }).count() >= 1))
     await go(p, '/pendientes/sin-avanzar')
     const t4 = await p.locator('body').innerText()
-    out.push('«personas sin avanzar» abre la lista con vacante, etapa, días y acciones: ' + (/Bea Dos/.test(t4) && /vacante en pausa/.test(t4) && /Etapa: Entrevista/.test(t4) && /8 días/.test(t4) && await p.locator(`a[href="/chats/${M}"]`).count() === 1))
+    out.push('«procesos sin avanzar» abre la lista con vacante, etapa, días y «Ver ficha» directo a la persona: ' + (/Procesos sin avanzar/.test(t4) && /Bea Dos/.test(t4) && /vacante en pausa/.test(t4) && /Etapa: Entrevista/.test(t4) && /8 días/.test(t4) && await p.locator(`a[href="/chats/${M}"]`).count() === 1 && await p.locator(`a[href="/vacantes/${JOB}/candidato/c-bea"]`).count() === 1 && !/avanza su etapa/.test(t4)))
+    await go(p, '/pendientes/guardadas')
+    const t5 = await p.locator('body').innerText()
+    out.push('«guardadas por decidir» lista a la persona con fechas y abre su ficha: ' + (/Guardadas por decidir/.test(t5) && /Carla G\./.test(t5) && /Postuló el 10 de noviembre · guardada el 12 de noviembre/.test(t5) && await p.locator(`a[href="/vacantes/${JOB}/candidato/c-guardada"]`).count() === 1))
     out.push('vacante pausada: pestaña «Pausadas · 1» elegida y sin la pestaña «Activas»: ' + (/Pausadas · 1/.test(t1) && !/Activas ·/.test(t1) && pressed.some((x) => /Pausadas/.test(x))))
     out.push('sin pendientes: «Todo al día» aclara que los avisos anteriores siguen en Avisos: ' + /Todo al día: no tienes pendientes ahora\. Los avisos anteriores siguen en Avisos/.test(t1))
     await go(p, '/plan')
@@ -85,6 +89,15 @@ const hired = { match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', co
     out.push('Plan y uso: dice el límite que rige hoy (5 a la vez con Pyme de prueba) y qué pasa al terminar: ' + (/Hoy puedes tener 5 vacantes publicadas a la vez con tu plan Pyme de prueba/.test(t3)))
     out.push('Plan y uso: consultas de IA e informes como cupos distintos, con fecha de renovación: ' + (/Consultas de IA del mes/.test(t3) && /Informes psicolaborales con IA del mes/.test(t3) && /3 de 10/.test(t3) && /se renuevan el 1 de/.test(t3) && /Reportes DISC con IA: hasta 30 al mes/.test(t3)))
     await p.screenshot({ path: OUT + 'auditoria-plan.png', fullPage: true })
+    await ctx.close() }
+
+  // 4) Si falla la consulta, se ve el error con «Reintentar» y NO «Nadie está esperando»
+  { const company = { id: CO, display_name: 'Nova Retail', kind: 'empresa', parent_id: null, verification_status: 'verified', slug: 'nova', clients: 0, managed_by: null }
+    const ctx = await ctxFor(b, { __company: CO, profiles: { id: UID, role: 'company', first_name: 'Nova', last_name: 'R' } },
+      { my_onboarding: hidden, my_companies: [{ company_id: CO, role: 'owner', inherited: false, companies: company }], company_stale_list: { __error: 'No pudimos cargar la lista.' } }, []); const p = await page(ctx)
+    await go(p, '/pendientes/sin-avanzar')
+    const t = await p.locator('body').innerText()
+    out.push('lista con error: muestra el error y «Reintentar», sin «Nadie está esperando»: ' + (/No pudimos cargar la lista/.test(t) && await p.getByRole('button', { name: 'Reintentar' }).count() === 1 && !/Nadie está esperando/.test(t)))
     await ctx.close() }
 
   out.push('errores JS: ' + (errs.length ? errs.slice(0, 3).join(' | ') : 'none'))

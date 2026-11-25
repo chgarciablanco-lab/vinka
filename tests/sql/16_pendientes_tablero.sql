@@ -43,5 +43,7 @@ begin
   perform pg_temp.act(c1); begin perform company_todo(co); out := out || E'\n5 otra cuenta no puede leer los pendientes: false'; exception when others then out := out || E'\n5 otra cuenta no puede leer los pendientes: true'; end;
   perform pg_temp.root();
   raise notice '%', out;
+  -- Si alguna comprobación da «false», la prueba FALLA (no solo lo imprime)
+  if out ~ ': false' then raise exception 'PRUEBA FALLIDA:%', out; end if;
 end $t$;
 rollback;

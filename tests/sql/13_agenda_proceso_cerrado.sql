@@ -54,5 +54,7 @@ begin
   out := out || E'\n5 proceso abierto: agenda, pasa a entrevista, guarda el mensaje y la empresa ve lo mismo: ' || (ok and cs);
   perform pg_temp.root();
   raise notice '%', out;
+  -- Si alguna comprobación da «false», la prueba FALLA (no solo lo imprime)
+  if out ~ ': false' then raise exception 'PRUEBA FALLIDA:%', out; end if;
 end $t$;
 rollback;

@@ -38,7 +38,8 @@ begin
   out := out || E'\n2a la postulación llega al tablero como «interesado» con origen VINKA: ' || exists (select 1 from jsonb_array_elements(j->'cards') c where c->>'kind' = 'interesado' and c->>'source' = 'vinka');
   perform pg_temp.root();
   perform pg_temp.act(own); msg := company_todo(co)::text; perform pg_temp.root();
-  out := out || E'\n2b INFORMATIVO aviso inmediato a la empresa por postulación con cuenta: ' || exists (select 1 from notifications where user_id = own and created_at > now() - interval '1 minute') || ' (la empresa la ve en los pendientes del Panel: ' || (msg ilike '%interesad%') || ')';
+  out := out || E'\n2b INFORMATIVO aviso inmediato a la empresa por postulación con cuenta: ' || case when exists (select 1 from notifications where user_id = own and created_at > now() - interval '1 minute') then 'sí' else 'no' end
+    || '; la ve en los pendientes del Panel: ' || case when msg ilike '%interesad%' then 'sí' else 'NO' end;
 
   -- 3) Sin cuenta (página pública): llega a la empresa y vacante correctas, con origen y aviso; repetir con el mismo correo no duplica
   perform pg_temp.anon();
@@ -94,5 +95,7 @@ begin
   out := out || E'\n6b cerrada: fuera de Explorar y el historial del proceso se conserva para la empresa: ' || coalesce(((ok and jsonb_array_length(j->'cards') >= 2))::text, 'NULO');
   perform pg_temp.root();
   raise notice '%', out;
+  -- Si alguna comprobación da «false», la prueba FALLA (no solo lo imprime)
+  if out ~ ': false' then raise exception 'PRUEBA FALLIDA:%', out; end if;
 end $t$;
 rollback;

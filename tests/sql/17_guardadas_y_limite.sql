@@ -49,5 +49,7 @@ begin
   perform pg_temp.root(); select count(*) into n from jobs where company_id = co and status = 'published';
   out := out || E'\n4 límite del plan (' || coalesce(lim::text, 'sin límite') || ' a la vez): llega al límite y la siguiente se rechaza con mensaje claro: ' || (n = lim and msg ilike '%a la vez%') || ' («' || msg || '»)';
   raise notice '%', out;
+  -- Si alguna comprobación da «false», la prueba FALLA (no solo lo imprime)
+  if out ~ ': false' then raise exception 'PRUEBA FALLIDA:%', out; end if;
 end $t$;
 rollback;
