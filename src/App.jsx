@@ -74,6 +74,7 @@ const Pipeline = lz(() => import('./pages/company/Pipeline'))
 const CandidateDetail = lz(() => import('./pages/company/CandidateDetail'))
 const Talent = lz(() => import('./pages/company/Talent'))
 const Reports = lz(() => import('./pages/company/Reports'))
+const StaleList = lz(() => import('./pages/company/StaleList'))
 const Templates = lz(() => import('./pages/company/TeamPages'), 'Templates')
 const Team = lz(() => import('./pages/company/TeamPages'), 'Team')
 const JoinTeam = lz(() => import('./pages/company/TeamPages'), 'JoinTeam')
@@ -277,6 +278,7 @@ export default function App() {
           <Route key="plan" path="/plan" element={<Plan />} />,
           <Route key="cli" path="/clientes" element={<Clients />} />,
           <Route key="rep" path="/reportes" element={<Reports />} />,
+          <Route key="stl" path="/pendientes/sin-avanzar" element={<StaleList />} />,
           <Route key="evl" path="/evaluaciones" element={<WithNav items={nav}><Assessments /></WithNav>} />,
           <Route key="evd" path="/evaluaciones/:id" element={<AssessmentPage />} />,
           <Route key="pla" path="/plantillas" element={<Templates />} />,
@@ -429,6 +431,7 @@ export default function App() {
       <Route path="/vacantes/:job/externo/:eid" element={<CandidateDetail />} />
       <Route path="/talento" element={<WithNav items={nav}><Talent /></WithNav>} />
       <Route path="/reportes" element={<Reports />} />
+      <Route path="/pendientes/sin-avanzar" element={<StaleList />} />
       <Route path="/evaluaciones" element={<WithNav items={nav}><Assessments /></WithNav>} />
       <Route path="/evaluaciones/:id" element={<AssessmentPage />} />
       <Route path="/plantillas" element={<Templates />} />

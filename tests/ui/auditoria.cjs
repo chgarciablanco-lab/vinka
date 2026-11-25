@@ -65,14 +65,19 @@ const hired = { match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', co
     const ctx = await ctxFor(b, { __company: CO, profiles: { id: UID, role: 'company', first_name: 'Nova', last_name: 'R' }, jobs: [{ id: JOB, company_id: CO, title: 'Ejecutivo/a de ventas', status: 'paused', comuna: 'Talca', modality: 'presencial', created_at: new Date().toISOString() }], external_applicants: [{ job_id: JOB }, { job_id: JOB }] },
       { my_onboarding: hidden, my_companies: [{ company_id: CO, role: 'owner', inherited: false, companies: company }], company_stats: [{ job_id: JOB, interests: 4, matches: 2 }], company_todo: [],
         company_plan: { plan, status: 'trial', trial_ends_at: new Date(Date.now() + 10 * 864e5).toISOString(), usage: { jobs: 1, members: 1, ai: 12, promos: 0 }, plans: [plan] }, my_report_usage: { plan: 'Pyme', limit: 10, used: 3 },
-        job_pipeline: { can_manage: true, job: { id: JOB, title: 'Ejecutivo/a de ventas', status: 'published', company_id: CO, questions: [] }, cards: [1, 2, 3, 4].map((i) => ({ kind: 'externo', id: 'e' + i, candidate_id: null, stage: 'postulante', since: new Date().toISOString(), name: 'Persona ' + i, headline: '', source: 'externo', tags: [] })), counts: { con_cuenta: 4, externas: 2, descartadas_antes: 2, invitadas: 0 } } }, []); const p = await page(ctx)
+        job_pipeline: { can_manage: true, job: { id: JOB, title: 'Ejecutivo/a de ventas', status: 'published', company_id: CO, questions: [] }, cards: [1, 2, 3, 4].map((i) => ({ kind: 'externo', id: 'e' + i, candidate_id: null, stage: 'postulante', since: new Date().toISOString(), name: 'Persona ' + i, headline: '', source: 'externo', tags: [], saved: i === 1 })), counts: { con_cuenta: 4, externas: 2, descartadas_antes: 2, guardadas: 1, cerradas: 0, invitadas: 0 } },
+        company_stale_list: [{ match_id: M, job_id: JOB, job_title: 'Ejecutivo/a de ventas', job_status: 'paused', candidate_name: 'Bea Dos', stage: 'entrevista', days: 8, last_message_at: null }] }, []); const p = await page(ctx)
     await go(p, '/')
     const t1 = await p.locator('body').innerText()
     const pressed = await p.locator('button[aria-pressed="true"]').allInnerTexts()
     await go(p, `/vacantes/${JOB}/proceso`)
     const t2 = await p.locator('body').innerText()
     out.push('acceso «6 postulaciones» y tablero «4 personas en el tablero»: ' + (/Proceso de selección · 6 postulaciones/.test(t1) && /4 personas en el tablero/.test(t2)))
-    out.push('el tablero explica la diferencia (6 recibidas, 2 descartadas antes del match): ' + /6 postulaciones recibidas \(4 por VINKA, 2 externas o importadas\) · 2 descartadas antes del match, no aparecen en el tablero/.test(t2))
+    out.push('el tablero explica la diferencia (6 recibidas, 1 guardada en el tablero, 2 descartadas fuera con enlace): ' + (/6 postulaciones recibidas \(4 por VINKA, 2 externas o importadas\) · 1 guardada, en el tablero con la marca «Guardada» · 2 descartadas antes del match, fuera del tablero/.test(t2) && await p.locator(`a[href="/talento?sit=descartado&job=${JOB}"]`).count() === 1))
+    out.push('la persona guardada aparece en el tablero con la marca «Guardada»: ' + (await p.getByText('Guardada', { exact: true }).count() >= 1))
+    await go(p, '/pendientes/sin-avanzar')
+    const t4 = await p.locator('body').innerText()
+    out.push('«personas sin avanzar» abre la lista con vacante, etapa, días y acciones: ' + (/Bea Dos/.test(t4) && /vacante en pausa/.test(t4) && /Etapa: Entrevista/.test(t4) && /8 días/.test(t4) && await p.locator(`a[href="/chats/${M}"]`).count() === 1))
     out.push('vacante pausada: pestaña «Pausadas · 1» elegida y sin la pestaña «Activas»: ' + (/Pausadas · 1/.test(t1) && !/Activas ·/.test(t1) && pressed.some((x) => /Pausadas/.test(x))))
     out.push('sin pendientes: «Todo al día» aclara que los avisos anteriores siguen en Avisos: ' + /Todo al día: no tienes pendientes ahora\. Los avisos anteriores siguen en Avisos/.test(t1))
     await go(p, '/plan')

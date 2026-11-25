@@ -139,9 +139,10 @@ function Card({ c, selecting, selected, onToggle, onOpen, onMove, onAdvance, can
           {showStage && <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: colorOf(c.stage) }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: colorOf(c.stage) }} />{SHORT[c.stage]}</span>}
         </span>
       </button>
-      {(c.knocked_out || c.kind === 'externo' || c.fit != null || c.eval_n > 0 || c.next_interview || c.tags?.length > 0 || sug) && (
+      {(c.saved || c.knocked_out || c.kind === 'externo' || c.fit != null || c.eval_n > 0 || c.next_interview || c.tags?.length > 0 || sug) && (
         <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
           {sug && <span className="rounded-md bg-[#FFF4D6] px-1.5 py-0.5 text-[#7A5200]">{sug.by_name} {suggestionText(sug)}</span>}
+          {c.saved && <span className="rounded-md bg-[#FFF4D6] px-1.5 py-0.5 text-[#7A5200]">Guardada</span>}
           {c.knocked_out && <span className="rounded-md bg-[#FEF3F2] px-1.5 py-0.5 text-[#912018]">No cumple filtro</span>}
           {c.kind === 'externo' && <span className="rounded-md bg-[#EEF2FA] px-1.5 py-0.5 text-[#2C4A8A]">{c.source === 'externo' ? 'Otro portal' : c.source}</span>}
           {c.fit != null && <span className="rounded-md bg-[#F7F0FB] px-1.5 py-0.5 text-[#6B2E8F]">IA {c.fit}%</span>}
@@ -248,11 +249,13 @@ export default function Pipeline() {
           <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')} en el tablero</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
           {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]); setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : <><Svg name="check" size={16} className="mr-1" />Seleccionar varios</>}</button>}
         </div>
-        {/* Por qué el acceso dice «N postulaciones» y el tablero muestra otra cantidad */}
-        {d.counts && (d.counts.con_cuenta + d.counts.externas) !== d.cards.length && (
+        {/* Por qué el acceso dice «N postulaciones» y el tablero muestra otra cantidad, con dónde ver a quienes no están */}
+        {d.counts && ((d.counts.con_cuenta + d.counts.externas) !== d.cards.length || d.counts.descartadas_antes > 0 || d.counts.guardadas > 0 || d.counts.cerradas > 0) && (
           <p className="mt-1 text-[12px] leading-snug text-tinta-3">
             {pl(d.counts.con_cuenta + d.counts.externas, 'postulación recibida', 'postulaciones recibidas')} ({d.counts.con_cuenta} por VINKA, {d.counts.externas} externas o importadas)
-            {d.counts.descartadas_antes > 0 && <> · {pl(d.counts.descartadas_antes, 'descartada', 'descartadas')} antes del match, no aparece{d.counts.descartadas_antes === 1 ? '' : 'n'} en el tablero</>}
+            {d.counts.guardadas > 0 && <> · {pl(d.counts.guardadas, 'guardada', 'guardadas')}, en el tablero con la marca «Guardada»</>}
+            {d.counts.descartadas_antes > 0 && <> · {pl(d.counts.descartadas_antes, 'descartada', 'descartadas')} antes del match, fuera del tablero (<Link to={`/talento?sit=descartado&job=${id}`} className="font-semibold text-rosa-texto underline">ver</Link>)</>}
+            {d.counts.cerradas > 0 && <> · {pl(d.counts.cerradas, 'proceso cerrado', 'procesos cerrados')}, fuera del tablero</>}
             {d.counts.invitadas > 0 && <> · {pl(d.counts.invitadas, 'persona invitada', 'personas invitadas')} por tu empresa sin postular</>}.
           </p>
         )}
