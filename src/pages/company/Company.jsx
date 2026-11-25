@@ -67,7 +67,7 @@ export function CompanyPanel() {
   const [stats, setStats] = useState({})
   // Listado de vacantes: búsqueda, filtro por estado y orden (las activas primero)
   const [jq, setJq] = useState('')
-  const [jst, setJst] = useState('activas')
+  const [jstPick, setJst] = useState(null) // null: se elige el primer grupo con vacantes
   const [jsort, setJsort] = useState('estado')
   const [planInfo, setPlanInfo] = useState(null)
   const [ext, setExt] = useState({})
@@ -152,8 +152,11 @@ export function CompanyPanel() {
             {verified ? 'Publícala y empieza a recibir intereses.' : 'Puedes dejarla lista mientras verificamos tu empresa.'}
           </Empty>
         ) : (() => {
-          const groupOf = (st) => (st === 'draft' ? 'borradores' : st === 'closed' ? 'cerradas' : 'activas')
+          // Estados explícitos: una vacante pausada ya no aparece como «activa»
+          const groupOf = (st) => (st === 'published' ? 'publicadas' : st === 'paused' ? 'pausadas' : st === 'draft' ? 'borradores' : st === 'closed' ? 'cerradas' : 'revision')
           const count = (g) => jobs.filter((j) => g === 'todas' || groupOf(j.status) === g).length
+          const TABS = [['publicadas', 'Publicadas'], ['revision', 'En revisión'], ['pausadas', 'Pausadas'], ['borradores', 'Borradores'], ['cerradas', 'Cerradas'], ['todas', 'Todas']].filter(([k]) => k !== 'revision' || count(k) > 0)
+          const jst = jstPick || (['publicadas', 'revision', 'pausadas', 'borradores', 'cerradas'].find((g) => count(g) > 0) || 'publicadas')
           const RANK = { published: 0, review: 1, pending: 2, paused: 3, draft: 4, closed: 5 }
           const qn = jq.trim().toLowerCase()
           const shown = jobs.filter((j) => (jst === 'todas' || groupOf(j.status) === jst) && (!qn || `${j.title} ${j.comuna || ''} ${j.area || ''}`.toLowerCase().includes(qn)))
@@ -165,7 +168,7 @@ export function CompanyPanel() {
           return (<>
           <div className="flex flex-col gap-2">
             <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-              {[['activas', 'Activas'], ['borradores', 'Borradores'], ['cerradas', 'Cerradas'], ['todas', 'Todas']].map(([k, l]) => (
+              {TABS.map(([k, l]) => (
                 <button key={k} type="button" aria-pressed={jst === k} onClick={() => setJst(k)} className={`chip h-9 shrink-0 text-[13px] ${jst === k ? 'chip-on' : ''}`}>{l} · {count(k)}</button>
               ))}
             </div>
@@ -174,11 +177,11 @@ export function CompanyPanel() {
                 <Svg name="search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tinta-suave" />
                 <input className="input h-11 pl-9 text-[15px]" placeholder="Buscar por cargo, comuna o área" value={jq} onChange={(e) => setJq(e.target.value)} /></label>
               <select className="input h-11 shrink-0 pr-8 text-[14px] sm:w-auto" aria-label="Ordenar vacantes" value={jsort} onChange={(e) => setJsort(e.target.value)}>
-                <option value="estado">Activas primero</option><option value="recientes">Más recientes</option><option value="antiguas">Más antiguas</option><option value="interes">Más interesados</option><option value="nombre">Nombre (A-Z)</option>
+                <option value="estado">Publicadas primero</option><option value="recientes">Más recientes</option><option value="antiguas">Más antiguas</option><option value="interes">Más interesados</option><option value="nombre">Nombre (A-Z)</option>
               </select>
             </div>
           </div>
-          {shown.length === 0 && <div className="rounded-2xl border border-dashed border-linea px-4 py-8 text-center text-sm text-tinta-suave">{qn ? 'Ninguna vacante coincide con la búsqueda.' : jst === 'activas' ? 'No tienes vacantes activas. Revisa los borradores o crea una nueva.' : 'No hay vacantes en este grupo.'}</div>}
+          {shown.length === 0 && <div className="rounded-2xl border border-dashed border-linea px-4 py-8 text-center text-sm text-tinta-suave">{qn ? 'Ninguna vacante coincide con la búsqueda.' : jst === 'publicadas' ? 'No tienes vacantes publicadas. Revisa las pausadas o los borradores, o crea una nueva.' : 'No hay vacantes en este grupo.'}</div>}
           <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:items-start">{shown.map((j) => (
           <div key={j.id} className="card flex flex-col gap-2.5 p-3.5">
             <div className="flex items-start justify-between gap-2.5">

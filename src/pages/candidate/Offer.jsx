@@ -68,7 +68,8 @@ export default function Offer() {
           {isCand && o.status === 'enviada' && !expired && (
             <div className="card flex flex-col gap-2 p-4">
               <span className="text-[15px] font-semibold">¿Aceptas la oferta?</span>
-              {o.expires_on && <span className="text-sm text-tinta-2">Responde antes del <b>{fmt(o.expires_on)}</b>.</span>}
+              {o.expires_on ? <span className="text-sm text-tinta-2">Responde antes del <b>{fmt(o.expires_on)}</b>.</span>
+                : <span className="text-sm text-tinta-2">Sin fecha límite: está vigente hasta que {co} la retire. Enviada el {new Date(o.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}.</span>}
               <button className="btn" disabled={busy} onClick={() => respond(true)}>Aceptar oferta</button>
               <button className="btn-sec" disabled={busy} onClick={() => setReject(true)}>No aceptar</button>
               <Link to={`/chats/${o.match_id}`} className="py-1 text-center text-sm font-semibold text-rosa-texto">Tengo dudas: escribir a {co}</Link>

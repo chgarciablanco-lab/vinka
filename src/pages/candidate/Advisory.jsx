@@ -20,8 +20,8 @@ export const SERVICE_STATUS = {
 const STEPS = ['Solicitada', 'Pago', 'En curso', 'Revisión', 'Finalizada']
 const STEP_OF = { solicitada: 0, pago_pendiente: 1, en_curso: 2, entregada: 3, aprobada: 4 }
 const NEXT = {
-  solicitada: 'VINKA te escribirá por el chat de la asesoría para confirmar el servicio y enviarte los datos de pago.',
-  pago_pendiente: 'Paga con tarjeta aquí mismo y tu asesoría empieza al instante.',
+  solicitada: 'VINKA te escribirá por el chat de la asesoría para confirmar el servicio. Después pagas aquí mismo con tarjeta (por ahora en modo demostración: no se cobra).',
+  pago_pendiente: 'Paga con tarjeta aquí mismo (modo demostración: no se cobra) y tu asesoría empieza al instante.',
   en_curso: 'Trabaja con tu asesor/a por el chat. Abajo ves lo que incluye y cuánto va listo.',
   entregada: 'VINKA revisa que esté todo lo que incluye tu asesoría y te avisa.',
 }
@@ -253,7 +253,7 @@ export default function Advisory() {
               <span className="flex items-baseline justify-between gap-2"><b className="text-sm">{pick.name}</b><span className="font-display text-xl font-bold">{money(pick.price_clp)}</span></span>
               <span>Pago único, IVA incluido · {pick.delivery}{form.mode === 'asesor' && form.advisor && byId(form.advisor) ? <> · con <b>{byId(form.advisor).display_name}</b></> : ' · VINKA elige a tu asesor/a'}</span>
               {(pick.includes || []).length > 0 && <span className="flex flex-col gap-0.5">{pick.includes.map((x) => <span key={x} className="flex gap-1.5"><Svg name="check" size={15} className="mt-0.5 shrink-0" />{x}</span>)}</span>}
-              <span className="text-[12px]">No pagas nada ahora: VINKA te escribe por el chat de la asesoría para confirmar y enviarte los datos de pago. Todo ocurre dentro de VINKA. Te ayuda a presentarte mejor, pero no garantiza un empleo.</span>
+              <span className="text-[12px]">No pagas nada ahora: VINKA te escribe por el chat de la asesoría para confirmar el servicio y luego pagas aquí mismo con tarjeta (por ahora en modo demostración: no se cobra). Todo ocurre dentro de VINKA. Te ayuda a presentarte mejor, pero no garantiza un empleo.</span>
             </div>
             <label className="flex items-start gap-2.5 rounded-xl border border-rosa-borde bg-rosa-fondo p-3 text-[13px] leading-snug">
               <input type="checkbox" checked={form.consent} onChange={(e) => setForm({ ...form, consent: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D02E72]" />

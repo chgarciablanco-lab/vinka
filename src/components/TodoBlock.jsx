@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useUnread } from '../lib/unread'
 import { Svg } from './ui'
 
-const ICON = { interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofertas_aprobar: 'doc', ofertas_vencen: 'doc', vacantes_aprobar: 'check' }
+const ICON = { estancados: 'bell', interesados: 'user', chats: 'chat', entrevistas: 'calendar', ofertas_aprobar: 'doc', ofertas_vencen: 'doc', vacantes_aprobar: 'check' }
 
 /** Pendientes de la empresa: solo lo que requiere acción, con cifras reales y un toque para resolverlo */
 export function TodoBlock({ companyId, refresh = 0 }) {
@@ -38,7 +38,7 @@ export function TodoBlock({ companyId, refresh = 0 }) {
   if (items == null) return failBox || null
   if (items.length === 0) return failBox || (
     <div className="flex items-center gap-2 rounded-2xl bg-[#EFF9F2] px-3.5 py-2.5 text-[13px] font-semibold text-[#134A2B]">
-      <Svg name="check" size={18} />Todo al día: no tienes pendientes.
+      <Svg name="check" size={18} /><span>Todo al día: no tienes pendientes ahora. <span className="font-normal">Los avisos anteriores siguen en <Link to="/avisos" className="underline">Avisos</Link>.</span></span>
     </div>
   )
   return (

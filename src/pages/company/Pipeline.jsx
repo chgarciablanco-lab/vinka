@@ -248,6 +248,14 @@ export default function Pipeline() {
           <div className="flex min-w-0 flex-1 flex-col"><span className="text-[11px] text-tinta-suave">Proceso de selección · {pl(d.cards.length, 'persona', 'personas')} en el tablero</span><span className="truncate text-[16px] font-semibold">{d.job.title}</span></div>
           {canManage && <button onClick={() => { setSelecting(!selecting); setSel([]); setTipSeen(true); try { localStorage.setItem('vinka-tip-bulk', '1') } catch { /* sin almacenamiento */ } }} className={`btn-sm h-10 shrink-0 px-3 ${selecting ? 'bg-morado text-white' : 'border border-linea bg-white'}`}>{selecting ? 'Listo' : <><Svg name="check" size={16} className="mr-1" />Seleccionar varios</>}</button>}
         </div>
+        {/* Por qué el acceso dice «N postulaciones» y el tablero muestra otra cantidad */}
+        {d.counts && (d.counts.con_cuenta + d.counts.externas) !== d.cards.length && (
+          <p className="mt-1 text-[12px] leading-snug text-tinta-3">
+            {pl(d.counts.con_cuenta + d.counts.externas, 'postulación recibida', 'postulaciones recibidas')} ({d.counts.con_cuenta} por VINKA, {d.counts.externas} externas o importadas)
+            {d.counts.descartadas_antes > 0 && <> · {pl(d.counts.descartadas_antes, 'descartada', 'descartadas')} antes del match, no aparece{d.counts.descartadas_antes === 1 ? '' : 'n'} en el tablero</>}
+            {d.counts.invitadas > 0 && <> · {pl(d.counts.invitadas, 'persona invitada', 'personas invitadas')} por tu empresa sin postular</>}.
+          </p>
+        )}
         {!selecting && <CollabBar jobId={id} suggestions={sugs} onChange={load} />}
         {canManage && !selecting && !tipSeen && d.cards.length >= 3 && (
           <div className="mt-2 flex items-center gap-2 rounded-xl bg-[#F7F0FB] px-3 py-2 text-[12px] leading-snug text-[#4A2163]">
